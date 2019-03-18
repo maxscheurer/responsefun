@@ -42,4 +42,3 @@ class TestSumOverStatesExpression(TestCase):
         sos = SumOverStatesExpression(summation_indices=["n", "m"], operators=[test_op_a, test_op_b, test_op_c],
                                       frequencies=[w1, w2])
         assert sos.number_of_terms == 6
-
