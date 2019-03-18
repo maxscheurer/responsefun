@@ -17,7 +17,6 @@
 #
 from typing import List
 
-from sympy.physics.quantum import state as qmstate
 from sympy.physics.quantum import operator as qmoperator
 from sympy import Symbol
 
@@ -86,7 +85,7 @@ def build_frequencies_from_list(frequencies: List[str]) -> tuple:
         raise TypeError("Invalid type specified. frequencies must be a list.")
 
     for w in frequencies:
-        incoming = Symbol(w)
+        incoming = Symbol(w, real=True)
         perturbation_frequencies.append(incoming)
         outgoing_frequency += incoming
     return outgoing_frequency, perturbation_frequencies

@@ -1,8 +1,9 @@
 ResponseFun
 ==============================
 [//]: # (Badges)
-[![Travis Build Status](https://travis-ci.org/REPLACE_WITH_OWNER_ACCOUNT/ResponseFun.png)](https://travis-ci.org/REPLACE_WITH_OWNER_ACCOUNT/ResponseFun)
-[![codecov](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/ResponseFun/branch/master/graph/badge.svg)](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/ResponseFun/branch/master)
+[![Travis Build Status](https://travis-ci.com/maxscheurer/ResponseFun.png)](https://travis-ci.com/maxscheurer/ResponseFun)
+
+[comment]: [![codecov](https://codecov.io/gh/maxscheurer/ResponseFun/branch/master/graph/badge.svg)](https://codecov.io/gh/maxscheurer/ResponseFun/branch/master)
 
 Fun with Response Functions
 

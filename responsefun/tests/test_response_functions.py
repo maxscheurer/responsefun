@@ -47,7 +47,7 @@ class TestResponseFunction(TestCase):
             assert test == ref
 
         for test, ref in zip(rspfun.perturbation_frequencies, freqs):
-            assert test == Symbol(ref)
+            assert test == Symbol(ref, real=True)
 
         assert operator_ref == rspfun.prop_operator
 
