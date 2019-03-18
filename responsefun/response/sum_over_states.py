@@ -16,14 +16,8 @@
 #  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
 #
 
-"""
-responsefun.py
-Fun with Response Functions
 
-Handles the primary functions
-"""
+class SumOverStateExpression:
 
-
-if __name__ == "__main__":
-    # Do something if this file is invoked on its own
-    pass
+    def __init__(self):
+        pass
