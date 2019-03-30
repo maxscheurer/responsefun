@@ -58,13 +58,38 @@ class SumOverStatesExpression:
                     raise TypeError("Operators must be of type sympy.physics.quantum.HermitianOperator or Mul"
                                     "with HermitianOperator")
 
-        indices = []
+        self.summation_indices = []
         for idx in summation_indices:
-            indices.append(Symbol(idx))
+            self.summation_indices.append(Symbol(idx))
 
         sos_template = self.__expression_templates[order]
+        self.frequencies = frequencies
+        self.sum_freq = 0
+        self.expression, self.w_sig = sos_template(*operators, *self.summation_indices, *frequencies)
+        self.original_expression = self.expression
+        self.insert_sum_frequency()
 
-        self.expression = sos_template(*operators, *indices, *frequencies)
+    def reset_expression(self):
+        self.expression = self.original_expression
+
+    # TODO: implement SOS simplify
+    def simplify(self):
+        raise NotImplementedError("SOS simplify not implemented.")
+
+    def insert_sum_frequency(self):
+        for f in self.frequencies:
+            self.sum_freq += f
+        self.expression = self.expression.subs({self.w_sig: self.sum_freq})
+
+    def set_frequencies(self, freqs):
+        self.reset_expression()
+        assert len(freqs) == len(self.frequencies)
+        subs_dict = {}
+        for f, f_orig in zip(freqs, self.frequencies):
+            subs_dict[f_orig] = f
+        self.expression = self.expression.subs(subs_dict, simultaneous=True)
+        self.frequencies = freqs
+        self.insert_sum_frequency()
 
     @property
     def number_of_terms(self):

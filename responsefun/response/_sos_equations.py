@@ -21,41 +21,70 @@ from sympy.physics.quantum.state import Bra, Ket
 from sympy import Symbol, Mul
 
 
-def _first_order_sos(op1, op2, n, freq):
-    w = Symbol("w_{}".format(str(n)), real=True)
+def _first_order_sos(opo, op1, n, freq, complex=False):
+    """
+    First-order sum-over-states expression
+    eq. 5.308 (Norman book)
+
+    :param opo: omega operator
+    :param op1: perturbation operator
+    :param n: state index n
+    :param freq: frequency of perturbation
+    :param complex: bool to get complex function
+    :return: sympy expression of the full SOS
+    """
+    if complex:
+        raise NotImplementedError("Complex SOS expressions are not implemented.")
+    wn = Symbol("w_{}".format(str(n)), real=True)
     O = Symbol("0".format(str(n)), real=True)
-    if freq == w:
+    if freq == wn:
         raise ValueError("Frequencies cannot have identical labels.")
     return (
-        - Bra(O) * op1 * Ket(n) * Bra(n) * op2 * Ket(O) / (w - freq)
-        - Bra(O) * op2 * Ket(n) * Bra(n) * op1 * Ket(O) / (w + freq)
-    )  # eq. 5.308 (Norman book)
+        - Bra(O) * opo * Ket(n) * Bra(n) * op1 * Ket(O) / (wn - freq)
+        - Bra(O) * op1 * Ket(n) * Bra(n) * opo * Ket(O) / (wn + freq)
+    ), freq
 
 
 # TODO: naming?
-def _second_order_sos(op1, op2, op3, n, m, freq1, freq2):
+def _second_order_sos(opo, op1, op2, n, m, freq1, freq2, complex=False):
+    """
+    Second-order sum-over-states expression
+    eq. 5.309 (Norman book)
+
+    :param opo: omega operator
+    :param op1: perturbation operator 1
+    :param op2: perturbation operator 2
+    :param n: state index n
+    :param m: state index m
+    :param freq1: frequency of perturbation 1
+    :param freq2: frequency of perturbation 2
+    :param complex: bool to get complex function
+    :return: sympy expression of the full SOS
+    """
+    if complex:
+        raise NotImplementedError("Complex SOS expressions are not implemented.")
     wn = Symbol("w_{}".format(str(n)), real=True)
     wm = Symbol("w_{}".format(str(m)), real=True)
     wsig = Symbol("w_sigma", real=True)
     O = Symbol("0", real=True)
 
+    opo_shift = shift_operator(opo)
     op1_shift = shift_operator(op1)
     op2_shift = shift_operator(op2)
-    op3_shift = shift_operator(op3)
     if freq1 in [wn, wm] or freq2 in [wn, wm]:
         raise ValueError("Frequencies cannot have identical labels.")
 
     prelim_expression = (
-        Bra(O) * op1 * Ket(m) * Bra(m) * op2_shift * Ket(n) * Bra(n) * op3 * Ket(O) / ((wm - wsig) * (wn - freq2))
-        + Bra(O) * op2 * Ket(m) * Bra(m) * op1_shift * Ket(n) * Bra(n) * op3 * Ket(O) / ((wm + freq1) * (wn - freq2))
-        + Bra(O) * op2 * Ket(m) * Bra(m) * op3_shift * Ket(n) * Bra(n) * op1 * Ket(O) / ((wm + freq1) * (wn + wsig))
-    )  # eq. 5.309 (Norman book)
-    perms = [(op2, op3), (op2_shift, op3_shift), (freq1, freq2)]
+        Bra(O) * opo * Ket(m) * Bra(m) * op1_shift * Ket(n) * Bra(n) * op2 * Ket(O) / ((wm - wsig) * (wn - freq2))
+        + Bra(O) * op1 * Ket(m) * Bra(m) * opo_shift * Ket(n) * Bra(n) * op2 * Ket(O) / ((wm + freq1) * (wn - freq2))
+        + Bra(O) * op1 * Ket(m) * Bra(m) * op2_shift * Ket(n) * Bra(n) * opo * Ket(O) / ((wm + freq1) * (wn + wsig))
+    )
+    perms = [(op1, op2), (op1_shift, op2_shift), (freq1, freq2)]
     perm_dict = {}
     for p in perms:
         perm_dict[p[0]] = p[1]
         perm_dict[p[1]] = p[0]
-    return prelim_expression + prelim_expression.subs(perm_dict, simultaneous=True)
+    return prelim_expression + prelim_expression.subs(perm_dict, simultaneous=True), wsig
 
 
 def shift_operator(operator):

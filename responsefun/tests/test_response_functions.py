@@ -22,24 +22,31 @@ import pytest
 from sympy.physics.quantum import operator as qmoperator
 from sympy import Symbol
 
-from responsefun.response import response_functions
+from responsefun.response.response_functions import ResponseFunction, sympify_operator
 
 
 class TestResponseFunction(TestCase):
 
     def test_create_response_functions(self):
-        operator_string = "mu_alpha"
-        pert1_string = "mu_beta"
-        pert2_string = "mu_gamma"
+        operator_string = r"\mu_\alpha"
+        pert1_string = r"-\mu_\beta"
+        pert2_string = r"-\mu_\gamma"
         freq1 = "w_1"
         freq2 = "w_2"
         freqs = [freq1, freq2]
-        rspfun = response_functions.ResponseFunction("<<{};{},{}>>".format(operator_string,
-                                                                           pert1_string, pert2_string),
-                                                     freqs)
+        rspfun = ResponseFunction("<<{};{},{}>>".format(operator_string,
+                                                        pert1_string, pert2_string),
+                                  freqs)
+        # TODO: testing only
+        # w = Symbol("\omega")
+        # rspfun.sum_over_states.set_frequencies([w, w])
+        # f = open("bla.tex", "w")
+        # f.write(rspfun.sum_over_states.latex)
+        # f.close()
 
-        operator_ref = qmoperator.HermitianOperator(operator_string)
-        perturbations_ref = [qmoperator.HermitianOperator(pert1_string), qmoperator.HermitianOperator(pert2_string)]
+        operator_ref = sympify_operator(operator_string)
+        perturbations_ref = [sympify_operator(pert1_string),
+                             sympify_operator(pert2_string)]
 
         assert len(rspfun.perturbation_frequencies)
 
@@ -52,10 +59,24 @@ class TestResponseFunction(TestCase):
         assert operator_ref == rspfun.prop_operator
 
         with pytest.raises(Exception):
-            response_functions.ResponseFunction("<<mu_alpha;>>", [])
+            ResponseFunction("<<mu_alpha;>>", [])
 
         with pytest.raises(Exception):
-            response_functions.ResponseFunction("<<mu_alpha;a,b,c>>", [])
+            ResponseFunction("<<mu_alpha;a,b,c>>", [])
+
+    def test_sympify_operator(self):
+        str1 = r"-\mu_\gamma"
+        op = sympify_operator(str1)
+
+        op_ref = -qmoperator.HermitianOperator(r"\mu_\gamma")
+        assert op == op_ref
+
+        str1 = r"\mu_\gamma"
+        op = sympify_operator(str1)
+
+        op_ref = qmoperator.HermitianOperator(r"\mu_\gamma")
+        assert op == op_ref
+
 
 
 

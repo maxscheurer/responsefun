@@ -27,17 +27,17 @@ from responsefun.response.sum_over_states import SumOverStatesExpression
 class TestSumOverStatesExpression(TestCase):
 
     def test_create_sos_first_order(self):
-        test_op_a = qmoperator.HermitianOperator("mu_alpha")
-        test_op_b = qmoperator.HermitianOperator("mu_beta")
+        test_op_a = qmoperator.HermitianOperator(r"\mu_{\alpha}")
+        test_op_b = qmoperator.HermitianOperator(r"\mu_{\beta}")
         w = Symbol("w", real=True)
         sos = SumOverStatesExpression(summation_indices=["n"], operators=[test_op_a, test_op_b],
                                       frequencies=[w])
         assert sos.number_of_terms == 2
 
     def test_create_sos_second_order(self):
-        test_op_a = qmoperator.HermitianOperator("mu_alpha")
-        test_op_b = -qmoperator.HermitianOperator("mu_beta")
-        test_op_c = -qmoperator.HermitianOperator("mu_gamma")
+        test_op_a = qmoperator.HermitianOperator(r"\mu_{\alpha}")
+        test_op_b = -qmoperator.HermitianOperator(r"\mu_{\beta}")
+        test_op_c = -qmoperator.HermitianOperator(r"\mu_{\gamma}")
         w1, w2 = symbols("w_1 w_2", real=True)
         sos = SumOverStatesExpression(summation_indices=["n", "m"], operators=[test_op_a, test_op_b, test_op_c],
                                       frequencies=[w1, w2])

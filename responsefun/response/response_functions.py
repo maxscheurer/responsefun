@@ -20,19 +20,23 @@ from typing import List
 from sympy.physics.quantum import operator as qmoperator
 from sympy import Symbol
 
+from .sum_over_states import SumOverStatesExpression
+
 
 class ResponseFunction:
+    __letters = ['f', 'n', 'k']
     """
     Class representing a general response function.
     It can be easily constructed from a string.
     """
     def __init__(self, string=None, frequencies=None):
-        """
+        r"""
         Constructor from string
-        :param string: string representation of the response function
+        :param string: string representation of the response function (LaTeX)
+        :param frequencies: list of strings for frequency labels
 
         Example:
-            ResponseFunction("<<mu_alpha;mu_beta>>", ["w"])
+            ResponseFunction("<<\mu_\alpha;\mu_\beta>>", ["w"])
         """
         self._order, self.prop_operator, self.perturbation_operators = \
             build_response_function_operators_from_string(string)
@@ -45,7 +49,48 @@ class ResponseFunction:
                 self._order, len(self.perturbation_frequencies)
             ))
 
-        # TODO: build SOS expression for response function
+        all_ops = [self.prop_operator]
+        all_ops.extend(self.perturbation_operators)
+        self.sum_over_states = SumOverStatesExpression(self.__letters[:self._order], all_ops,
+                                                       self.perturbation_frequencies)
+
+
+def sympify_operator(string):
+    """
+    :param string: string to represent an operator
+    :return: HermitianOperator
+    """
+    operator_sign = -1.0 if string[0] == "-" else 1.0
+
+    if string[0] == "-":
+        op_string = string[1:]
+    else:
+        op_string = string
+
+    if operator_sign == 1.0:
+        op = qmoperator.HermitianOperator(op_string)
+    elif operator_sign == -1.0:
+        op = -qmoperator.HermitianOperator(op_string)
+    return op
+
+
+def sympify_frequency(string):
+    """
+    :param string: string to represent a frequency
+    :return: Symbol
+    """
+    operator_sign = -1.0 if string[0] == "-" else 1.0
+
+    if string[0] == "-":
+        op_string = string[1:]
+    else:
+        op_string = string
+
+    if operator_sign == 1.0:
+        op = Symbol(op_string, real=True)
+    elif operator_sign == -1.0:
+        op = -Symbol(op_string, real=True)
+    return op
 
 
 def build_response_function_operators_from_string(string: str) -> tuple:
@@ -54,17 +99,16 @@ def build_response_function_operators_from_string(string: str) -> tuple:
     :param string: String representation of the response function
     :return: tuple (order, property operator, perturbation operators)
     """
+
     components = string.strip("<<").strip(">>").split(";")
     assert len(components) == 2
-    prop_operator_string = components[0]  # the operator \Omega whose expectation value is of interest
-    perturbation_string_list = [x for x in components[1].split(",") if x != '']
-    prop_operator = qmoperator.HermitianOperator(prop_operator_string)
-    perturbation_operators = []
-    if len(perturbation_string_list) == 0:
+
+    prop_operator_string = components[0]
+    prop_operator = sympify_operator(prop_operator_string)
+    perturbation_operators = [sympify_operator(x) for x in components[1].split(",") if x != '']
+    if len(perturbation_operators) == 0:
         raise ValueError("Invalid response function specified. No perturbation found.")
-    for pert_string in perturbation_string_list:
-        perturbation_operators.append(qmoperator.HermitianOperator(pert_string))
-    return len(perturbation_string_list), prop_operator, perturbation_operators
+    return len(perturbation_operators), prop_operator, perturbation_operators
 
 
 def build_frequencies_from_list(frequencies: List[str]) -> tuple:
@@ -85,7 +129,7 @@ def build_frequencies_from_list(frequencies: List[str]) -> tuple:
         raise TypeError("Invalid type specified. frequencies must be a list.")
 
     for w in frequencies:
-        incoming = Symbol(w, real=True)
+        incoming = sympify_frequency(w)  #
         perturbation_frequencies.append(incoming)
         outgoing_frequency += incoming
     return outgoing_frequency, perturbation_frequencies

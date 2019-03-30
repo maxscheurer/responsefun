@@ -8,9 +8,6 @@ matrix:
     - os: osx
       language: generic
       env: PYTHON_VER=3.6
-    - os: osx
-      language: generic
-      env: PYTHON_VER=3.7
 
 
     # Pip can use Travis build-in Python
