@@ -16,6 +16,7 @@
 #  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
 #
 
+from responsefun.response.response_functions import ResponseFunction
 from sympy.physics.quantum.state import Bra, Ket, StateBase
 from sympy.physics.quantum.operator import HermitianOperator
 import sympy.physics.quantum.operator as qmoperator
@@ -111,6 +112,25 @@ def insert_isr_transition_moments(expr, operators):
     return ret
 
 
+def to_isr_single_term(expr, operators=None):
+    if not operators:
+        operators = [
+            op for op in expr.args if isinstance(op, qmoperator.HermitianOperator)
+        ]
+    M = qmoperator.Operator("M")
+    i1 = insert_isr_transition_moments(expr, operators)
+    return insert_matrix(i1, M)
+
+def to_isr(expr, operators=None):
+    ret = 0
+    if isinstance(expr, Add):
+        for s in expr.args:
+            ret += to_isr_single_term(s, operators)
+    elif isinstance(expr, Mul):
+        ret += to_isr_single_term(s, operators)
+    return ret
+
+
 # TODO: helper file for general labels and symbols
 O, f, n = symbols("0, f, n", real=True)
 w_f = Symbol("w_{}".format(str(f)), real=True)
@@ -175,3 +195,13 @@ for case in test_cases:
         raise AssertionError(f"Test {case} failed:"
                              " ref = {ref}, ret = {ret}")
     # print(latex(ret))
+
+
+alpha_sos_term = TransitionMoment(O, op_a, f) * TransitionMoment(f, op_b, 0) / (w_f - w)
+alpha_isr_term = to_isr_single_term(alpha_sos_term)
+print(latex(alpha_isr_term))
+
+
+polarizability = ResponseFunction(r"<<\mu_\alpha;-\mu_\beta>>", [r"\omega"])
+polarizability_isr = to_isr(polarizability.sum_over_states.expression)
+print(latex(polarizability_isr))
