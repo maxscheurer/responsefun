@@ -132,7 +132,7 @@ def to_isr(expr, operators=None):
 
 
 # TODO: helper file for general labels and symbols
-O, f, n = symbols("0, f, n", real=True)
+O, f, n, gamma = symbols("0, f, n, \gamma", real=True)
 w_f = Symbol("w_{}".format(str(f)), real=True)
 w_n = Symbol("w_{}".format(str(n)), real=True)
 w = Symbol("w", real=True)
@@ -145,6 +145,7 @@ F_beta = qmoperator.Operator(r"F(\mu_{\beta})")
 F_gamma = qmoperator.Operator(r"F(\mu_{\gamma})")
 B = qmoperator.Operator(r"B(\mu_{\beta})")
 M = qmoperator.Operator("M")
+X = qmoperator.Operator("X")
 
 tm1 = TransitionMoment(O, op_a, f)
 tm2 = TransitionMoment(f, op_b, O)
@@ -197,11 +198,51 @@ for case in test_cases:
     # print(latex(ret))
 
 
-alpha_sos_term = TransitionMoment(O, op_a, f) * TransitionMoment(f, op_b, 0) / (w_f - w)
+alpha_sos_term = TransitionMoment(O, op_a, f) * TransitionMoment(f, op_b, 0) / (w_f - w - 1j*gamma)
 alpha_isr_term = to_isr_single_term(alpha_sos_term)
 print(latex(alpha_isr_term))
 
 
-polarizability = ResponseFunction(r"<<\mu_\alpha;-\mu_\beta>>", [r"\omega"])
+polarizability = ResponseFunction(r"<<\mu_A;-\mu_B>>", [r"\omega"])
+polarizability.sum_over_states.set_frequencies([0])
 polarizability_isr = to_isr(polarizability.sum_over_states.expression)
-print(latex(polarizability_isr))
+
+
+def accetable_rhs_lhs(term):
+    if isinstance(term, adjoint):
+        op_string = term.args[0]
+    else:
+        op_string = term.label
+    return "F" in str(op_string)
+
+# TODO: replace remaining Bra/Ket with ADC Vectors
+# TODO: clever wrapping for terms which can either be Mul or Add
+# TODO: build tree for inversions etc. because one might already need response vectors
+# to form a new LHS/RHS
+
+def terms_inversion(expr):
+    ret = {}
+    if isinstance(expr, Add):
+        for a in expr.args:
+            ret.update(terms_inversion(a))
+    elif isinstance(expr, Mul):
+        for ii, m in enumerate(expr.args):
+            if isinstance(m, Pow):
+                if m.args[1] == -1:
+                    tinv = m.args[0]
+                    rhs = expr.args[ii + 1]
+                    lhs = expr.args[ii - 1]
+                    freq = m.args[0].subs(M, 0)
+                    ret[m.args[0]] = (lhs, rhs, freq)
+                    test = expr.subs(lhs * m, adjoint(X))
+                    print(test)
+                    print(f"Term {m.args[0]} must be inverted.")
+    return ret
+
+
+ret = terms_inversion(polarizability_isr)
+print(ret)
+
+ret = terms_inversion(adjoint(F_alpha) * (M - w)**-1 * B * Ket(n))
+print(ret)
+

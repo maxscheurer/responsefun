@@ -36,7 +36,7 @@ def _first_order_sos(opo, op1, n, freq, complex=False):
     if complex:
         raise NotImplementedError("Complex SOS expressions are not implemented.")
     wn = Symbol("w_{}".format(str(n)), real=True)
-    O = Symbol("0".format(str(n)), real=True)
+    O = Symbol("0", real=True)
     if freq == wn:
         raise ValueError("Frequencies cannot have identical labels.")
     return (
