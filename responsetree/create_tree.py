@@ -148,10 +148,16 @@ F3 = qmoperator.Operator("F3")
 wF1, wF3 = symbols("wF1, wF3")
 
 beta_term = adjoint(F1) * (M + wF1)**-1 * B2 * (M - wF3)**-1 * F3
-beta_real2 = 0
+beta_real2 = 0 
 
 for p in perms:
-    subs_list = [(F1, MTM(r"F_{"+p[0][0]+"}")), (wF1, p[0][1]), (B2, qmoperator.Operator(r"B_{"+p[1][0]+"}")), (wF3, p[2][1]), (F3, MTM(r"F_{"+p[2][0]+"}"))]
+    subs_list = [
+        (F1, MTM(r"F_{"+p[0][0]+"}")),
+        (wF1, p[0][1]),
+        (B2, qmoperator.Operator(r"B_{"+p[1][0]+"}")),
+        (wF3, p[2][1]),
+        (F3, MTM(r"F_{"+p[2][0]+"}"))
+    ]
     beta_real2 += beta_term.subs(subs_list)
     
 #print(beta_real2)
