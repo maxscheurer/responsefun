@@ -132,65 +132,66 @@ def to_isr(expr, operators=None):
 def extra_terms_single_sos(expr, summation_indices):
     """
     :param expr: single SOS term
-    :param summation_indices: list of tuples (index of summation, corresponding frequency)
-    :return: list containing extra terms
+    :param summation_indices: list of indices of summation
+    :return: dictionary containing extra terms
     """
     assert type(expr) == Mul        
     bok_list = extract_bra_op_ket(expr)
-    special_cases = {}
-    for index_tup in summation_indices:
-        cases = []
+    special_cases = []
+    for index in summation_indices:
         for bok in bok_list:
             bra, ket = bok[0].label[0], bok[2].label[0]
-            if bra == index_tup[0]:
-                cases.append(ket)
-            elif ket == index_tup[0]:
-                cases.append(bra)
-        special_cases[index_tup] = cases
-    extra_terms = []
-    for index_tup, cases in special_cases.items():
-        for case in cases:
-            if case == O:
-                extra_terms.append(expr.subs([(index_tup[0], case), (index_tup[1], 0)]))
-            else:
-                term = expr.subs([(index_tup[0], case), (index_tup[1], Symbol("w_{}".format(str(case)), real=True))])
-                boks = extract_bra_op_ket(term)
-                for bok in boks:
-                    if bok[0].label[0] == case and bok[2].label[0] == case:
-                        new_term = term.subs(bok[0]*bok[1]*bok[2], Bra(O)*bok[1]*Ket(O))
-                        extra_terms.append(new_term)
-    if len(special_cases) == 2:
-        extra_terms.append(expr.subs(
-            [(summation_indices[0][0], O), (summation_indices[0][1], 0),
-            (summation_indices[1][0], O), (summation_indices[1][1], 0)]
-        ))
-    indices = []
-    #frequencies = []
-    for i in summation_indices:
-        indices.append(i[0])
-        #frequencies.append(i[1])
-    mod_extra_terms = []
-    for term in extra_terms:
-        boks = extract_bra_op_ket(term)
-        subs_list = []
-        for bok in boks:
-            bra, ket = bok[0].label[0], bok[2].label[0]
-            if bra == O and ket not in indices:
-                subs_list.append((bok[0]*bok[1]*bok[2], Symbol("{}^{}".format(bok[1].label[0], str(bra)+str(ket), real=True))))
-            elif ket == O and bra not in indices:
-                subs_list.append((bok[0]*bok[1]*bok[2], Symbol("{}^{}".format(bok[1].label[0], str(ket)+str(bra), real=True))))   
-        new_term = term.subs(subs_list, simultaneous=True)
-        mod_extra_terms.append(new_term)
-    return mod_extra_terms
+            if bra == index and (bra, ket) not in special_cases and (ket, bra) not in special_cases:
+                special_cases.append((bra, ket))
+            elif ket == index and (ket, bra) not in special_cases and (bra, ket) not in special_cases:
+                special_cases.append((ket, bra))
+    extra_terms = {}
+    for i, tup in enumerate(special_cases):
+        index, case = tup[0], tup[1]
+        if case == O:
+            new_term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), 0)])
+            extra_terms[(tup,)] = new_term
+            new_indices = summation_indices.copy()
+            new_indices.remove(index)
+            if new_indices:
+                new_et  = extra_terms_single_sos(new_term, new_indices)
+                for c, t in new_et.items():
+                    if c not in list(extra_terms.keys()):
+                        extra_terms[(tup,) + c] = t
+        else:
+            term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), Symbol("w_{}".format(case), real=True))])
+            boks = extract_bra_op_ket(term)
+            for bok in boks:
+                if bok[0].label[0] == case and bok[2].label[0] == case:
+                    new_term = term.subs(bok[0]*bok[1]*bok[2], Bra(O)*bok[1]*Ket(O))
+                    extra_terms[(tup,)] = new_term
+    return extra_terms
 
 def compute_extra_terms(expr, summation_indices):
     extra_terms_list = []
     if isinstance(expr, Add):
         for single_term in expr.args:
-            extra_terms_list.append(extra_terms_single_sos(single_term, summation_indices))
+            terms = extra_terms_single_sos(single_term, summation_indices)
+            print(terms)
+            extra_terms_list += list(terms.values())
     elif isinstance(expr, Mul):
-        extra_terms_list.append(extra_terms_single_sos(expr, summation_indices))
-    return extra_terms_list
+        terms = extra_terms_single_sos(expr, summation_indices)
+        print(terms)
+        extra_terms_list += list(terms.values())
+    
+    mod_extra_terms = []
+    for term in extra_terms_list:
+        boks = extract_bra_op_ket(term)
+        subs_list = []
+        for bok in boks:
+            bra, ket = bok[0].label[0], bok[2].label[0]
+            if bra == O and ket not in summation_indices:
+                subs_list.append((bok[0]*bok[1]*bok[2], Symbol("{}^{}".format(bok[1].label[0], str(bra)+str(ket), real=True))))
+            elif ket == O and bra not in summation_indices:
+                subs_list.append((bok[0]*bok[1]*bok[2], Symbol("{}^{}".format(bok[1].label[0], str(ket)+str(bra), real=True))))
+        new_term = term.subs(subs_list, simultaneous=True)
+        mod_extra_terms.append(new_term)
+    return mod_extra_terms
 
 
 # TODO: helper file for general labels and symbols
@@ -202,6 +203,7 @@ w = Symbol("w", real=True)
 w_o = Symbol("w_{\sigma}", real=True)
 w_1 = Symbol("w_{1}", real=True)
 w_2 = Symbol("w_{2}", real=True)
+w_3 = Symbol("w_{3}", real=True)
 
 op_a = qmoperator.HermitianOperator(r"\mu_{\alpha}")
 op_b = qmoperator.HermitianOperator(r"\mu_{\beta}")
@@ -279,9 +281,10 @@ if __name__ == "__main__":
     polarizability_isr = to_isr(polarizability.sum_over_states.expression)
 
     rixs_sos_term = TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
-    rixs_extra_terms = compute_extra_terms(rixs_sos_term, [(n, w_n)])
+    rixs_extra_terms = compute_extra_terms(rixs_sos_term, [n])
+    #print(rixs_extra_terms)
     rixs_isr_term = to_isr_single_term(rixs_sos_term)
-    for term in rixs_extra_terms[0]:
+    for term in rixs_extra_terms:
         rixs_isr_term += term
     #print(rixs_sos_term)
     #print(rixs_isr_term)
@@ -290,18 +293,17 @@ if __name__ == "__main__":
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
         + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j*gamma)
     )
-    full_rixs_extra_terms = compute_extra_terms(full_rixs_sos, [(n, w_n)])
+    full_rixs_extra_terms = compute_extra_terms(full_rixs_sos, [n])
     full_rixs_isr = to_isr(full_rixs_sos)
-    for terms_list in full_rixs_extra_terms:
-        for term in terms_list:
-            #print(term)
-            full_rixs_isr += term
+    for term in full_rixs_extra_terms:
+        #print(term)
+        full_rixs_isr += term
     #print(full_rixs_sos)
     #print(full_rixs_extra_terms)
     #print(simplify(full_rixs_isr))
 
     tpa_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
-    tpa_extra_terms = compute_extra_terms(tpa_sos_term, [(n, w_n)])
+    tpa_extra_terms = compute_extra_terms(tpa_sos_term, [n])
     #print(tpa_sos_term)
     #print(tpa_extra_terms)
 
@@ -309,15 +311,19 @@ if __name__ == "__main__":
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
         + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f/2))
     )
-    full_tpa_extra_terms = compute_extra_terms(full_tpa_sos, [(n, w_n)])
+    full_tpa_extra_terms = compute_extra_terms(full_tpa_sos, [n])
     full_tpa_isr = to_isr(full_tpa_sos)
-    for terms_list in full_tpa_extra_terms:
-        for term in terms_list:
-            #print(term)
-            full_tpa_isr += term
+    for term in full_tpa_extra_terms:
+        #print(term)
+        full_tpa_isr += term
     #print(full_tpa_sos)
     #print(full_tpa_extra_terms)
     #print(full_tpa_isr)
+
+    beta_real_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
+    beta_real_extra_terms = compute_extra_terms(beta_real_sos_term, [n, k])
+    for term in beta_real_extra_terms:
+        print(term)
 
 
     def accetable_rhs_lhs(term):
