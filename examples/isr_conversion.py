@@ -21,6 +21,7 @@ from sympy.physics.quantum.state import Bra, Ket, StateBase
 from sympy.physics.quantum.operator import HermitianOperator
 import sympy.physics.quantum.operator as qmoperator
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify
+from itertools import permutations
 
 
 # TODO: extract k-mer from multiplication...
@@ -120,6 +121,7 @@ def to_isr_single_term(expr, operators=None):
     i1 = insert_isr_transition_moments(expr, operators)
     return insert_matrix(i1, M)
 
+
 def to_isr(expr, operators=None):
     ret = 0
     if isinstance(expr, Add):
@@ -128,6 +130,7 @@ def to_isr(expr, operators=None):
     elif isinstance(expr, Mul):
         ret += to_isr_single_term(s, operators)
     return ret
+
 
 def extra_terms_single_sos(expr, summation_indices):
     """
@@ -146,58 +149,121 @@ def extra_terms_single_sos(expr, summation_indices):
             elif ket == index and (ket, bra) not in special_cases and (bra, ket) not in special_cases:
                 special_cases.append((ket, bra))
     extra_terms = {}
-    for i, tup in enumerate(special_cases):
+    for tup in special_cases:
         index, case = tup[0], tup[1]
         if case == O:
-            new_term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), 0)])
-            extra_terms[(tup,)] = new_term
+            term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), 0)])
+            extra_terms[(tup,)] = term
+            # find extra terms of extra term
+            new_indices = summation_indices.copy()
+            new_indices.remove(index)
+            if new_indices:
+                new_et  = extra_terms_single_sos(term, new_indices)
+                for c, t in new_et.items():
+                    if t not in extra_terms.values():
+                        extra_terms[(tup,) + c] = t
+        else:
+            term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), Symbol("w_{}".format(case), real=True))])
+            boks = extract_bra_op_ket(term)
+            new_term = term
+            for bok in boks:
+                if bok[0].label[0] == case and bok[2].label[0] == case:
+                    new_term = term.subs(bok[0]*bok[1]*bok[2], Bra(O)*bok[1]*Ket(O))
+                    extra_terms[(tup,)] = new_term
+            # find extra terms of extra term
             new_indices = summation_indices.copy()
             new_indices.remove(index)
             if new_indices:
                 new_et  = extra_terms_single_sos(new_term, new_indices)
                 for c, t in new_et.items():
-                    if c not in list(extra_terms.keys()):
+                    if t not in extra_terms.values():
                         extra_terms[(tup,) + c] = t
-        else:
-            term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), Symbol("w_{}".format(case), real=True))])
-            boks = extract_bra_op_ket(term)
-            for bok in boks:
-                if bok[0].label[0] == case and bok[2].label[0] == case:
-                    new_term = term.subs(bok[0]*bok[1]*bok[2], Bra(O)*bok[1]*Ket(O))
-                    extra_terms[(tup,)] = new_term
     return extra_terms
 
+
 def compute_extra_terms(expr, summation_indices):
+    """
+    param expr: SOS expression
+    param summation_indices: list of indices of summation
+    return: list of extra terms
+    """
+    assert type(summation_indices) == list
     extra_terms_list = []
     if isinstance(expr, Add):
         for single_term in expr.args:
             terms = extra_terms_single_sos(single_term, summation_indices)
-            print(terms)
-            extra_terms_list += list(terms.values())
+            #print(terms)
+            extra_terms_list.append(terms)
     elif isinstance(expr, Mul):
         terms = extra_terms_single_sos(expr, summation_indices)
-        print(terms)
-        extra_terms_list += list(terms.values())
-    
+        #print(terms)
+        extra_terms_list.append(terms)
+
     mod_extra_terms = []
-    for term in extra_terms_list:
-        boks = extract_bra_op_ket(term)
-        subs_list = []
-        for bok in boks:
-            bra, ket = bok[0].label[0], bok[2].label[0]
-            if bra == O and ket not in summation_indices:
-                subs_list.append((bok[0]*bok[1]*bok[2], Symbol("{}^{}".format(bok[1].label[0], str(bra)+str(ket), real=True))))
-            elif ket == O and bra not in summation_indices:
-                subs_list.append((bok[0]*bok[1]*bok[2], Symbol("{}^{}".format(bok[1].label[0], str(ket)+str(bra), real=True))))
-        new_term = term.subs(subs_list, simultaneous=True)
-        mod_extra_terms.append(new_term)
+    for term_dict in extra_terms_list:
+        # change remaining indices of summation in extra terms
+        for case, term in term_dict.items():
+            new_term_1 = term
+            if len(case) != len(summation_indices):
+                new_indices = summation_indices.copy()
+                for tup in case:
+                    new_indices.remove(tup[0])
+                subs_list_1 = list(zip(new_indices, summation_indices[:len(new_indices)]))
+                freq_list = [
+                    (Symbol("w_{}".format(ni), real=True), Symbol("w_{}".format(nsi), real=True)) for ni, nsi in subs_list_1
+                ]
+                subs_list_1 += freq_list
+                new_term_1 = term.subs(subs_list_1)
+        # convert single (transition) dipole moments into sympy symbols
+            boks = extract_bra_op_ket(new_term_1)
+            subs_list_2 = []
+            for bok in boks:
+                bra, ket = bok[0].label[0], bok[2].label[0]
+                if bra == O and ket not in summation_indices:
+                    mu_symbol = Symbol("{}^{}".format(bok[1].label[0], str(bra)+str(ket)), real=True)
+                    subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
+                elif ket == O and bra not in summation_indices:
+                    mu_symbol = Symbol("{}^{}".format(bok[1].label[0], str(ket)+str(bra)), real=True)
+                    subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
+            new_term_2 = new_term_1.subs(subs_list_2)
+            mod_extra_terms.append(new_term_2)
     return mod_extra_terms
 
 
+def build_sos_via_permutation(term, perm_pairs):
+    """
+    param term: single SOS term
+    param perm_pairs: list of tuples (op, freq) to be permuted
+    return: full SOS expression
+    """
+    assert type(term) == Mul
+    assert type(perm_pairs) == list
+    operators = [
+            op for op in term.args if isinstance(op, qmoperator.HermitianOperator)
+    ]
+    for op, pair in zip(operators, perm_pairs):
+        if op != pair[0]:
+            raise ValueError(
+                "The pairs (op, freq) must be in the same order as in the entered SOS term."
+            )
+    perms = list(permutations(perm_pairs))
+    sos_expr = term
+    for i, p in enumerate(perms):
+        if i > 0:
+            subs_list = []
+            for j, pp in enumerate(p):
+                subs_list.append((perms[0][j][0], p[j][0]))
+                subs_list.append((perms[0][j][1], p[j][1]))
+            new_term = term.subs(subs_list, simultaneous=True)
+            sos_expr += new_term
+    return sos_expr
+
+
 # TODO: helper file for general labels and symbols
-O, f, n, k, gamma = symbols("0, f, n, k, \gamma", real=True)
+O, f, n, m, k, gamma = symbols("0, f, n, m, k, \gamma", real=True)
 w_f = Symbol("w_{}".format(str(f)), real=True)
 w_n = Symbol("w_{}".format(str(n)), real=True)
+w_m = Symbol("w_{}".format(str(m)), real=True)
 w_k = Symbol("w_{}".format(str(k)), real=True)
 w = Symbol("w", real=True)
 w_o = Symbol("w_{\sigma}", real=True)
@@ -217,114 +283,136 @@ B = qmoperator.Operator(r"B(\mu_{\beta})")
 M = qmoperator.Operator("M")
 X = qmoperator.Operator("X")
 
-if __name__ == "__main__":
-    tm1 = TransitionMoment(O, op_a, f)
-    tm2 = TransitionMoment(f, op_b, O)
 
-    isr_tm = insert_isr_transition_moments(tm1.expr, [op_a])
-    assert isr_tm == adjoint(F_alpha) * Ket(f)
+tm1 = TransitionMoment(O, op_a, f)
+tm2 = TransitionMoment(f, op_b, O)
 
-    tm_fn = TransitionMoment(f, op_b, n)
-    isr_s2s = insert_isr_transition_moments(tm_fn.expr, [op_b])
-    assert isr_s2s == Bra(f) * qmoperator.Operator(r"B(\mu_{\beta})") * Ket(n)
+isr_tm = insert_isr_transition_moments(tm1.expr, [op_a])
+assert isr_tm == adjoint(F_alpha) * Ket(f)
 
-    tm_12 = insert_isr_transition_moments(tm1 * tm2 / (w_f - w), [op_a, op_b])
-    assert tm_12 == adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f - w)
+tm_fn = TransitionMoment(f, op_b, n)
+isr_s2s = insert_isr_transition_moments(tm_fn.expr, [op_b])
+assert isr_s2s == Bra(f) * qmoperator.Operator(r"B(\mu_{\beta})") * Ket(n)
 
-    test_cases = {
-        "static": {
-            "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f),
-            "ref": adjoint(F_alpha) * (M)**-1 * F_beta
-        },
-        "freq_neg": {
-            "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f - w),
-            "ref": adjoint(F_alpha) * (M - w)**-1 * F_beta
-        },
-        "freq_pos": {
-            "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f + w),
-            "ref": adjoint(F_alpha) * (M + w)**-1 * F_beta
-        },
-        "freq_offset": {
-            "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f + w - 1),
-            "ref": adjoint(F_alpha) * (M + w - 1)**-1 * F_beta
-        },
-        "tpa_like": {
-            "term": adjoint(F_alpha) * Ket(f) * Bra(f) * B * Ket(n) / (w_f - w),
-            "ref": adjoint(F_alpha) * (M - w)**-1 * B * Ket(n) 
-        },
-        "beta_like": {
-            "term": adjoint(F_alpha) * Ket(f) * Bra(f) * B * Ket(n) * Bra(n) * F_gamma / ((w_f - w) * (w_n + w)),
-            "ref": adjoint(F_alpha) * (M - w)**-1 * B * (M + w)**-1 * F_gamma
-        }
+tm_12 = insert_isr_transition_moments(tm1 * tm2 / (w_f - w), [op_a, op_b])
+assert tm_12 == adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f - w)
+
+test_cases = {
+    "static": {
+        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f),
+        "ref": adjoint(F_alpha) * (M)**-1 * F_beta
+    },
+    "freq_neg": {
+        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f - w),
+        "ref": adjoint(F_alpha) * (M - w)**-1 * F_beta
+    },
+    "freq_pos": {
+        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f + w),
+        "ref": adjoint(F_alpha) * (M + w)**-1 * F_beta
+    },
+    "freq_offset": {
+        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f + w - 1),
+        "ref": adjoint(F_alpha) * (M + w - 1)**-1 * F_beta
+    },
+    "tpa_like": {
+        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * B * Ket(n) / (w_f - w),
+        "ref": adjoint(F_alpha) * (M - w)**-1 * B * Ket(n) 
+    },
+    "beta_like": {
+        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * B * Ket(n) * Bra(n) * F_gamma / ((w_f - w) * (w_n + w)),
+        "ref": adjoint(F_alpha) * (M - w)**-1 * B * (M + w)**-1 * F_gamma
     }
+}
 
-    for case in test_cases:
-        tc = test_cases[case]
-        term = tc["term"]
-        ref = tc["ref"]
-        ret = insert_matrix(term, M)
-        if ret != ref:
-            raise AssertionError(f"Test {case} failed:"
-                                " ref = {ref}, ret = {ret}")
-        # print(latex(ret))
+for case in test_cases:
+    tc = test_cases[case]
+    term = tc["term"]
+    ref = tc["ref"]
+    ret = insert_matrix(term, M)
+    if ret != ref:
+        raise AssertionError(f"Test {case} failed:"
+                            " ref = {ref}, ret = {ret}")
+    # print(latex(ret))
 
-    alpha_sos_term = TransitionMoment(O, op_a, f) * TransitionMoment(f, op_b, O) / (w_f - w - 1j*gamma)
-    alpha_isr_term = to_isr_single_term(alpha_sos_term)
-    #print(alpha_sos_term)
-    #print(latex(alpha_isr_term))
 
-    gamma_like_sos = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) * TransitionMoment(f, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w) * (w_f - w) * (w_k - w))
-    gamma_like_isr = to_isr_single_term(gamma_like_sos)
-    #print(gamma_like_isr)
+if __name__ == "__main__":
+    alpha_sos = (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
+        + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
+    )
+    alpha_extra_terms = compute_extra_terms(alpha_sos, [n])
+    alpha_isr = to_isr(alpha_sos)
+    for term in alpha_extra_terms:
+        #print(term)
+        alpha_isr += term
+    #print(alpha_sos)
+    #print(simplify(alpha_isr))
+
     polarizability = ResponseFunction(r"<<\mu_A;-\mu_B>>", [r"\omega"])
     polarizability.sum_over_states.set_frequencies([0])
     polarizability_isr = to_isr(polarizability.sum_over_states.expression)
 
-    rixs_sos_term = TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
-    rixs_extra_terms = compute_extra_terms(rixs_sos_term, [n])
-    #print(rixs_extra_terms)
-    rixs_isr_term = to_isr_single_term(rixs_sos_term)
-    for term in rixs_extra_terms:
-        rixs_isr_term += term
-    #print(rixs_sos_term)
-    #print(rixs_isr_term)
-
-    full_rixs_sos = (
+    rixs_sos = (
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
         + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j*gamma)
     )
-    full_rixs_extra_terms = compute_extra_terms(full_rixs_sos, [n])
-    full_rixs_isr = to_isr(full_rixs_sos)
-    for term in full_rixs_extra_terms:
+    rixs_extra_terms = compute_extra_terms(rixs_sos, [n])
+    rixs_isr = to_isr(rixs_sos)
+    for term in rixs_extra_terms:
         #print(term)
-        full_rixs_isr += term
-    #print(full_rixs_sos)
-    #print(full_rixs_extra_terms)
-    #print(simplify(full_rixs_isr))
+        rixs_isr += term
+    #print(rixs_sos)
+    #print(simplify(rixs_isr))
 
-    tpa_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
-    tpa_extra_terms = compute_extra_terms(tpa_sos_term, [n])
-    #print(tpa_sos_term)
-    #print(tpa_extra_terms)
-
-    full_tpa_sos = (
+    tpa_sos = (
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
         + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f/2))
     )
-    full_tpa_extra_terms = compute_extra_terms(full_tpa_sos, [n])
-    full_tpa_isr = to_isr(full_tpa_sos)
-    for term in full_tpa_extra_terms:
+    tpa_extra_terms = compute_extra_terms(tpa_sos, [n])
+    tpa_isr = to_isr(tpa_sos)
+    for term in tpa_extra_terms:
         #print(term)
-        full_tpa_isr += term
-    #print(full_tpa_sos)
-    #print(full_tpa_extra_terms)
-    #print(full_tpa_isr)
+        tpa_isr += term
+    #print(tpa_sos)
+    #print(tpa_isr)
 
-    beta_real_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
-    beta_real_extra_terms = compute_extra_terms(beta_real_sos_term, [n, k])
+    beta_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
+    beta_real_sos = build_sos_via_permutation(
+        beta_sos_term, [(op_a, -w_o), (op_b, w_1), (op_c, w_2)]
+    )
+    beta_real_extra_terms = compute_extra_terms(beta_real_sos, [n, k])
+    beta_real_isr = to_isr(beta_real_sos)
+    sum_extra_terms_beta = 0
     for term in beta_real_extra_terms:
-        print(term)
+        #print(term)
+        sum_extra_terms_beta += term
+    #print(beta_real_sos)
+    #print(beta_real_isr)
+    #print(simplify(sum_extra_terms_beta.subs(w_o, w_1+w_2)))
 
+    threepa_sos_term = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f)/ ((w_n - w_1 - w_2) * (w_m - w_1))
+    threepa_extra_terms = compute_extra_terms(threepa_sos_term, [m, n])
+    #for term in threepa_extra_terms:
+    #    print(term)
+
+    gamma_like_sos = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) * TransitionMoment(f, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w) * (w_f - w) * (w_k - w))
+    gamma_like_isr = to_isr_single_term(gamma_like_sos)
+    #print(gamma_like_isr)
+    
+    gamma_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_k - w_3))
+    gamma_extra_terms = compute_extra_terms(gamma_sos_term, [n, m, k])
+    #for term in gamma_extra_terms:
+        #print(term)
+    gamma_real_sos = build_sos_via_permutation(
+        gamma_sos_term, [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
+    )
+    #gamma_real_extra_terms = compute_extra_terms(gamma_real_sos, [n, m, k])
+    #sum_extra_terms_gamma = 0
+    #for term in gamma_real_extra_terms:
+        #print(term)
+        #sum_extra_terms_gamma += term
+    #print(gamma_real_sos)
+    #print(simplify(sum_extra_terms_gamma.subs(w_o, w_1+w_2+w_3)))
 
     def accetable_rhs_lhs(term):
         if isinstance(term, adjoint):
