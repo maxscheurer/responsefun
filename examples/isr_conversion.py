@@ -72,7 +72,7 @@ def insert_matrix(expr, M):
             else:
                 raise TypeError("denominators")
             for ii, td in enumerate(args):
-                if state_label in str(td):
+                if state_label in str(td) and "\\" not in str(td):
                     if state_label in denominator_match:
                         raise ValueError("")
                     rest = d.subs(td, 0)
@@ -266,6 +266,9 @@ def build_sos_via_permutation(term, perm_pairs):
 
 
 def compute_remaining_terms(extra_terms, subs_list=[]):
+    """
+    function that sorts the extra terms by numerators before simplifying them
+    """
     num_list = []
     for term in extra_terms:
         num = fraction(term)[0]
@@ -438,15 +441,19 @@ if __name__ == "__main__":
     
     gamma_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_k - w_3))
     # gamma_extra_terms = compute_extra_terms(gamma_sos_term, [n, m, k])
+    # gamma_isr_term = to_isr_single_term(gamma_sos_term)
     # for term in gamma_extra_terms:
     #     print(term)
+    # print(gamma_isr_term)
     gamma_real_sos = build_sos_via_permutation(
        gamma_sos_term, [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
     )
     # gamma_real_extra_terms = compute_extra_terms(gamma_real_sos, [n, m, k])
+    # gamma_real_isr = to_isr(gamma_real_sos)
     # for term in gamma_real_extra_terms:
     #     print(term)
     # print(gamma_real_sos)
+    # print(gamma_real_isr)
     # print(compute_remaining_terms(gamma_real_extra_terms, [(w_o, w_1+w_2+w_3)]))
 
 
