@@ -16,36 +16,14 @@
 #  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
 #
 
-from responsefun.response.response_functions import ResponseFunction
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from sympy.physics.quantum.operator import HermitianOperator
-import sympy.physics.quantum.operator as qmoperator
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
 from itertools import permutations
 
-
-# TODO: extract k-mer from multiplication...
-def extract_bra_op_ket(expr):
-    assert type(expr) == Mul
-    bok = [Bra, HermitianOperator, Ket]
-    expr_types = [type(term) for term in expr.args]
-    ret = [list(expr.args[i:i+3]) for i, k in enumerate(expr_types)
-           if expr_types[i:i+3] == bok]
-    return ret
-
-
-class TransitionMoment:
-    def __init__(self, from_state, operator, to_state):
-        self.expr = Bra(from_state) * operator * Ket(to_state)
-    
-    def __rmul__(self, other):
-        return other * self.expr
-
-    def __mul__(self, other):
-        return self.expr * other
-    
-    def __repr__(self):
-        return str(self.expr)
+from responsetree.symbols_and_labels import *
+from responsetree.response_operators import MTM, S2S_MTM, Matrix, DipoleOperator
+from responsetree.transition_moments import extract_bra_op_ket, TransitionMoment
+from responsetree.sum_over_states import _build_sos_via_permutation
 
 
 def insert_matrix(expr, M):
@@ -100,36 +78,27 @@ def insert_isr_transition_moments(expr, operators):
     assert isinstance(operators, list)
     ret = expr.copy()
     for op in operators:
-        F = qmoperator.Operator(rf"F({op.label[0]})")
+        F = MTM(op.comp)
         Fd = adjoint(F)
         ret = ret.subs(Bra(O) * op, Fd)
         ret = ret.subs(op * Ket(O), F)
         # replace the remaining operators with the ISR matrix
-        B = qmoperator.Operator(rf"B({op.label[0]})")
+        B = S2S_MTM(op.comp)
         ret = ret.subs(op, B)
     if ret == expr:
-        raise ValueError("Could not find any transition moments.")
+        print("Term contains no transition moment.")
+        #raise ValueError("Could not find any transition moments.")
     return ret
 
 
 def to_isr_single_term(expr, operators=None):
     if not operators:
         operators = [
-            op for op in expr.args if isinstance(op, qmoperator.HermitianOperator)
+            op for op in expr.args if isinstance(op, DipoleOperator)
         ]
-    M = qmoperator.Operator("M")
+    M = Matrix("M")
     i1 = insert_isr_transition_moments(expr, operators)
     return insert_matrix(i1, M)
-
-
-def to_isr(expr, operators=None):
-    ret = 0
-    if isinstance(expr, Add):
-        for s in expr.args:
-            ret += to_isr_single_term(s, operators)
-    elif isinstance(expr, Mul):
-        ret += to_isr_single_term(s, operators)
-    return ret
 
 
 def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
@@ -157,7 +126,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     for tup in special_cases:
         index, case = tup[0], tup[1]
         if case == O:
-            term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), 0)])
+            term = expr.subs([tup, (Symbol("w_{{{}}}".format(index), real=True), 0)])
             extra_terms[(tup,)] = term
             # find extra terms of extra term
             new_indices = summation_indices.copy()
@@ -168,7 +137,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
                     if t not in extra_terms.values():
                         extra_terms[(tup,) + c] = t
         else:
-            term = expr.subs([tup, (Symbol("w_{}".format(index), real=True), Symbol("w_{}".format(case), real=True))])
+            term = expr.subs([tup, (Symbol("w_{{{}}}".format(index), real=True), Symbol("w_{{{}}}".format(case), real=True))])
             boks = extract_bra_op_ket(term)
             new_term = term
             for bok in boks:
@@ -216,7 +185,7 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None):
                     new_indices.remove(tup[0])
                 subs_list_1 = list(zip(new_indices, summation_indices[:len(new_indices)]))
                 freq_list = [
-                    (Symbol("w_{}".format(ni), real=True), Symbol("w_{}".format(nsi), real=True)) for ni, nsi in subs_list_1
+                    (Symbol("w_{{{}}}".format(ni), real=True), Symbol("w_{{{}}}".format(nsi), real=True)) for ni, nsi in subs_list_1
                 ]
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
@@ -226,43 +195,14 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None):
             for bok in boks:
                 bra, ket = bok[0].label[0], bok[2].label[0]
                 if bra == O and ket not in summation_indices:
-                    mu_symbol = Symbol("{}^{}".format(bok[1].label[0], str(bra)+str(ket)), real=True)
+                    mu_symbol = Symbol("{}^{}".format("\mu_{{{}}}".format(bok[1].comp), str(bra)+str(ket)), real=True)
                     subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
                 elif ket == O and bra not in summation_indices:
-                    mu_symbol = Symbol("{}^{}".format(bok[1].label[0], str(ket)+str(bra)), real=True)
+                    mu_symbol = Symbol("{}^{}".format("\mu_{{{}}}".format(bok[1].comp), str(ket)+str(bra)), real=True)
                     subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
             new_term_2 = new_term_1.subs(subs_list_2)
             mod_extra_terms.append(new_term_2)
     return mod_extra_terms
-
-
-def build_sos_via_permutation(term, perm_pairs):
-    """
-    :param term: single SOS term
-    :param perm_pairs: list of tuples (op, freq) to be permuted
-    :return: full SOS expression
-    """
-    assert type(term) == Mul
-    assert type(perm_pairs) == list
-    operators = [
-            op for op in term.args if isinstance(op, qmoperator.HermitianOperator)
-    ]
-    for op, pair in zip(operators, perm_pairs):
-        if op != pair[0]:
-            raise ValueError(
-                "The pairs (op, freq) must be in the same order as in the entered SOS term."
-            )
-    perms = list(permutations(perm_pairs))
-    sos_expr = term
-    for i, p in enumerate(perms):
-        if i > 0:
-            subs_list = []
-            for j, pp in enumerate(p):
-                subs_list.append((perms[0][j][0], p[j][0]))
-                subs_list.append((perms[0][j][1], p[j][1]))
-            new_term = term.subs(subs_list, simultaneous=True)
-            sos_expr += new_term
-    return sos_expr
 
 
 def compute_remaining_terms(extra_terms, subs_list=[]):
@@ -285,68 +225,56 @@ def compute_remaining_terms(extra_terms, subs_list=[]):
     return remaining_terms
 
 
-# TODO: helper file for general labels and symbols
-O, f, n, m, k, gamma = symbols("0, f, n, m, k, \gamma", real=True)
-w_f = Symbol("w_{}".format(str(f)), real=True)
-w_n = Symbol("w_{}".format(str(n)), real=True)
-w_m = Symbol("w_{}".format(str(m)), real=True)
-w_k = Symbol("w_{}".format(str(k)), real=True)
-w = Symbol("w", real=True)
-w_o = Symbol("w_{\sigma}", real=True)
-w_1 = Symbol("w_{1}", real=True)
-w_2 = Symbol("w_{2}", real=True)
-w_3 = Symbol("w_{3}", real=True)
+def to_isr(expr, summation_indices, operators=None, subs_list=[]):
+    extra_terms_list = compute_extra_terms(expr, summation_indices)
+    mod_expr = expr + compute_remaining_terms(extra_terms_list, subs_list)
+    ret = 0
+    if isinstance(mod_expr, Add):
+        for s in mod_expr.args:
+            ret += to_isr_single_term(s, operators)
+    elif isinstance(expr, Mul):
+        ret += to_isr_single_term(mod_expr, operators)
+    return ret
 
-op_a = qmoperator.HermitianOperator(r"\mu_{\alpha}")
-op_b = qmoperator.HermitianOperator(r"\mu_{\beta}")
-op_c = qmoperator.HermitianOperator(r"\mu_{\gamma}")
-op_d = qmoperator.HermitianOperator(r"\mu_{\delta}")
-
-F_alpha = qmoperator.Operator(r"F(\mu_{\alpha})")
-F_beta = qmoperator.Operator(r"F(\mu_{\beta})")
-F_gamma = qmoperator.Operator(r"F(\mu_{\gamma})")
-B = qmoperator.Operator(r"B(\mu_{\beta})")
-M = qmoperator.Operator("M")
-X = qmoperator.Operator("X")
 
 
 tm1 = TransitionMoment(O, op_a, f)
 tm2 = TransitionMoment(f, op_b, O)
 
 isr_tm = insert_isr_transition_moments(tm1.expr, [op_a])
-assert isr_tm == adjoint(F_alpha) * Ket(f)
+assert isr_tm == adjoint(F_A) * Ket(f)
 
 tm_fn = TransitionMoment(f, op_b, n)
 isr_s2s = insert_isr_transition_moments(tm_fn.expr, [op_b])
-assert isr_s2s == Bra(f) * qmoperator.Operator(r"B(\mu_{\beta})") * Ket(n)
+assert isr_s2s == Bra(f) * B_B * Ket(n)
 
 tm_12 = insert_isr_transition_moments(tm1 * tm2 / (w_f - w), [op_a, op_b])
-assert tm_12 == adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f - w)
+assert tm_12 == adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f - w)
 
 test_cases = {
     "static": {
-        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f),
-        "ref": adjoint(F_alpha) * (M)**-1 * F_beta
+        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f),
+        "ref": adjoint(F_A) * (M)**-1 * F_B
     },
     "freq_neg": {
-        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f - w),
-        "ref": adjoint(F_alpha) * (M - w)**-1 * F_beta
+        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f - w),
+        "ref": adjoint(F_A) * (M - w)**-1 * F_B
     },
     "freq_pos": {
-        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f + w),
-        "ref": adjoint(F_alpha) * (M + w)**-1 * F_beta
+        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f + w),
+        "ref": adjoint(F_A) * (M + w)**-1 * F_B
     },
     "freq_offset": {
-        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * F_beta / (w_f + w - 1),
-        "ref": adjoint(F_alpha) * (M + w - 1)**-1 * F_beta
+        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f + w - 1),
+        "ref": adjoint(F_A) * (M + w - 1)**-1 * F_B
     },
     "tpa_like": {
-        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * B * Ket(n) / (w_f - w),
-        "ref": adjoint(F_alpha) * (M - w)**-1 * B * Ket(n) 
+        "term": adjoint(F_A) * Ket(f) * Bra(f) * B_B * Ket(n) / (w_f - w),
+        "ref": adjoint(F_A) * (M - w)**-1 * B_B * Ket(n) 
     },
     "beta_like": {
-        "term": adjoint(F_alpha) * Ket(f) * Bra(f) * B * Ket(n) * Bra(n) * F_gamma / ((w_f - w) * (w_n + w)),
-        "ref": adjoint(F_alpha) * (M - w)**-1 * B * (M + w)**-1 * F_gamma
+        "term": adjoint(F_A) * Ket(f) * Bra(f) * B_B * Ket(n) * Bra(n) * F_C / ((w_f - w) * (w_n + w)),
+        "ref": adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * F_C
     }
 }
 
@@ -373,10 +301,6 @@ if __name__ == "__main__":
     #     alpha_isr += term
     # print(alpha_sos)
     # print(simplify(alpha_isr))
-
-    polarizability = ResponseFunction(r"<<\mu_A;-\mu_B>>", [r"\omega"])
-    polarizability.sum_over_states.set_frequencies([0])
-    polarizability_isr = to_isr(polarizability.sum_over_states.expression)
 
     rixs_sos = (
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
@@ -412,7 +336,7 @@ if __name__ == "__main__":
     # print(esp_isr + esp_remaining_extra_terms)
 
     beta_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
-    beta_real_sos = build_sos_via_permutation(
+    beta_real_sos = _build_sos_via_permutation(
         beta_sos_term, [(op_a, -w_o), (op_b, w_1), (op_c, w_2)]
     )
     # beta_real_extra_terms = compute_extra_terms(beta_real_sos, [n, k])
@@ -426,8 +350,8 @@ if __name__ == "__main__":
     # print(simplify(sum_extra_terms_beta.subs(w_o, w_1+w_2)))
     # print(compute_remaining_terms(beta_real_extra_terms, [(w_o, w_1+w_2)]))
 
-    threepa_sos_term = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f)/ ((w_n - w_1 - w_2) * (w_m - w_1))
-    threepa_sos = build_sos_via_permutation(
+    threepa_sos_term = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
+    threepa_sos = _build_sos_via_permutation(
         threepa_sos_term, [(op_b, w_1), (op_c, w_2), (op_d, w_3)]
     )
     # threepa_extra_terms = compute_extra_terms(threepa_sos, [m, n])
@@ -445,7 +369,7 @@ if __name__ == "__main__":
     # for term in gamma_extra_terms:
     #     print(term)
     # print(gamma_isr_term)
-    gamma_real_sos = build_sos_via_permutation(
+    gamma_real_sos = _build_sos_via_permutation(
        gamma_sos_term, [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
     )
     # gamma_real_extra_terms = compute_extra_terms(gamma_real_sos, [n, m, k])
@@ -455,43 +379,4 @@ if __name__ == "__main__":
     # print(gamma_real_sos)
     # print(gamma_real_isr)
     # print(compute_remaining_terms(gamma_real_extra_terms, [(w_o, w_1+w_2+w_3)]))
-
-
-    def accetable_rhs_lhs(term):
-        if isinstance(term, adjoint):
-            op_string = term.args[0]
-        else:
-            op_string = term.label
-        return "F" in str(op_string)
-
-    # TODO: replace remaining Bra/Ket with ADC Vectors
-    # TODO: clever wrapping for terms which can either be Mul or Add
-    # TODO: build tree for inversions etc. because one might already need response vectors
-    # to form a new LHS/RHS
-
-    def terms_inversion(expr):
-        ret = {}
-        if isinstance(expr, Add):
-            for a in expr.args:
-                ret.update(terms_inversion(a))
-        elif isinstance(expr, Mul):
-            for ii, m in enumerate(expr.args):
-                if isinstance(m, Pow):
-                    if m.args[1] == -1:
-                        tinv = m.args[0]
-                        rhs = expr.args[ii + 1]
-                        lhs = expr.args[ii - 1]
-                        freq = m.args[0].subs(M, 0)
-                        ret[m.args[0]] = (lhs, rhs, freq)
-                        test = expr.subs(lhs * m, adjoint(X))
-                        print(test)
-                        print(f"Term {m.args[0]} must be inverted.")
-        return ret
-
-
-    #ret = terms_inversion(polarizability_isr)
-    #print(ret)
-
-    #ret = terms_inversion(adjoint(F_alpha) * (M - w)**-1 * B * Ket(n))
-    #print(ret)
 
