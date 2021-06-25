@@ -3,10 +3,23 @@ from sympy.physics.quantum.state import Bra, Ket, StateBase
 from itertools import permutations
 
 from responsetree.symbols_and_labels import *
-from responsetree.transition_moments import TransitionMoment
 
 
-def _build_sos_via_permutation(term, perm_pairs):
+class TransitionMoment:
+    def __init__(self, from_state, operator, to_state):
+        self.expr = Bra(from_state) * operator * Ket(to_state)
+
+    def __rmul__(self, other):
+        return other * self.expr
+
+    def __mul__(self, other):
+        return self.expr * other
+
+    def __repr__(self):
+        return str(self.expr)
+
+
+def _build_sos_via_permutation(term, perm_pairs, operators=None):
     """
     :param term: single SOS term
     :param perm_pairs: list of tuples (op, freq) to be permuted
@@ -14,9 +27,10 @@ def _build_sos_via_permutation(term, perm_pairs):
     """
     assert type(term) == Mul
     assert type(perm_pairs) == list
-    operators = [
+    if not operators:
+        operators = [
             op for op in term.args if isinstance(op, DipoleOperator)
-    ]
+        ]
     for op, pair in zip(operators, perm_pairs):
         if op != pair[0]:
             raise ValueError(
@@ -37,9 +51,9 @@ def _build_sos_via_permutation(term, perm_pairs):
 
 class SumOverStates:
     
-    def __init__(self, expr, summation_indices, correlation_btw_freq=None, perm_pairs=None):
+    def __init__(self, expr, summation_indices, correlation_btw_freq=None, perm_pairs=None, excluded_cases=None):
         """
-        Class representing sum over states (SOS)
+        Class representing sum-over-states (SOS)
         
         :param expr: sympy expression of the SOS;
             it can be either the full expression or a single term from which the full expression can be generated via permutation
@@ -47,10 +61,13 @@ class SumOverStates:
         :param correlation_btw_freq: list of tuples that indicates the correlation between the frequencies (sympy symbols);
             the first entry is the frequency that can be replaced by the second entry e.g. (w_o, w_1+w_2)
         :param perm_pairs: list of tuples (op, freq) to be permuted
+        :param excluded_cases: list of tuples (index, value) with values that are excluded from the summation
         """
         assert type(summation_indices) == list
         if correlation_btw_freq:
             assert type(correlation_btw_freq) == list
+        if excluded_cases:
+            assert type(excluded_cases) == list
 
         if isinstance(expr, Add):
             self.operators = [op for op in expr.args[0].args if isinstance(op, DipoleOperator)]
@@ -68,9 +85,10 @@ class SumOverStates:
         self.summation_indices = summation_indices
         self.transition_frequencies = [Symbol("w_{{{}}}".format(index)) for index in self.summation_indices]
         self.correlation_btw_freq = correlation_btw_freq
+        self.excluded_cases = excluded_cases
         
         if perm_pairs:
-            self.expr = _build_sos_via_permutation(expr, perm_pairs)
+            self.expr = _build_sos_via_permutation(expr, perm_pairs, self.operators)
         else:
             self.expr = expr
 

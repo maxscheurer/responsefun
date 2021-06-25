@@ -18,12 +18,20 @@
 
 from sympy.physics.quantum.state import Bra, Ket, StateBase
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
-from itertools import permutations
 
 from responsetree.symbols_and_labels import *
 from responsetree.response_operators import MTM, S2S_MTM, Matrix, DipoleOperator
-from responsetree.transition_moments import extract_bra_op_ket, TransitionMoment
-from responsetree.sum_over_states import _build_sos_via_permutation
+from responsetree.sum_over_states import TransitionMoment, SumOverStates
+
+
+# TODO: extract k-mer from multiplication...
+def extract_bra_op_ket(expr):
+    assert type(expr) == Mul
+    bok = [Bra, DipoleOperator, Ket]
+    expr_types = [type(term) for term in expr.args]
+    ret = [list(expr.args[i:i+3]) for i, k in enumerate(expr_types)
+           if expr_types[i:i+3] == bok]
+    return ret
 
 
 def insert_matrix(expr, M):
@@ -103,8 +111,8 @@ def to_isr_single_term(expr, operators=None):
 
 def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     """
-    :param expr: single SOS term
-    :param summation_indices: list of indices of summation
+    :param expr: single SOS term (sympy expression)
+    :param summation_indices: list of indices of summation (sympy symbols)
     :param excluded_cases: list of tuples (index, value) with values that are excluded from the summation
     :return: dictionary containing extra terms
     """
@@ -155,23 +163,57 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     return extra_terms
 
 
-def compute_extra_terms(expr, summation_indices, excluded_cases=None):
+def compute_remaining_terms(extra_terms, subs_list=None):
     """
-    :param expr: SOS expression
-    :param summation_indices: list of indices of summation
+    function that sorts the extra terms by numerators before simplifying them
+
+    :param extra_terms: list of extra terms
+    :param subs_list: list of tuples that indicates the correlation between the frequencies;
+        the first entry is the frequency that can be replaced by the second entry e.g. (w_o, w_1+w_2)
+    :return: sympy expression of the extra terms that do not cancel out
+    """
+    assert type(extra_terms) == list
+    if subs_list:
+        assert type(subs_list) == list
+    else:
+        subs_list = []
+    num_list = []
+    for term in extra_terms:
+        num = fraction(term)[0]
+        if num not in num_list and -num not in num_list:
+            num_list.append(num)
+    remaining_terms = 0
+    for num in num_list:
+        terms_with_num = 0
+        for term in extra_terms:
+            if fraction(term)[0] == num or fraction(term)[0] == -num:
+                terms_with_num += term
+        if simplify(terms_with_num.subs(subs_list)) != 0:
+            remaining_terms += terms_with_num
+    return remaining_terms
+
+
+def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlation_btw_freq=None, print_extra_term_dict=False):
+    """
+    :param expr: sympy expression of the SOS
+    :param summation_indices: list of indices of summation (sympy symbols)
     :param excluded_cases: list of tuples (index, value) with values that are excluded from the summation
-    :return: list of extra terms
+    :param correlation_btw_freq: list of tuples that indicates the correlation between the frequencies;
+        the first entry is the frequency that can be replaced by the second entry e.g. (w_o, w_1+w_2)
+    :return: sympy expression of the extra terms that do not cancel out
     """
     assert type(summation_indices) == list
     extra_terms_list = []
     if isinstance(expr, Add):
         for single_term in expr.args:
             term_dict = extra_terms_single_sos(single_term, summation_indices, excluded_cases)
-            print(term_dict)
+            if print_extra_term_dict:
+                print(term_dict)
             extra_terms_list.append(term_dict)
     elif isinstance(expr, Mul):
         term_dict = extra_terms_single_sos(expr, summation_indices, excluded_cases)
-        print(term_dict)
+        if print_extra_term_dict:
+            print(term_dict)
         extra_terms_list.append(term_dict)
         
     mod_extra_terms = []
@@ -202,40 +244,19 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None):
                     subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
             new_term_2 = new_term_1.subs(subs_list_2)
             mod_extra_terms.append(new_term_2)
-    return mod_extra_terms
+    return compute_remaining_terms(mod_extra_terms, correlation_btw_freq)
 
 
-def compute_remaining_terms(extra_terms, subs_list=[]):
-    """
-    function that sorts the extra terms by numerators before simplifying them
-    """
-    num_list = []
-    for term in extra_terms:
-        num = fraction(term)[0]
-        if num not in num_list and -num not in num_list:
-            num_list.append(num)
-    remaining_terms = 0
-    for num in num_list:
-        terms_with_num = 0
-        for term in extra_terms:
-            if fraction(term)[0] == num or fraction(term)[0] == -num:
-                terms_with_num += term
-        if simplify(terms_with_num.subs(subs_list)) != 0:
-            remaining_terms += terms_with_num
-    return remaining_terms
-
-
-def to_isr(expr, summation_indices, operators=None, subs_list=[]):
-    extra_terms_list = compute_extra_terms(expr, summation_indices)
-    mod_expr = expr + compute_remaining_terms(extra_terms_list, subs_list)
+def to_isr(sos, print_extra_term_dict=False):
+    assert isinstance(sos, SumOverStates)
+    mod_expr = sos.expr + compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_cases, sos.correlation_btw_freq, print_extra_term_dict)
     ret = 0
     if isinstance(mod_expr, Add):
         for s in mod_expr.args:
-            ret += to_isr_single_term(s, operators)
+            ret += to_isr_single_term(s, sos.operators)
     elif isinstance(expr, Mul):
-        ret += to_isr_single_term(mod_expr, operators)
+        ret += to_isr_single_term(mod_expr, sos.operators)
     return ret
-
 
 
 tm1 = TransitionMoment(O, op_a, f)
@@ -290,93 +311,4 @@ for case in test_cases:
 
 
 if __name__ == "__main__":
-    alpha_sos = (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
-        + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
-    )
-    # alpha_extra_terms = compute_extra_terms(alpha_sos, [n])
-    # alpha_isr = to_isr(alpha_sos)
-    # for term in alpha_extra_terms:
-    #     print(term)
-    #     alpha_isr += term
-    # print(alpha_sos)
-    # print(simplify(alpha_isr))
-
-    rixs_sos = (
-        TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
-        + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j*gamma)
-    )
-    # rixs_extra_terms = compute_extra_terms(rixs_sos, [n])
-    # rixs_isr = to_isr(rixs_sos)
-    # for term in rixs_extra_terms:
-    #     print(term)
-    #     rixs_isr += term
-    # print(rixs_sos)
-    # print(simplify(rixs_isr))
-
-    tpa_sos = (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
-        + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f/2))
-    )
-    # tpa_extra_terms = compute_extra_terms(tpa_sos, [n])
-    # tpa_isr = to_isr(tpa_sos)
-    # for term in tpa_extra_terms:
-    #     print(term)
-    #     tpa_isr += term
-    # print(tpa_sos)
-    # print(tpa_isr)
-
-    esp_sos = (
-        TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)
-        + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
-    )
-    # esp_extra_terms = compute_extra_terms(esp_sos, [n])
-    # esp_isr = to_isr(esp_sos)
-    # esp_remaining_extra_terms = compute_remaining_terms(esp_extra_terms)
-    # print(esp_isr + esp_remaining_extra_terms)
-
-    beta_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
-    beta_real_sos = _build_sos_via_permutation(
-        beta_sos_term, [(op_a, -w_o), (op_b, w_1), (op_c, w_2)]
-    )
-    # beta_real_extra_terms = compute_extra_terms(beta_real_sos, [n, k])
-    # beta_real_isr = to_isr(beta_real_sos)
-    # sum_extra_terms_beta = 0
-    # for term in beta_real_extra_terms:
-    #     print(term)
-    #     sum_extra_terms_beta += term
-    # print(beta_real_sos)
-    # print(beta_real_isr)
-    # print(simplify(sum_extra_terms_beta.subs(w_o, w_1+w_2)))
-    # print(compute_remaining_terms(beta_real_extra_terms, [(w_o, w_1+w_2)]))
-
-    threepa_sos_term = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
-    threepa_sos = _build_sos_via_permutation(
-        threepa_sos_term, [(op_b, w_1), (op_c, w_2), (op_d, w_3)]
-    )
-    # threepa_extra_terms = compute_extra_terms(threepa_sos, [m, n])
-    # for term in threepa_extra_terms:
-    #     print(term)
-    # print(compute_remaining_terms(threepa_extra_terms, [(w_f, w_1+w_2+w_3)]))
-
-    gamma_like_sos = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) * TransitionMoment(f, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w) * (w_f - w) * (w_k - w))
-    # gamma_like_isr = to_isr_single_term(gamma_like_sos)
-    # print(gamma_like_isr)
-    
-    gamma_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_k - w_3))
-    # gamma_extra_terms = compute_extra_terms(gamma_sos_term, [n, m, k])
-    # gamma_isr_term = to_isr_single_term(gamma_sos_term)
-    # for term in gamma_extra_terms:
-    #     print(term)
-    # print(gamma_isr_term)
-    gamma_real_sos = _build_sos_via_permutation(
-       gamma_sos_term, [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
-    )
-    # gamma_real_extra_terms = compute_extra_terms(gamma_real_sos, [n, m, k])
-    # gamma_real_isr = to_isr(gamma_real_sos)
-    # for term in gamma_real_extra_terms:
-    #     print(term)
-    # print(gamma_real_sos)
-    # print(gamma_real_isr)
-    # print(compute_remaining_terms(gamma_real_extra_terms, [(w_o, w_1+w_2+w_3)]))
-
+    pass
