@@ -111,7 +111,7 @@ def build_tree(isr_expression, matrix=Matrix("M")):
             traverse_branches(leaf.parent, old_expr, leaf.expr)
     show_tree(root)
     print(rvecs)
-
+    return root, rvecs
 
 if __name__ == "__main__":
     alpha_like = adjoint(F_A) * (M - w - 1j*gamma)**-1 * F_B + adjoint(F_B) * (M + w +  1j*gamma)**-1 * F_A
@@ -125,31 +125,7 @@ if __name__ == "__main__":
         + adjoint(F_C) * (M + w_2)**-1 * B_A * (M - w_1)**-1 * F_B
     )
     gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C
-    #build_tree(alpha_like)
+    build_tree(alpha_like)
     #build_tree(beta_like)
-    build_tree(beta_real)
+    #build_tree(beta_real)
     #build_tree(gamma_like)
-
-    # generate equation for beta via permutation
-    #perms = list(permutations([("A", -w_o), ("B", w_1), ("C", w_2)]))
-
-    #F1 = qmoperator.Operator("F1")
-    #B2 = qmoperator.Operator("B2")
-    #F3 = qmoperator.Operator("F3")
-    #wF1, wF3 = symbols("wF1, wF3")
-
-    #beta_term = adjoint(F1) * (M + wF1)**-1 * B2 * (M - wF3)**-1 * F3
-    #beta_real2 = 0 
-
-    #for p in perms:
-    #    subs_list = [
-    #        (F1, MTM(p[0][0])),
-    #        (wF1, p[0][1]),
-    #        (B2, S2S_MTM(p[1][0])),
-    #        (wF3, p[2][1]),
-    #        (F3, MTM(p[2][0]))
-    #    ]
-    #    beta_real2 += beta_term.subs(subs_list)
-    
-    #print(beta_real2)
-    #print(beta_real==beta_real2)

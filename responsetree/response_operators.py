@@ -1,5 +1,5 @@
-from sympy.physics.quantum.operator import HermitianOperator
 import sympy.physics.quantum.operator as qmoperator
+
 
 class ResponseOperator(qmoperator.Operator):
     def __init__(self, comp):
