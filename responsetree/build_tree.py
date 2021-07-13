@@ -1,7 +1,6 @@
-#import sympy.physics.quantum.operator as qmoperator
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex
+from sympy.physics.quantum.state import Bra, Ket, StateBase
 from anytree import NodeMixin, RenderTree
-#from itertools import permutations
 
 from responsetree.symbols_and_labels import *
 from responsetree.response_operators import MTM, S2S_MTM, ResponseVector, Matrix
@@ -37,15 +36,10 @@ def acceptable_rhs_lhs_MTM(term):
     return isinstance(op_expr, MTM)
 
 
-def acceptable_rhs_lhs_S2S_MTM(term):
-    if isinstance(term, adjoint):
-        op_expr = term.args[0]
-    else:
-        op_expr = term
-    return isinstance(op_expr, S2S_MTM)
+def acceptable_rhs_lhs_S2S_MTM(term1, term2):
+    return isinstance(term1, S2S_MTM) and (isinstance(term2, Bra) or isinstance(term2, Ket))
 
 
-#TODO: make it work for esp
 def build_branches(node, matrix):
     if isinstance(node.expr, Add):
         node.children = [IsrTreeNode(term) for term in node.expr.args]
@@ -62,10 +56,10 @@ def build_branches(node, matrix):
                     children.append(ResponseNode(tinv**-1 * rhs, tinv, rhs))
                 elif acceptable_rhs_lhs_MTM(lhs):
                     children.append(ResponseNode(lhs * tinv**-1, tinv, lhs))
-                #elif acceptable_rhs_lhs_S2S_MTM(rhs):
-                #    children.append(ResponseNode(tinv**-1 * rhs * node.expr.args[i+2], tinv, rhs * node.expr.args[i+2]))
-                #elif acceptable_rhs_lhs_S2S_MTM(lhs):
-                #    children.append(ResponseNode(node.expr.args[i-2] * lhs * tinv**-1, tinv, node.expr.args[i-2] * lhs))
+                elif acceptable_rhs_lhs_S2S_MTM(rhs, node.expr.args[i+2]):
+                    children.append(ResponseNode(tinv**-1 * rhs * node.expr.args[i+2], tinv, rhs * node.expr.args[i+2]))
+                elif acceptable_rhs_lhs_S2S_MTM(lhs, node.expr.args[i-2]):
+                    children.append(ResponseNode(node.expr.args[i-2] * lhs * tinv**-1, tinv, node.expr.args[i-2] * lhs))
                 else:
                     print("No invertable term found")
         node.children = children
@@ -94,24 +88,33 @@ def build_tree(isr_expression, matrix=Matrix("M")):
     for leaf in root.leaves:
         if isinstance(leaf, ResponseNode):
             old_expr = leaf.expr
+            oper_rhs = leaf.rhs
             if isinstance(leaf.rhs, adjoint):
-                comp = leaf.rhs.args[0].comp
-                key = (leaf.rhs.args[0], leaf.w, leaf.gamma)
-                if key not in rvecs:
-                    rvecs[key] = ResponseVector(comp, no)
-                    no += 1
-                leaf.expr = adjoint(rvecs[key])
-            else:
-                comp = leaf.rhs.comp
-                key = (leaf.rhs, leaf.w, leaf.gamma)
-                if key not in rvecs:
-                    rvecs[key] = ResponseVector(comp, no)
-                    no += 1
+                oper_rhs = leaf.rhs.args[0]
+            
+            key = (oper_rhs, leaf.w, leaf.gamma)
+            if key not in rvecs:
+                if isinstance(oper_rhs, Mul):
+                    if isinstance(oper_rhs.args[0], S2S_MTM):
+                        comp = oper_rhs.args[0].comp
+                    elif isinstance(oper_rhs.args[1], S2S_MTM):
+                        comp = oper_rhs.args[1].comp
+                    else:
+                        raise ValueError()
+                else:
+                    comp = oper_rhs.comp
+
+                rvecs[key] = ResponseVector(comp, no)
+                no += 1
+
+            if oper_rhs == leaf.rhs:
                 leaf.expr = rvecs[key]
+            else:
+                leaf.expr = adjoint(rvecs[key])
             traverse_branches(leaf.parent, old_expr, leaf.expr)
     show_tree(root)
     print(rvecs)
-    return root, rvecs
+    return root.expr, rvecs
 
 if __name__ == "__main__":
     alpha_like = adjoint(F_A) * (M - w - 1j*gamma)**-1 * F_B + adjoint(F_B) * (M + w +  1j*gamma)**-1 * F_A

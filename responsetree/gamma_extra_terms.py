@@ -39,6 +39,7 @@ def sos_panor(state, omega_1, omega_2, omega_3):
                     )
     return sos
 
+
 mol = gto.M(
     atom="""
     O 0 0 0
@@ -49,7 +50,6 @@ mol = gto.M(
     basis="sto-3g",
 )
 
-scfres = scf.RHF(mol)
 scfres = scf.RHF(mol)
 scfres.conv_tol = 1e-8
 scfres.conv_tol_grad = 1e-8
@@ -64,3 +64,4 @@ panor_terms = sos_panor(state, 0.5, 0.3, 0.0)
 antonia_terms = sos_antonia(state, 0.5, 0.3, 0.0)
 print(panor_terms)
 print(antonia_terms)
+np.testing.assert_allclose(panor_terms, antonia_terms, atol=1e-7)

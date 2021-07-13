@@ -1,0 +1,245 @@
+import numpy as np
+
+from sympy.physics.quantum.state import Bra, Ket, StateBase
+from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, im
+from itertools import permutations, product, combinations_with_replacement
+
+from responsetree.symbols_and_labels import *
+from responsetree.response_operators import MTM, S2S_MTM, ResponseVector, Matrix, DipoleOperator, DipoleMoment
+from responsetree.sum_over_states import TransitionMoment, SumOverStates
+from responsetree.isr_conversion import to_isr
+from responsetree.build_tree import build_tree
+
+from pyscf import gto, scf
+import adcc
+from adcc.workflow import construct_adcmatrix
+from adcc.adc_pp import modified_transition_moments
+from adcc import AmplitudeVector
+from adcc.Excitation import Excitation
+from respondo.misc import select_property_method
+from respondo.solve_response import solve_response, transition_polarizability, transition_polarizability_complex
+from respondo.polarizability import real_polarizability, complex_polarizability
+from respondo.cpp_algebra import ResponseVector as RV
+from respondo.rixs import rixs_scattering_strength, rixs
+from respondo.tpa import tpa_resonant
+
+
+Hartree = 27.211386
+#_comps = ["A", "B", "C", "D", "E", "F"]
+
+
+def from_vec_to_vec(from_vec, to_vec):
+    if isinstance(from_vec, AmplitudeVector) and isinstance(to_vec, AmplitudeVector):
+        return from_vec @ to_vec
+    elif isinstance(from_vec, RV):
+        rea = from_vec.real @ to_vec
+        ima = from_vec.imag @ to_vec
+        return rea + 1j*ima
+    elif isinstance(to_vec, RV):
+        rea = from_vec @ to_vec.real
+        ima = from_vec @ to_vec.imag
+        return rea + 1j*ima
+    else:
+        raise ValueError()
+
+
+def evaluate_property(
+        scfres, method, sos_expr, summation_indices, omegas, gamma_val=0.0,
+        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False
+    ):
+    refstate = adcc.ReferenceState(scfres)
+    matrix = adcc.AdcMatrix(method, refstate)
+    if final_state:
+        state = adcc.run_adc(scfres, method=method, n_singlets=final_state[1]+1)
+        omegas.append(
+                (Symbol("w_{{{}}}".format(final_state[0]), real=True),
+                state.excitation_energy_uncorrected[final_state[1]])
+        )
+    property_method = select_property_method(matrix)
+    mp = matrix.ground_state
+    dips = refstate.operators.electric_dipole
+    rhss = modified_transition_moments(property_method, mp, dips)
+    
+    correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
+    sos = SumOverStates(sos_expr, summation_indices, correlation_btw_freq, perm_pairs)
+    isr = to_isr(sos, extra_terms=extra_terms)
+    mod_isr = isr.subs(correlation_btw_freq)
+    root_expr, rvecs_dict = build_tree(mod_isr)
+    
+    dtype = float
+    if gamma_val != 0.0:
+        dtype = complex
+    res_tens = np.zeros((3,)*len(sos.operators), dtype=dtype)
+    
+    response_dict = {}
+    for k, v in rvecs_dict.items():
+        om = float(k[1].subs(omegas))
+        gam = float(im(k[2].subs(gamma, gamma_val)))
+        if gam == 0 and gamma_val != 0:
+            raise ValueError(
+                    "Although the entered SOS expression is real, a value for gamma was specified."
+            )
+        if isinstance(k[0], MTM):
+            if gam == 0.0:
+                response_dict[v] = [solve_response(matrix, rhs, -om, gamma=0.0) for rhs in rhss]
+            else:
+                response_dict[v] = [solve_response(matrix, RV(rhs), -om, gamma=-gam) for rhs in rhss]
+        else:
+            raise ValueError()
+    
+    if symmetric:
+        components = list(combinations_with_replacement([0, 1, 2], len(sos.operators))) # if tensor is symmetric
+    else:
+        components = list(product([0, 1, 2], repeat=len(sos.operators)))
+    for c in components:
+        if len(c) == 2:
+            A, B = c
+        elif len(c) == 3:
+            A, B, C = c
+        elif len(c) == 4:
+            A, B, C, D = c
+        else:
+            raise ValueError()
+        
+        #for i, l in enumerate(_comps[0:len(c)]):
+        #    locals()[l] = c[i]
+        
+        subs_dict = {}
+        for o in omegas:
+            subs_dict[o[0]] = o[1]
+        subs_dict[gamma] = gamma_val
+
+        if isinstance(root_expr, Add):
+                for arg in root_expr.args:
+                    for i, a in enumerate(arg.args):
+                        oper_a = a
+                        if isinstance(a, adjoint):
+                            oper_a = a.args[0]
+                        if isinstance(oper_a, MTM):
+                            lhs = arg.args[i-1]
+                            rhs = arg.args[i+1]
+                            if oper_a != a and isinstance(rhs, ResponseVector): # Dagger(F) * X
+                                subs_dict[a*rhs] = from_vec_to_vec(
+                                        rhss[locals()[oper_a.comp]], response_dict[rhs][locals()[rhs.comp]]
+                                )
+                            elif oper_a == a and isinstance(lhs.args[0], ResponseVector): # Dagger(X) * F
+                                subs_dict[lhs*oper_a] = from_vec_to_vec(
+                                        response_dict[lhs.args[0]][locals()[lhs.args[0].comp]], rhss[locals()[oper_a.comp]]
+                                )
+                            else:
+                                raise ValueError("MTM cannot be evaluated.")
+                        elif isinstance(oper_a, S2S_MTM): # from_vec * B * to_vec --> transition polarizability
+                            from_v = arg.args[i-1]
+                            to_v = arg.args[i+1]
+                            key = from_v*oper_a*to_v
+                            if isinstance(from_v, Bra): # <f| B * to_vec
+                                fv = state.excitation_vector[final_state[1]]
+                            elif isinstance(from_v.args[0], ResponseVector): # Dagger(X) * B * to_vec
+                                fv = response_dict[from_v.args[0]][locals()[from_v.args[0].comp]]
+                            else:
+                                raise ValueError()
+                            if isinstance(to_v, Ket): # from_vec * B |f> 
+                                tv = state.excitation_vector[final_state[1]]
+                            elif isinstance(to_v, ResponseVector): # from_vec * B * X
+                                tv = response_dict[to_v][locals()[to_v.comp]]
+                            else:
+                                raise ValueError()
+                            if isinstance(fv, AmplitudeVector) and isinstance(tv, AmplitudeVector):
+                                subs_dict[key] = transition_polarizability(
+                                        property_method, mp, fv, dips[locals()[oper_a.comp]], tv
+                                )
+                            else:
+                                if isinstance(fv, AmplitudeVector):
+                                    fv = RV(fv)
+                                elif isinstance(tv, AmplitudeVector):
+                                    tv = RV(tv)
+                                subs_dict[key] = transition_polarizability_complex(
+                                        property_method, mp, fv, dips[locals()[oper_a.comp]], tv
+                                )
+                        elif isinstance(oper_a, DipoleMoment):
+                            if oper_a.from_state == "0" and oper_a.to_state == "0":
+                                subs_dict[oper_a] = mp.dipole_moment(property_method.level)[locals()[oper_a.comp]]
+                            elif oper_a.from_state == "0" and oper_a.to_state == str(final_state[0]):
+                                subs_dict[oper_a] = state.transition_dipole_moment[final_state[1]][locals()[oper_a.comp]] 
+                            else:
+                                raise ValueError()
+        else:
+            raise ValueError()
+        
+        print(subs_dict)
+        res_tens[c] = root_expr.subs(subs_dict)
+        if symmetric:
+            perms = list(permutations(c)) # if tensor is symmetric
+            for p in perms:
+                res_tens[p] = res_tens[c]
+    return res_tens
+
+if __name__ == "__main__":
+    mol = gto.M(
+        atom="""
+        O 0 0 0
+        H 0 0 1.795239827225189
+        H 1.693194615993441 0 -0.599043184453037
+        """,
+        unit="Bohr",
+        basis="sto-3g",
+    )
+
+    scfres = scf.RHF(mol)
+    scfres.kernel()
+
+    refstate = adcc.ReferenceState(scfres)
+    matrix = adcc.AdcMatrix("adc2", refstate)
+    state = adcc.adc2(scfres, n_singlets=1)
+
+    omega_alpha = [(w, 0.59)]
+    alpha_terms = (
+            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
+            + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
+    )
+    #alpha_tens = evaluate_property(scfres, "adc2", alpha_terms, [n], omega_alpha, gamma_val=0.124/Hartree, symmetric=True)
+    #print(alpha_tens)
+    #alpha_ref = complex_polarizability(matrix, omega=omega_alpha[0][1], gamma=0.124/Hartree)
+    #print(alpha_ref)
+    #np.testing.assert_allclose(alpha_tens, alpha_ref, atol=1e-7)
+    
+    omega_rixs = [(w, 534.74/Hartree)]
+    rixs_terms = (
+            TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
+            + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j*gamma)
+        )
+    rixs_term_short = rixs_terms.args[0]
+    #rixs_tens = evaluate_property(scfres, "adc2", rixs_term_short, [n], omega_rixs, gamma_val=0.124/Hartree, final_state=(f, 0))
+    #print(rixs_tens)
+    #rixs_strength = rixs_scattering_strength(rixs_tens, omega_rixs[0][1], omega_rixs[0][1]-state.excitation_energy_uncorrected[0])
+    #print(rixs_strength)
+    #excited_state = Excitation(state, 0, "adc2")
+    #rixs_ref = rixs(excited_state, omega_rixs[0][1], gamma=0.124/Hartree)
+    #print(rixs_ref)
+    #np.testing.assert_allclose(rixs_tens, rixs_ref[1], atol=1e-7)
+
+    omegas_beta = [(w_1, 0.0), (w_2, 0.0), (w_o, w_1+w_2)]
+    #beta_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o - 1j*gamma) * (w_k - w_2 - 1j*gamma))
+    #beta_tens = evaluate_property(
+    #        scfres, "adc2", beta_term, [n, k], omegas_beta, gamma_val=0.0,
+    #        perm_pairs=[(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)], extra_terms=False
+    #)
+    #print(beta_tens)
+
+    tpa_terms = (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
+        + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f/2))
+    )
+    tpa_tens = evaluate_property(scfres, "adc2", tpa_terms, [n], [], final_state=(f, 0))
+    print(tpa_tens)
+    excited_state = Excitation(state, 0, "adc2")
+    tpa_ref = tpa_resonant(excited_state)
+    print(tpa_ref)
+    np.testing.assert_allclose(tpa_tens, tpa_ref[1], atol=1e-7)
+
+    esp_terms = (
+        TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)
+        + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
+    )
+    #esp_tens = evaluate_property(scfres, "adc2", esp_terms, [n], omega_alpha, gamma_val=0.124/Hartree, final_state=(f, 0))
+    #print(esp_tens)

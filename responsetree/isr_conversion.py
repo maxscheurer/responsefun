@@ -17,12 +17,12 @@
 #
 
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
+from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, factor, limit, Limit
 
 from responsetree.symbols_and_labels import *
-from responsetree.response_operators import MTM, S2S_MTM, Matrix, DipoleOperator
+from responsetree.response_operators import MTM, S2S_MTM, Matrix, DipoleOperator, DipoleMoment
 from responsetree.sum_over_states import TransitionMoment, SumOverStates
-from responsetree.create_tree import build_tree
+from responsetree.build_tree import build_tree
 
 
 # TODO: extract k-mer from multiplication...
@@ -238,19 +238,22 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
             for bok in boks:
                 bra, ket = bok[0].label[0], bok[2].label[0]
                 if bra == O and ket not in summation_indices:
-                    mu_symbol = Symbol("{}^{}".format("\mu_{{{}}}".format(bok[1].comp), str(bra)+str(ket)), real=True)
+                    mu_symbol = DipoleMoment(bok[1].comp, str(bra), str(ket))
                     subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
                 elif ket == O and bra not in summation_indices:
-                    mu_symbol = Symbol("{}^{}".format("\mu_{{{}}}".format(bok[1].comp), str(ket)+str(bra)), real=True)
+                    mu_symbol = DipoleMoment(bok[1].comp, str(ket), str(bra))
                     subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
             new_term_2 = new_term_1.subs(subs_list_2)
             mod_extra_terms.append(new_term_2)
     return compute_remaining_terms(mod_extra_terms, correlation_btw_freq)
 
 
-def to_isr(sos, print_extra_term_dict=False):
+def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
     assert isinstance(sos, SumOverStates)
-    mod_expr = sos.expr + compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_cases, sos.correlation_btw_freq, print_extra_term_dict)
+    if extra_terms:
+        mod_expr = sos.expr + compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_cases, sos.correlation_btw_freq, print_extra_term_dict)
+    else:
+        mod_expr = sos.expr
     ret = 0
     if isinstance(mod_expr, Add):
         for s in mod_expr.args:
@@ -364,10 +367,15 @@ if __name__ == "__main__":
     beta_isr = to_isr(beta_sos)
     #print(beta_sos.expr)
     #print(beta_isr)
-    build_tree(beta_isr)
+    #build_tree(beta_isr)
 
-    
-    #TODO: make it work for threepa and gamma
+    #TODO: make it work for beta complex, threepa and gamma
+
+    beta_complex_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o - 1j*gamma) * (w_k - w_2 - 1j*gamma))
+    beta_complex_sos = SumOverStates(beta_complex_term, [n, k], [(w_o, w_1+w_2)], [(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)])
+    #print(beta_complex_sos.expr)
+    #extra_terms_beta = compute_extra_terms(beta_complex_sos.expr, beta_complex_sos.summation_indices, correlation_btw_freq=beta_complex_sos.correlation_btw_freq)
+    #print(extra_terms_beta)
 
     threepa_term = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
     threepa_sos = SumOverStates(threepa_term, [m, n], [(w_f, w_1+w_2+w_3)], [(op_b, w_1), (op_c, w_2), (op_d, w_3)])

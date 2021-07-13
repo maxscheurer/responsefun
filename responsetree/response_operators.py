@@ -1,5 +1,5 @@
 import sympy.physics.quantum.operator as qmoperator
-
+from sympy import Symbol
 
 class ResponseOperator(qmoperator.Operator):
     def __init__(self, comp):
@@ -68,3 +68,28 @@ class DipoleOperator(qmoperator.HermitianOperator):
 
     def _print_contents_latex(self, printer):
         return "\mu_{{{}}}".format(self._comp)
+
+
+class DipoleMoment(Symbol):
+    def __new__(self, comp, from_state, to_state, **assumptions):
+        assert type(comp) == str
+        assert type(from_state) == str
+        assert type(to_state) == str
+        name = "\mu_{{{}}}^{{{}}}".format(comp, from_state+to_state)
+        obj = Symbol.__new__(self, name, **assumptions)
+        obj._comp = comp
+        obj._from_state = from_state
+        obj._to_state = to_state
+        return obj
+
+    @property
+    def comp(self):
+        return self._comp
+
+    @property
+    def from_state(self):
+        return self._from_state
+    
+    @property
+    def to_state(self):
+        return self._to_state
