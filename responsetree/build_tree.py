@@ -92,25 +92,31 @@ def build_tree(isr_expression, matrix=Matrix("M")):
             if isinstance(leaf.rhs, adjoint):
                 oper_rhs = leaf.rhs.args[0]
             
-            key = (oper_rhs, leaf.w, leaf.gamma)
-            if key not in rvecs:
-                if isinstance(oper_rhs, Mul):
-                    if isinstance(oper_rhs.args[0], S2S_MTM):
-                        comp = oper_rhs.args[0].comp
-                    elif isinstance(oper_rhs.args[1], S2S_MTM):
-                        comp = oper_rhs.args[1].comp
-                    else:
-                        raise ValueError()
+            if isinstance(oper_rhs, Mul):
+                if isinstance(oper_rhs.args[0], S2S_MTM):
+                    key = ((type(oper_rhs.args[0]), oper_rhs.args[1]), leaf.w, leaf.gamma)
+                    comp = oper_rhs.args[0].comp
+                elif isinstance(oper_rhs.args[1], S2S_MTM):
+                    key = ((oper_rhs.args[0], type(oper_rhs.args[1])), leaf.w, leaf.gamma)
+                    comp = oper_rhs.args[1].comp
                 else:
-                    comp = oper_rhs.comp
-
-                rvecs[key] = ResponseVector(comp, no)
-                no += 1
-
-            if oper_rhs == leaf.rhs:
-                leaf.expr = rvecs[key]
+                    raise ValueError()
             else:
-                leaf.expr = adjoint(rvecs[key])
+                key = (type(oper_rhs), leaf.w, leaf.gamma)
+                comp = oper_rhs.comp
+
+            if key not in rvecs:
+                rvecs[key] = {comp: ResponseVector(comp, no)}
+                no += 1
+            else:
+                if comp not in rvecs[key].keys():
+                    rv_no = list(rvecs[key].values())[0].no
+                    rvecs[key][comp] = ResponseVector(comp, rv_no)
+            
+            if oper_rhs == leaf.rhs:
+                leaf.expr = rvecs[key][comp]
+            else:
+                leaf.expr = adjoint(rvecs[key][comp])
             traverse_branches(leaf.parent, old_expr, leaf.expr)
     show_tree(root)
     print(rvecs)

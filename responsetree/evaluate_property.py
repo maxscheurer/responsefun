@@ -12,9 +12,9 @@ from responsetree.build_tree import build_tree
 
 from pyscf import gto, scf
 import adcc
-from adcc.workflow import construct_adcmatrix
-from adcc.adc_pp import modified_transition_moments
+#from adcc.workflow import construct_adcmatrix
 from adcc import AmplitudeVector
+from adcc.adc_pp import modified_transition_moments
 from adcc.Excitation import Excitation
 from respondo.misc import select_property_method
 from respondo.solve_response import solve_response, transition_polarizability, transition_polarizability_complex
@@ -79,11 +79,13 @@ def evaluate_property(
             raise ValueError(
                     "Although the entered SOS expression is real, a value for gamma was specified."
             )
-        if isinstance(k[0], MTM):
+        if k[0] == MTM:
             if gam == 0.0:
-                response_dict[v] = [solve_response(matrix, rhs, -om, gamma=0.0) for rhs in rhss]
+                response = [solve_response(matrix, rhs, -om, gamma=0.0) for rhs in rhss]
             else:
-                response_dict[v] = [solve_response(matrix, RV(rhs), -om, gamma=-gam) for rhs in rhss]
+                response = [solve_response(matrix, RV(rhs), -om, gamma=-gam) for rhs in rhss]
+            for vv in v.values():
+                response_dict[vv] = response
         else:
             raise ValueError()
     
@@ -166,7 +168,6 @@ def evaluate_property(
         else:
             raise ValueError()
         
-        print(subs_dict)
         res_tens[c] = root_expr.subs(subs_dict)
         if symmetric:
             perms = list(permutations(c)) # if tensor is symmetric
@@ -219,7 +220,7 @@ if __name__ == "__main__":
     #np.testing.assert_allclose(rixs_tens, rixs_ref[1], atol=1e-7)
 
     omegas_beta = [(w_1, 0.0), (w_2, 0.0), (w_o, w_1+w_2)]
-    #beta_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o - 1j*gamma) * (w_k - w_2 - 1j*gamma))
+    beta_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o - 1j*gamma) * (w_k - w_2 - 1j*gamma))
     #beta_tens = evaluate_property(
     #        scfres, "adc2", beta_term, [n, k], omegas_beta, gamma_val=0.0,
     #        perm_pairs=[(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)], extra_terms=False
@@ -230,12 +231,12 @@ if __name__ == "__main__":
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
         + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f/2))
     )
-    tpa_tens = evaluate_property(scfres, "adc2", tpa_terms, [n], [], final_state=(f, 0))
-    print(tpa_tens)
-    excited_state = Excitation(state, 0, "adc2")
-    tpa_ref = tpa_resonant(excited_state)
-    print(tpa_ref)
-    np.testing.assert_allclose(tpa_tens, tpa_ref[1], atol=1e-7)
+    #tpa_tens = evaluate_property(scfres, "adc2", tpa_terms, [n], [], final_state=(f, 0))
+    #print(tpa_tens)
+    #excited_state = Excitation(state, 0, "adc2")
+    #tpa_ref = tpa_resonant(excited_state)
+    #print(tpa_ref)
+    #np.testing.assert_allclose(tpa_tens, tpa_ref[1], atol=1e-7)
 
     esp_terms = (
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)

@@ -44,6 +44,10 @@ class ResponseVector(ResponseOperator):
         super().__init__(comp)
         self._no = no
 
+    @property
+    def no(self):
+        return self._no
+
     def _print_contents(self, printer):
         return "X_{{{}, {}}}".format(self._comp, str(self._no))
 
