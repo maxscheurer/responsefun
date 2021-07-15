@@ -258,7 +258,7 @@ def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
     if isinstance(mod_expr, Add):
         for s in mod_expr.args:
             ret += to_isr_single_term(s, sos.operators)
-    elif isinstance(expr, Mul):
+    elif isinstance(mod_expr, Mul):
         ret += to_isr_single_term(mod_expr, sos.operators)
     return ret
 
