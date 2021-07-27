@@ -70,9 +70,18 @@ class SumOverStates:
             assert type(excluded_cases) == list
 
         if isinstance(expr, Add):
-            self.operators = [op for op in expr.args[0].args if isinstance(op, DipoleOperator)]
+            self.operators = []
+            for arg in expr.args:
+                for a in arg.args:
+                    if isinstance(a, DipoleOperator) and a not in self.operators:
+                        self.operators.append(a)
             for index in summation_indices:
-                if Bra(index) not in expr.args[0].args or Ket(index) not in expr.args[0].args:
+                sum_ind = False
+                for arg in expr.args:
+                    if Bra(index) in arg.args or Ket(index) in arg.args:
+                        sum_ind = True
+                        break
+                if not sum_ind:
                     raise ValueError("Given indices of summation are not correct.")
         elif isinstance(expr, Mul):
             self.operators = [op for op in expr.args if isinstance(op, DipoleOperator)]
@@ -82,8 +91,8 @@ class SumOverStates:
         else:
             raise TypeError("SOS expression must be either of type Mul or Add.")
 
-        self.summation_indices = summation_indices
-        self.transition_frequencies = [Symbol("w_{{{}}}".format(index)) for index in self.summation_indices]
+        self._summation_indices = summation_indices
+        self._transition_frequencies = [Symbol("w_{{{}}}".format(index), real=True) for index in self._summation_indices]
         self.correlation_btw_freq = correlation_btw_freq
         self.excluded_cases = excluded_cases
         
@@ -93,8 +102,16 @@ class SumOverStates:
             self.expr = expr
 
     @property
+    def summation_indices(self):
+        return self._summation_indices
+    
+    @property
+    def transition_frequencies(self):
+        return self._transition_frequencies
+
+    @property
     def order(self):
-        return len(self.summation_indices) + 1
+        return len(self._summation_indices) + 1
 
     @property
     def number_of_terms(self):
