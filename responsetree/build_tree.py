@@ -134,7 +134,7 @@ if __name__ == "__main__":
         + adjoint(F_C) * (M + w_2)**-1 * B_A * (M - w_1)**-1 * F_B
     )
     gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C
-    build_tree(alpha_like)
+    #build_tree(alpha_like)
     #build_tree(beta_like)
-    #build_tree(beta_real)
+    build_tree(beta_real)
     #build_tree(gamma_like)

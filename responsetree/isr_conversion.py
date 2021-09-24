@@ -164,21 +164,30 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     return extra_terms
 
 
-def compute_remaining_terms(extra_terms, subs_list=None):
-    """
-    function that sorts the extra terms by numerators before simplifying them
+def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
+    """Sort the extra terms by numerators before simplifying them.
+    
+    Parameters
+    ----------
+    extra_terms: list
+        List containing extra terms.
 
-    :param extra_terms: list of extra terms
-    :param subs_list: list of tuples that indicates the correlation between the frequencies;
-        the first entry is the frequency that can be replaced by the second entry e.g. (w_o, w_1+w_2)
-    :return: sympy expression of the extra terms that do not cancel out
+    correlation_btw_freq: list of tuples, optional
+        List that indicates the correlation between the frequencies;
+        the tuple entries are either instances of <class 'sympy.core.add.Add'> or <class 'sympy.core.symbol.Symbol'>;
+        the first entry is the frequency that can be replaced by the second entry, e.g., (w_o, w_1+w_2).
+
+    Returns
+    ----------
+    <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'> or 0
+        SymPy expression of the extra terms that do not cancel out.
     """
     assert type(extra_terms) == list
-    if subs_list:
-        assert type(subs_list) == list
+    if correlation_btw_freq is None:
+        correlation_btw_freq = []
     else:
-        subs_list = []
-    num_list = []
+        assert type(correlation_btw_freq) == list
+    num_list = [] # list with numerators
     for term in extra_terms:
         num = fraction(term)[0]
         if num not in num_list and -num not in num_list:
@@ -189,21 +198,43 @@ def compute_remaining_terms(extra_terms, subs_list=None):
         for term in extra_terms:
             if fraction(term)[0] == num or fraction(term)[0] == -num:
                 terms_with_num += term
-        if simplify(terms_with_num.subs(subs_list)) != 0:
+        if simplify(terms_with_num.subs(correlation_btw_freq)) != 0:
             remaining_terms += terms_with_num
     return remaining_terms
 
 
 def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlation_btw_freq=None, print_extra_term_dict=False):
-    """
-    :param expr: sympy expression of the SOS
-    :param summation_indices: list of indices of summation (sympy symbols)
-    :param excluded_cases: list of tuples (index, value) with values that are excluded from the summation
-    :param correlation_btw_freq: list of tuples that indicates the correlation between the frequencies;
-        the first entry is the frequency that can be replaced by the second entry e.g. (w_o, w_1+w_2)
-    :return: sympy expression of the extra terms that do not cancel out
+    """Compute the additional terms that arise when converting the SOS expression to its ADC/ISR formulation.
+
+    Parameters
+    ----------
+    expr: <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'>
+        SymPy expression of the SOS.
+
+    summation_indices: list of <class 'sympy.core.symbol.Symbol'>
+            List of indices of summation.
+
+    excluded_cases: list of tuples, optional
+            List of (summation_index, value) pairs with values that are excluded from the summation
+            (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, int).
+            
+    correlation_btw_freq: list of tuples, optional
+            List that indicates the correlation between the frequencies;
+            the tuple entries are either instances of <class 'sympy.core.add.Add'> or <class 'sympy.core.symbol.Symbol'>;
+            the first entry is the frequency that can be replaced by the second entry, e.g., (w_o, w_1+w_2).
+
+    print_extra_term_dict: bool, optional
+        Print dictionary that explains where which additional term comes from,
+        by default 'False'.
+
+    Returns
+    -----------
+    <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'> or 0
+        SymPy expression of the extra terms that do not cancel out.
     """
     assert type(summation_indices) == list
+    assert type(print_extra_term_dict) == bool
+
     extra_terms_list = []
     if isinstance(expr, Add):
         for single_term in expr.args:
@@ -232,7 +263,7 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
                 ]
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
-        # convert single (transition) dipole moments into sympy symbols
+        # convert single (transition) dipole moments into SymPy symbols
             boks = extract_bra_op_ket(new_term_1)
             subs_list_2 = []
             for bok in boks:
@@ -249,7 +280,26 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
 
 
 def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
+    """Convert SOS expression to its ADC/ISR formulation.
+    Parameters
+    ----------
+    sos: <class 'responsetree.sum_over_states.SumOverStates'>
+    
+    extra_terms: bool, optional
+        Compute the additional terms that arise when converting the SOS expression to its ADC/ISR formulation;
+        by default 'True'.
+
+    print_extra_term_dict: bool, optional
+        Print dictionary that explains where which additional term comes from,
+        by default 'False'.
+
+    Returns
+    ----------
+    <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'>
+    """
     assert isinstance(sos, SumOverStates)
+    assert type(extra_terms) == bool
+
     if extra_terms:
         mod_expr = sos.expr + compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_cases, sos.correlation_btw_freq, print_extra_term_dict)
     else:

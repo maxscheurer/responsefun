@@ -2,10 +2,15 @@ import sympy.physics.quantum.operator as qmoperator
 from sympy import Symbol
 
 class ResponseOperator(qmoperator.Operator):
+    """
+    Base class for (state-to-state) modified transition moments and response vectors.
+    """
     def __init__(self, comp):
         """
-        Base class for (state to state) modified transition moments and response vectors
-        :param comp: Cartesian component
+        Parameters
+        ----------
+        comp: str
+            Cartesian component.
         """
         self._comp = comp
 
@@ -49,10 +54,10 @@ class ResponseVector(ResponseOperator):
         return self._no
 
     def _print_contents(self, printer):
-        return "X_{{{}, {}}}".format(self._comp, str(self._no))
+        return "X_{{{}, {}}}".format(self._comp, self._no)
 
     def _print_contents_latex(self, printer):
-        return "X_{{{}, {}}}".format(self._comp, str(self._no))
+        return "X_{{{}, {}}}".format(self._comp, self._no)
 
 
 class Matrix(qmoperator.Operator):
