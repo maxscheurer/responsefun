@@ -1,6 +1,6 @@
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from responsetree.response_operators import DipoleOperator
+from responsetree.response_operators import DipoleOperator, DipoleMoment
 from itertools import permutations
 
 from responsetree.symbols_and_labels import *
@@ -8,7 +8,7 @@ from responsetree.symbols_and_labels import *
 
 class TransitionMoment:
     """
-    Class representing a transition moment <from_state|operator|to_state> in a SymPy expression.
+    Class representing a transition moment Bra(from_state)*op*Ket(to_state) in a SymPy expression.
     """
     def __init__(self, from_state, operator, to_state):
         self.expr = Bra(from_state) * operator * Ket(to_state)
@@ -105,7 +105,7 @@ class SumOverStates:
         if excluded_cases:
             assert type(excluded_cases) == list
             for case in excluded_cases:
-                assert type(case[1]) == int
+                assert type(case[0]) == Symbol and type(case[1]) == int
 
         if isinstance(expr, Add):
             self._operators = []
@@ -113,14 +113,16 @@ class SumOverStates:
                 for a in arg.args:
                     if isinstance(a, DipoleOperator) and a not in self._operators:
                         self._operators.append(a)
+                    if isinstance(a, DipoleMoment):
+                        raise TypeError(
+                                "SOS expression must not contain an instance of <class 'responsetree.response_operators.DipoleMoment'>. "
+                                "All transition moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for example by "
+                                "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
+                        )
             for index in summation_indices:
-                sum_ind = False
                 for arg in expr.args:
-                    if Bra(index) in arg.args or Ket(index) in arg.args:
-                        sum_ind = True
-                        break
-                if not sum_ind:
-                    raise ValueError("Given indices of summation are not correct.")
+                    if Bra(index) not in arg.args or Ket(index) not in arg.args:
+                        raise ValueError("Given indices of summation are not correct.")
         elif isinstance(expr, Mul):
             self._operators = [op for op in expr.args if isinstance(op, DipoleOperator)]
             for index in summation_indices:
@@ -176,10 +178,10 @@ if __name__ == "__main__":
 
     alpha_sos = SumOverStates(alpha_sos_expr, [n])
     #print(alpha_sos.expr, alpha_sos.summation_indices, alpha_sos.transition_frequencies, alpha_sos.order, alpha_sos.operators, alpha_sos.correlation_btw_freq)
-
+    
     beta_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
     beta_sos = SumOverStates(beta_sos_term, [n, k], perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)])
-    #print(beta_sos.expr)
+    #print(beta_sos.expr.args)
     #print(beta_sos.summation_indices)
     #print(beta_sos.transition_frequencies, beta_sos.order, beta_sos.operators, beta_sos.number_of_terms)
     #print(beta_sos.latex)
@@ -188,5 +190,3 @@ if __name__ == "__main__":
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
         / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
     )
-    print(gamma_extra_terms.args)
-

@@ -1,5 +1,6 @@
-import sympy.physics.quantum.operator as qmoperator
 from sympy import Symbol
+import sympy.physics.quantum.operator as qmoperator
+
 
 class ResponseOperator(qmoperator.Operator):
     """
@@ -102,3 +103,16 @@ class DipoleMoment(Symbol):
     @property
     def to_state(self):
         return self._to_state
+
+
+class TransitionFrequency(Symbol):
+    def __new__(self, state, **assumptions):
+        assert type(state) == str
+        name = "w_{{{}}}".format(state)
+        obj = Symbol.__new__(self, name, **assumptions)
+        obj._state = state
+        return obj
+
+    @property
+    def state(self):
+        return self._state

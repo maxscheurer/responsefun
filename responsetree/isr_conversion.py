@@ -25,7 +25,6 @@ from responsetree.sum_over_states import TransitionMoment, SumOverStates
 from responsetree.build_tree import build_tree
 
 
-# TODO: extract k-mer from multiplication...
 def extract_bra_op_ket(expr):
     assert type(expr) == Mul
     bok = [Bra, DipoleOperator, Ket]
@@ -41,7 +40,7 @@ def insert_matrix(expr, M):
     ketbra_match = {str(expr.args[i].label[0]) : expr.args[i:i+2] for i, k in enumerate(expr_types)
                     if expr_types[i:i+2] == kb  # find Ket-Bra sequence
                     and expr.args[i].label[0] == expr.args[i+1].label[0] # make sure they have the same state
-                    }
+    }
     denominators = [
         x.args[0] for x in expr.args if isinstance(x, Pow) and x.args[1] == -1
     ]
@@ -55,13 +54,13 @@ def insert_matrix(expr, M):
             if isinstance(d, Add):
                 args = d.args
             elif isinstance(d, Symbol):
-                args = [d]
+                args = (d,)
             else:
                 raise TypeError("denominators")
             for ii, td in enumerate(args):
-                if state_label in str(td) and "\\" not in str(td):
+                if state_label in str(td):#TODO: make a class for the frequencies?
                     if state_label in denominator_match:
-                        raise ValueError("")
+                        raise ValueError()
                     rest = d.subs(td, 0)
                     denominator_match[state_label] = (rest, d)
                     break
@@ -73,8 +72,7 @@ def insert_matrix(expr, M):
     sub = expr.copy()
     for k in ketbra_match:
         ket, bra = ketbra_match[k]
-        freq_argument = denominator_matches[k][0]
-        denom_remove = denominator_matches[k][1]
+        freq_argument, denom_remove = denominator_matches[k]
         sub = sub.subs({
             ket: 1,
             bra: (M + freq_argument)**-1,
@@ -96,11 +94,12 @@ def insert_isr_transition_moments(expr, operators):
         ret = ret.subs(op, B)
     if ret == expr:
         print("Term contains no transition moment.")
-        #raise ValueError("Could not find any transition moments.")
     return ret
 
 
 def to_isr_single_term(expr, operators=None):
+    """Convert a single SOS term to its ADC/ISR formulation.
+    """
     if not operators:
         operators = [
             op for op in expr.args if isinstance(op, DipoleOperator)
@@ -111,11 +110,24 @@ def to_isr_single_term(expr, operators=None):
 
 
 def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
-    """
-    :param expr: single SOS term (sympy expression)
-    :param summation_indices: list of indices of summation (sympy symbols)
-    :param excluded_cases: list of tuples (index, value) with values that are excluded from the summation
-    :return: dictionary containing extra terms
+    """Compute the additional terms that arise when converting a single SOS term to its ADC/ISR formulation.
+    
+    Parameters
+    ----------
+    expr: <class 'sympy.core.mul.Mul'>
+        SymPy expression of a single SOS term.
+    
+    summation_indices: list of <class 'sympy.core.symbol.Symbol'>
+        List of indices of summation.
+    
+    excluded_cases: list of tuples, optional
+        List of (summation_index, value) pairs with values that are excluded from the summation
+        (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, int).
+
+    Returns
+    ----------
+    dict
+        Dictionary containing SymPy expressions of computed extra terms with the corresponding case as key, e.g., ((n=0), (m=0)).
     """
     assert type(expr) == Mul        
     bok_list = extract_bra_op_ket(expr)
@@ -204,7 +216,7 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
 
 
 def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlation_btw_freq=None, print_extra_term_dict=False):
-    """Compute the additional terms that arise when converting the SOS expression to its ADC/ISR formulation.
+    """Compute the additional terms that arise when converting an SOS expression to its ADC/ISR formulation.
 
     Parameters
     ----------
@@ -280,7 +292,8 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
 
 
 def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
-    """Convert SOS expression to its ADC/ISR formulation.
+    """Convert an SOS expression to its ADC/ISR formulation.
+    
     Parameters
     ----------
     sos: <class 'responsetree.sum_over_states.SumOverStates'>
@@ -391,6 +404,7 @@ if __name__ == "__main__":
     #print(rixs_sos_short.expr)
     #print(rixs_isr_short)
     #build_tree(rixs_isr_short)
+    print(compute_extra_terms(rixs_term_short, [n]))
 
     tpa_terms = (
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))

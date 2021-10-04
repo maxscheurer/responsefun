@@ -61,7 +61,7 @@ def build_branches(node, matrix):
                 elif acceptable_rhs_lhs_S2S_MTM(lhs, node.expr.args[i-2]):
                     children.append(ResponseNode(node.expr.args[i-2] * lhs * tinv**-1, tinv, node.expr.args[i-2] * lhs))
                 else:
-                    print("No invertable term found")
+                    print("No invertable term found.")
         node.children = children
                     
 
@@ -80,6 +80,15 @@ def show_tree(root):
 
 
 def build_tree(isr_expression, matrix=Matrix("M")):
+    """Build an expression tree to define response vectors for evaluating the ADC/ISR formulation of a molecular property.
+    
+    Parameters
+    ----------
+    isr_expression: <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'>
+        SymPy expression of the ADC/ISR formulation.
+
+    matrix: <class 'responsetree.response_operators.Matrix'>, optional
+    """
     root = IsrTreeNode(isr_expression)
     build_branches(root, matrix)
     show_tree(root)

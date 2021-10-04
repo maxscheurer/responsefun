@@ -60,7 +60,7 @@ matrix = adcc.AdcMatrix("adc2", refstate)
 state = adcc.adc2(scfres, n_singlets=65)
 #print(state.describe())
 
-panor_terms = sos_panor(state, 0.5, 0.3, 0.0)
+panor_terms = sos_panor(state, 0.0, 0.0, 0.0)
 #antonia_terms = sos_antonia(state, 0.5, 0.3, 0.0)
 print(panor_terms)
 #print(antonia_terms)
