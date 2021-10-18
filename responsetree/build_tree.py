@@ -1,9 +1,10 @@
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex
+from sympy.physics.quantum.operator import Operator
 from sympy.physics.quantum.state import Bra, Ket, StateBase
 from anytree import NodeMixin, RenderTree
 
 from responsetree.symbols_and_labels import *
-from responsetree.response_operators import MTM, S2S_MTM, ResponseVector, Matrix
+from responsetree.response_operators import MTM, S2S_MTM, ResponseVector
 
 
 class IsrTreeNode(NodeMixin):
@@ -79,7 +80,7 @@ def show_tree(root):
         print(treestr.ljust(8))
 
 
-def build_tree(isr_expression, matrix=Matrix("M")):
+def build_tree(isr_expression, matrix=Operator("M")):
     """Build an expression tree to define response vectors for evaluating the ADC/ISR formulation of a molecular property.
     
     Parameters
@@ -87,7 +88,15 @@ def build_tree(isr_expression, matrix=Matrix("M")):
     isr_expression: <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'>
         SymPy expression of the ADC/ISR formulation.
 
-    matrix: <class 'responsetree.response_operators.Matrix'>, optional
+    matrix: <class 'sympy.physics.quantum.operator.Operator'>, optional
+        The matrix contained in the SymPy expression.
+
+    Returns
+    ----------
+    tuple
+        The first entry is the root expression, i.e., a SymPy expression that contains instances
+        of <class 'responsetree.response_operators.ResponseVector'>;
+        the second entry is a dictionary with tuples as keys specifying the response vectors.
     """
     root = IsrTreeNode(isr_expression)
     build_branches(root, matrix)

@@ -23,7 +23,7 @@ class TransitionMoment:
         return str(self.expr)
 
 
-def _build_sos_via_permutation(term, perm_pairs, operators=None):
+def _build_sos_via_permutation(term, perm_pairs):
     """Generate a SOS expression via permutation.
     Parameters
     ----------
@@ -35,8 +35,6 @@ def _build_sos_via_permutation(term, perm_pairs, operators=None):
         (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
     
-    operators: list of <class 'responsetree.response_operators.DipoleOperator'>, optional
-
     Returns
     ----------
     <class 'sympy.core.add.Add'>
@@ -47,10 +45,10 @@ def _build_sos_via_permutation(term, perm_pairs, operators=None):
     assert type(term) == Mul
     assert type(perm_pairs) == list
     
-    if not operators:
-        operators = [
-            op for op in term.args if isinstance(op, DipoleOperator)
-        ]
+    operators = [
+        op for op in term.args if isinstance(op, DipoleOperator)
+    ]
+
     for op, pair in zip(operators, perm_pairs):
         if op != pair[0]:
             raise ValueError(
@@ -124,7 +122,14 @@ class SumOverStates:
                     if Bra(index) not in arg.args or Ket(index) not in arg.args:
                         raise ValueError("Given indices of summation are not correct.")
         elif isinstance(expr, Mul):
-            self._operators = [op for op in expr.args if isinstance(op, DipoleOperator)]
+            self._operators = [a for a in expr.args if isinstance(a, DipoleOperator)]
+            for a in expr.args:
+                if isinstance(a, DipoleMoment):
+                    raise TypeError(
+                            "SOS expression must not contain an instance of <class 'responsetree.response_operators.DipoleMoment'>. "
+                            "All transition moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for example by "
+                            "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
+                    )
             for index in summation_indices:
                 if Bra(index) not in expr.args or Ket(index) not in expr.args:
                     raise ValueError("Given indices of summation are not correct.")
@@ -132,12 +137,12 @@ class SumOverStates:
             raise TypeError("SOS expression must be either of type Mul or Add.")
 
         self._summation_indices = summation_indices
-        self._transition_frequencies = [Symbol("w_{{{}}}".format(index), real=True) for index in self._summation_indices]
+        self._transition_frequencies = [TransitionFrequency(str(index), real=True) for index in self._summation_indices]
         self.correlation_btw_freq = correlation_btw_freq
         self.excluded_cases = excluded_cases
         
         if perm_pairs:
-            self.expr = _build_sos_via_permutation(expr, perm_pairs, self._operators)
+            self.expr = _build_sos_via_permutation(expr, perm_pairs)
         else:
             self.expr = expr
 

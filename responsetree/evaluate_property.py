@@ -7,7 +7,7 @@ from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, im, Float, Int
 from itertools import permutations, product, combinations_with_replacement
 
 from responsetree.symbols_and_labels import *
-from responsetree.response_operators import MTM, S2S_MTM, ResponseVector, Matrix, DipoleOperator, DipoleMoment
+from responsetree.response_operators import MTM, S2S_MTM, ResponseVector, DipoleOperator, DipoleMoment, TransitionFrequency
 from responsetree.sum_over_states import TransitionMoment, SumOverStates
 from responsetree.isr_conversion import to_isr, compute_extra_terms
 from responsetree.build_tree import build_tree
@@ -36,7 +36,7 @@ Hartree = physical_constants["hartree-electron volt relationship"][0]
 ABC = list(string.ascii_uppercase)
 
 
-def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, final_state):
+def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, gamma_val, final_state):
     """Checks for errors in the entered frequencies or the final state.
     """
     if isinstance(sos_expr, Add):
@@ -46,15 +46,6 @@ def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, final_
         arg_list = [a for a in sos_expr.args]
         denom_list = [a.args[0] for a in arg_list if isinstance(a, Pow)]
 
-    if final_state:
-        check_f = False
-        for a in arg_list:
-            if a == Bra(final_state[0]) or a == Ket(final_state[0]):
-                check_f = True
-                break
-        if check_f == False:
-            raise ValueError("A final state was mistakenly specified.")
-
     if omegas:
         omega_symbols = [tup[0] for tup in omegas]
         for o in omega_symbols:
@@ -63,7 +54,7 @@ def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, final_
 
         sum_freq = [freq for tup in correlation_btw_freq for freq in tup[1].args]
         check_dict = {o[0]: False for o in omegas}
-        for o in check_dict.keys():
+        for o in check_dict:
             for denom in denom_list:
                 if o in denom.args or -o in denom.args or o in sum_freq or -o in sum_freq:
                     check_dict[o] = True
@@ -72,6 +63,20 @@ def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, final_
             raise ValueError(
                     "A frequency was specified that is not included in the entered SOS expression.\nomegas: {}".format(check_dict)
             )
+
+    if gamma_val:
+        for denom in denom_list:
+            if 1.0*gamma*I not in denom.args and -1.0*gamma*I not in denom.args:
+                raise ValueError("Although the entered SOS expression is real, a value for gamma was specified.")
+
+    if final_state:
+        check_f = False
+        for a in arg_list:
+            if a == Bra(final_state[0]) or a == Ket(final_state[0]):
+                check_f = True
+                break
+        if check_f == False:
+            raise ValueError("A final state was mistakenly specified.")
 
 
 def find_indices(sos_expr, summation_indices):
@@ -214,13 +219,13 @@ def evaluate_property_isr(
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
         all_omegas.append(
-                (Symbol("w_{{{}}}".format(final_state[0]), real=True),
+                (TransitionFrequency(str(final_state[0]), real=True),
                 state.excitation_energy_uncorrected[final_state[1]])
         )
     else:
         assert final_state is None
     sos = SumOverStates(sos_expr, summation_indices, correlation_btw_freq, perm_pairs)
-    _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, final_state)
+    _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
     isr = to_isr(sos, extra_terms)
     mod_isr = isr.subs(correlation_btw_freq)
     root_expr, rvecs_dict = build_tree(mod_isr)
@@ -407,34 +412,39 @@ def evaluate_property_sos(
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
         all_omegas.append(
-                (Symbol("w_{{{}}}".format(final_state[0]), real=True),
+                (TransitionFrequency(str(final_state[0]), real=True),
                 state.excitation_energy_uncorrected[final_state[1]])
         )
     else:
         assert final_state is None
     sos = SumOverStates(sos_expr, summation_indices, correlation_btw_freq, perm_pairs)
-    _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, final_state)
-
+    _check_omegas_and_final_state(sos.expr, omegas, sos.correlation_btw_freq, gamma_val, final_state)
+    
+    # all terms are stored as dictionaries in a list
     if isinstance(sos.expr, Add):
-        sos_list = [SumOverStates(term, sos.summation_indices) for term in sos.expr.args]
+        term_list = [
+                {"expr": term, "summation_indices": sos.summation_indices, "transition_frequencies": sos.transition_frequencies}
+                for term in sos.expr.args
+        ]
     else:
-        sos_list = [SumOverStates(sos.expr, sos.summation_indices)]
-    
+        term_list = [
+                {"expr": sos.expr, "summation_indices": sos.summation_indices, "transition_frequencies": sos.transition_frequencies}
+        ]
     if extra_terms:
-        et = compute_extra_terms(sos.expr, sos.summation_indices, correlation_btw_freq=sos.correlation_btw_freq)
-        if isinstance(et, Add):
-            for term in et.args:
-                sum_ind = find_indices(term, sos.summation_indices)
-                sos_list.append(SumOverStates(term, sum_ind))
-        elif isinstance(et, Mul):
-            sum_ind = find_indices(et, sos.summation_indices)
-            sos_list.append(SumOverStates(et, sum_ind))
+        ets = compute_extra_terms(sos.expr, sos.summation_indices, correlation_btw_freq=sos.correlation_btw_freq)
+        if isinstance(ets, Add):
+            et_list = list(ets.args)
+        elif isinstance(ets, Mul):
+            et_list = [ets]
+        else:
+            et_list = []
+        for et in et_list:
+            sum_ind = find_indices(et, sos.summation_indices) # the extra terms contain less indices of summation
+            trans_freq = [TransitionFrequency(str(index), real=True) for index in sum_ind]
+            term_list.append(
+                    {"expr": et, "summation_indices": sum_ind, "transition_frequencies": trans_freq}
+            )
     
-    term_list = []
-    for s in sos_list:
-        term = s.expr.subs(correlation_btw_freq)
-        term_list.append(replace_bra_op_ket(term))
-
     dtype = float
     if gamma_val != 0.0:
         dtype = complex
@@ -454,15 +464,20 @@ def evaluate_property_sos(
     else:
         components = list(product([0, 1, 2], repeat=len(sos.operators)))
     
-    for sos, term in tqdm(zip(sos_list, term_list), total=len(sos_list)):
+    for term_dict in tqdm(term_list):
+        mod_expr = replace_bra_op_ket(
+                term_dict["expr"].subs(sos.correlation_btw_freq)
+        )
+        sum_ind_str = [str(si) for si in term_dict["summation_indices"]]
+        
         # values that the indices of summation can take on
         indices = list(
-                product(range(len(state.excitation_energy_uncorrected)), repeat=len(sos.summation_indices))
+                product(range(len(state.excitation_energy_uncorrected)), repeat=len(term_dict["summation_indices"]))
         )
-        dip_mom_list = [a for a in term.args if isinstance(a, DipoleMoment)]
+        dip_mom_list = [a for a in mod_expr.args if isinstance(a, DipoleMoment)]
         for i in indices:
             state_map = {
-                    sos.summation_indices_str[ii]: ind for ii, ind in enumerate(i)
+                    sum_ind_str[ii]: ind for ii, ind in enumerate(i)
                 }
             if final_state:
                 state_map[str(final_state[0])] = final_state[1]
@@ -473,7 +488,7 @@ def evaluate_property_sos(
                 subs_dict = {o[0]: o[1] for o in all_omegas}
                 subs_dict[gamma] = gamma_val
                 
-                for si, tf in zip(sos.summation_indices_str, sos.transition_frequencies):
+                for si, tf in zip(sum_ind_str, term_dict["transition_frequencies"]):
                     subs_dict[tf] = state.excitation_energy_uncorrected[state_map[si]]
 
                 for a in dip_mom_list:
@@ -491,21 +506,21 @@ def evaluate_property_sos(
                         index1 = state_map[a.from_state]
                         index2 = state_map[a.to_state]
                         comp = comp_map[a.comp]
-                        if a.from_state in sos.summation_indices_str and a.to_state in sos.summation_indices_str: # e.g., <n|\mu|m>
+                        if a.from_state in sum_ind_str and a.to_state in sum_ind_str: # e.g., <n|\mu|m>
                             if s2s_tdms is None:
                                 s2s_tdms = state_to_state_transition_moments(state)
                             subs_dict[a] = s2s_tdms[index1, index2, comp]
-                        elif a.from_state in sos.summation_indices_str: # e.g., <n|\mu|f>
+                        elif a.from_state in sum_ind_str: # e.g., <n|\mu|f>
                             if s2s_tdms_f is None:
                                 s2s_tdms_f = state_to_state_transition_moments(state, index2)
                             subs_dict[a] = s2s_tdms_f[index1, comp]
-                        elif a.to_state in sos.summation_indices_str: # e.g., <f|\mu|n>
+                        elif a.to_state in sum_ind_str: # e.g., <f|\mu|n>
                             if s2s_tdms_f is None:
                                 s2s_tdms_f = state_to_state_transition_moments(state, index1)
                             subs_dict[a] = s2s_tdms_f[index2, comp]
                         else:
                             raise ValueError()
-                res = term.xreplace(subs_dict)
+                res = mod_expr.xreplace(subs_dict)
                 if res == zoo:
                     raise ZeroDivisionError()
                 res_tens[c] += res
@@ -571,14 +586,14 @@ def evaluate_property_sos_fast(
     subs_dict = {om_tup[0]: om_tup[1] for om_tup in omegas}
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
-        subs_dict[Symbol("w_{{{}}}".format(final_state[0]), real=True)] = (
+        subs_dict[TransitionFrequency(str(final_state[0]), real=True)] = (
             state.excitation_energy_uncorrected[final_state[1]]
         )
     else:
         assert final_state is None
     subs_dict[gamma] = gamma_val
     sos = SumOverStates(sos_expr, summation_indices, correlation_btw_freq, perm_pairs)
-    _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, final_state)
+    _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
 
     if extra_terms:
         sos_with_et = sos.expr + compute_extra_terms(sos.expr, sos.summation_indices, correlation_btw_freq=sos.correlation_btw_freq)
@@ -650,8 +665,7 @@ def evaluate_property_sos_fast(
                     pow_expr_list = [pow_expr]
                 for aa in pow_expr_list:
                     if aa in sos.transition_frequencies:
-                        iaa = sos.transition_frequencies.index(aa)
-                        index = sos.summation_indices_str[iaa]
+                        index = aa.state
                     elif isinstance(aa, Float) or isinstance(aa, Integer):
                         # convert SymPy object to float
                         shift += float(aa)
@@ -784,17 +798,17 @@ if __name__ == "__main__":
     #print(tpa_tens_sos_2)
     #np.testing.assert_allclose(tpa_tens, tpa_tens_sos_2, atol=1e-7)
 
-    omegas_gamma = [(w_1, 0.05), (w_2, 0.0), (w_3, 0.0), (w_o, w_1+w_2+w_3)]
+    omegas_gamma = [(w_1, 0.05), (w_2, 0.05), (w_3, 0.0), (w_o, w_1+w_2+w_3)]
     gamma_extra_terms = (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
             / ((w_n - w_o) * (-w_2 - w_3) * (w_m - w_3))
     )
     #tic = time.perf_counter()
-    gamma_et_tens = evaluate_property_isr(
-            state, gamma_extra_terms, [n, m], omegas_gamma, perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)], extra_terms=False
-    )
+    #gamma_et_tens = evaluate_property_isr(
+    #        state, gamma_extra_terms, [n, m], omegas_gamma, perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)], extra_terms=False
+    #)
     #toc = time.perf_counter()
-    print(gamma_et_tens)
+    #print(gamma_et_tens)
     #print(toc-tic)
     #gamma_et_tens_sos = evaluate_property_sos_fast(
     #        state, gamma_extra_terms, [n, m], omegas_gamma, perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]

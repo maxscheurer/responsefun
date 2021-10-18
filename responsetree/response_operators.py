@@ -61,10 +61,6 @@ class ResponseVector(ResponseOperator):
         return "X_{{{}, {}}}".format(self._comp, self._no)
 
 
-class Matrix(qmoperator.Operator):
-    pass
-
-
 class DipoleOperator(qmoperator.HermitianOperator):
     def __init__(self, comp):
         self._comp = comp
@@ -85,7 +81,7 @@ class DipoleMoment(Symbol):
         assert type(comp) == str
         assert type(from_state) == str
         assert type(to_state) == str
-        name = "\mu_{{{}}}^{{{}}}".format(comp, from_state+to_state)
+        name = r"\mu_{{{}}}^{{{}}}".format(comp, from_state+to_state)
         obj = Symbol.__new__(self, name, **assumptions)
         obj._comp = comp
         obj._from_state = from_state
@@ -108,7 +104,7 @@ class DipoleMoment(Symbol):
 class TransitionFrequency(Symbol):
     def __new__(self, state, **assumptions):
         assert type(state) == str
-        name = "w_{{{}}}".format(state)
+        name = r"w_{{{}}}".format(state)
         obj = Symbol.__new__(self, name, **assumptions)
         obj._state = state
         return obj

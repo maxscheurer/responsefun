@@ -17,10 +17,11 @@
 #
 
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, factor, limit, Limit
+from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, zoo
+from sympy.physics.quantum.operator import Operator
 
 from responsetree.symbols_and_labels import *
-from responsetree.response_operators import MTM, S2S_MTM, Matrix, DipoleOperator, DipoleMoment
+from responsetree.response_operators import MTM, S2S_MTM, DipoleOperator, DipoleMoment, TransitionFrequency
 from responsetree.sum_over_states import TransitionMoment, SumOverStates
 from responsetree.build_tree import build_tree
 
@@ -34,7 +35,8 @@ def extract_bra_op_ket(expr):
     return ret
 
 
-def insert_matrix(expr, M):
+def insert_matrix(expr, matrix=Operator("M")):
+    assert type(expr) == Mul
     kb = [Ket, Bra]
     expr_types = [type(term) for term in expr.args]
     ketbra_match = {str(expr.args[i].label[0]) : expr.args[i:i+2] for i, k in enumerate(expr_types)
@@ -50,18 +52,23 @@ def insert_matrix(expr, M):
         if state_label == "0":
             print("Ground state RI.")
             continue
-        for i_d, d in enumerate(denominators):
+        for d in denominators:
             if isinstance(d, Add):
-                args = d.args
+                trans_freq = [a for a in d.args if isinstance(a, TransitionFrequency)]
+                if len(trans_freq) > 1:
+                    raise ValueError("The denominator may contain only one transition frequency.")
             elif isinstance(d, Symbol):
-                args = (d,)
+                if isinstance(d, TransitionFrequency):
+                    trans_freq = [d]
+                else:
+                    trans_freq = []
             else:
-                raise TypeError("denominators")
-            for ii, td in enumerate(args):
-                if state_label in str(td):#TODO: make a class for the frequencies?
+                raise TypeError("The denominator must be either of type Add or Symbol.")
+            for tf in trans_freq:
+                if state_label == tf.state:
                     if state_label in denominator_match:
-                        raise ValueError()
-                    rest = d.subs(td, 0)
+                        raise ValueError("{} was found twice in the SOS expression.".format(tf))
+                    rest = d.subs(tf, 0)
                     denominator_match[state_label] = (rest, d)
                     break
         assert len(denominator_match) == 1
@@ -75,13 +82,14 @@ def insert_matrix(expr, M):
         freq_argument, denom_remove = denominator_matches[k]
         sub = sub.subs({
             ket: 1,
-            bra: (M + freq_argument)**-1,
+            bra: (matrix + freq_argument)**-1,
             denom_remove: 1
         })
     return sub
 
 
 def insert_isr_transition_moments(expr, operators):
+    assert type(expr) == Mul
     assert isinstance(operators, list)
     ret = expr.copy()
     for op in operators:
@@ -100,17 +108,18 @@ def insert_isr_transition_moments(expr, operators):
 def to_isr_single_term(expr, operators=None):
     """Convert a single SOS term to its ADC/ISR formulation.
     """
+    assert type(expr) == Mul
     if not operators:
         operators = [
             op for op in expr.args if isinstance(op, DipoleOperator)
         ]
-    M = Matrix("M")
     i1 = insert_isr_transition_moments(expr, operators)
+    M = Operator("M")
     return insert_matrix(i1, M)
 
 
 def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
-    """Compute the additional terms that arise when converting a single SOS term to its ADC/ISR formulation.
+    """Determine the additional terms that arise when converting a single SOS term to its ADC/ISR formulation.
     
     Parameters
     ----------
@@ -127,7 +136,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     Returns
     ----------
     dict
-        Dictionary containing SymPy expressions of computed extra terms with the corresponding case as key, e.g., ((n=0), (m=0)).
+        Dictionary containing SymPy expressions of computed extra terms with the corresponding case as key, e.g., ((n, 0), (m, 0)).
     """
     assert type(expr) == Mul        
     bok_list = extract_bra_op_ket(expr)
@@ -147,7 +156,9 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     for tup in special_cases:
         index, case = tup[0], tup[1]
         if case == O:
-            term = expr.subs([tup, (Symbol("w_{{{}}}".format(index), real=True), 0)])
+            term = expr.subs([tup, (TransitionFrequency(str(index), real=True), 0)])
+            if term == zoo:
+                raise ZeroDivisionError("Extra terms cannot be determined for static SOS expressions.")
             extra_terms[(tup,)] = term
             # find extra terms of extra term
             new_indices = summation_indices.copy()
@@ -158,7 +169,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
                     if t not in extra_terms.values():
                         extra_terms[(tup,) + c] = t
         else:
-            term = expr.subs([tup, (Symbol("w_{{{}}}".format(index), real=True), Symbol("w_{{{}}}".format(case), real=True))])
+            term = expr.subs([tup, (TransitionFrequency(str(index), real=True), TransitionFrequency(str(case), real=True))])
             boks = extract_bra_op_ket(term)
             new_term = term
             for bok in boks:
@@ -216,7 +227,7 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
 
 
 def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlation_btw_freq=None, print_extra_term_dict=False):
-    """Compute the additional terms that arise when converting an SOS expression to its ADC/ISR formulation.
+    """Determine the additional terms that arise when converting an SOS expression to its ADC/ISR formulation.
 
     Parameters
     ----------
@@ -249,13 +260,13 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
 
     extra_terms_list = []
     if isinstance(expr, Add):
-        for single_term in expr.args:
-            term_dict = extra_terms_single_sos(single_term, summation_indices, excluded_cases)
-            if print_extra_term_dict:
-                print(term_dict)
-            extra_terms_list.append(term_dict)
+        terms_list = [arg for arg in expr.args]
     elif isinstance(expr, Mul):
-        term_dict = extra_terms_single_sos(expr, summation_indices, excluded_cases)
+        terms_list = [expr]
+    else:
+        raise TypeError("SOS expression must be either of type Mul or Add.")
+    for single_term in terms_list:
+        term_dict = extra_terms_single_sos(single_term, summation_indices, excluded_cases)
         if print_extra_term_dict:
             print(term_dict)
         extra_terms_list.append(term_dict)
@@ -271,7 +282,7 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
                     new_indices.remove(tup[0])
                 subs_list_1 = list(zip(new_indices, summation_indices[:len(new_indices)]))
                 freq_list = [
-                    (Symbol("w_{{{}}}".format(ni), real=True), Symbol("w_{{{}}}".format(nsi), real=True)) for ni, nsi in subs_list_1
+                    (TransitionFrequency(str(ni), real=True), TransitionFrequency(str(nsi), real=True)) for ni, nsi in subs_list_1
                 ]
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
@@ -321,7 +332,7 @@ def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
     if isinstance(mod_expr, Add):
         for s in mod_expr.args:
             ret += to_isr_single_term(s, sos.operators)
-    elif isinstance(mod_expr, Mul):
+    else:
         ret += to_isr_single_term(mod_expr, sos.operators)
     return ret
 
@@ -387,7 +398,7 @@ if __name__ == "__main__":
     #print(alpha_sos.expr)
     #print(alpha_isr)
     #build_tree(alpha_isr)
-
+    
     rixs_terms = (
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
         + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j*gamma)
@@ -400,11 +411,11 @@ if __name__ == "__main__":
 
     rixs_term_short = rixs_terms.args[0]
     rixs_sos_short = SumOverStates(rixs_term_short, [n])
-    #rixs_isr_short = to_isr(rixs_sos_short)
+    rixs_isr_short = to_isr(rixs_sos_short)
     #print(rixs_sos_short.expr)
     #print(rixs_isr_short)
     #build_tree(rixs_isr_short)
-    print(compute_extra_terms(rixs_term_short, [n]))
+    #print(compute_extra_terms(rixs_term_short, [n], print_extra_term_dict=True))
 
     tpa_terms = (
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
