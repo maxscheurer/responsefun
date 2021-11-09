@@ -27,6 +27,8 @@ from responsetree.build_tree import build_tree
 
 
 def extract_bra_op_ket(expr):
+    """Return list of bra*op*ket sequences in a SymPy term.
+    """
     assert type(expr) == Mul
     bok = [Bra, DipoleOperator, Ket]
     expr_types = [type(term) for term in expr.args]
@@ -36,6 +38,8 @@ def extract_bra_op_ket(expr):
 
 
 def insert_matrix(expr, matrix=Operator("M")):
+    """Insert inverse shifted ADC matrix expression.
+    """
     assert type(expr) == Mul
     kb = [Ket, Bra]
     expr_types = [type(term) for term in expr.args]
@@ -89,6 +93,8 @@ def insert_matrix(expr, matrix=Operator("M")):
 
 
 def insert_isr_transition_moments(expr, operators):
+    """Insert vector F of modified transition moments and matrix B of modified excited-states transition moments.
+    """
     assert type(expr) == Mul
     assert isinstance(operators, list)
     ret = expr.copy()
@@ -106,7 +112,7 @@ def insert_isr_transition_moments(expr, operators):
 
 
 def to_isr_single_term(expr, operators=None):
-    """Convert a single SOS term to its ADC/ISR formulation.
+    """Convert a single SOS term to its ADC/ISR formulation by inserting the corresponding ISR quantities.
     """
     assert type(expr) == Mul
     if not operators:
@@ -157,33 +163,23 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
         index, case = tup[0], tup[1]
         if case == O:
             term = expr.subs([tup, (TransitionFrequency(str(index), real=True), 0)])
-            if term == zoo:
-                raise ZeroDivisionError("Extra terms cannot be determined for static SOS expressions.")
-            extra_terms[(tup,)] = term
-            # find extra terms of extra term
-            new_indices = summation_indices.copy()
-            new_indices.remove(index)
-            if new_indices:
-                new_et  = extra_terms_single_sos(term, new_indices, excluded_cases)
-                for c, t in new_et.items():
-                    if t not in extra_terms.values():
-                        extra_terms[(tup,) + c] = t
         else:
             term = expr.subs([tup, (TransitionFrequency(str(index), real=True), TransitionFrequency(str(case), real=True))])
             boks = extract_bra_op_ket(term)
-            new_term = term
             for bok in boks:
                 if bok[0].label[0] == case and bok[2].label[0] == case:
-                    new_term = new_term.subs(bok[0]*bok[1]*bok[2], Bra(O)*bok[1]*Ket(O))
-            extra_terms[(tup,)] = new_term
-            # find extra terms of extra term
-            new_indices = summation_indices.copy()
-            new_indices.remove(index)
-            if new_indices:
-                new_et  = extra_terms_single_sos(new_term, new_indices, excluded_cases)
-                for c, t in new_et.items():
-                    if t not in extra_terms.values():
-                        extra_terms[(tup,) + c] = t
+                    term = term.subs(bok[0]*bok[1]*bok[2], Bra(O)*bok[1]*Ket(O))
+        if term == zoo:
+            raise ZeroDivisionError("Extra terms cannot be determined for static SOS expressions.")
+        extra_terms[(tup,)] = term
+        # find extra terms of extra term
+        new_indices = summation_indices.copy()
+        new_indices.remove(index)
+        if new_indices:
+            new_et  = extra_terms_single_sos(term, new_indices, excluded_cases)
+            for c, t in new_et.items():
+                if t not in extra_terms.values():
+                    extra_terms[(tup,) + c] = t
     return extra_terms
 
 
@@ -314,7 +310,7 @@ def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
         by default 'True'.
 
     print_extra_term_dict: bool, optional
-        Print dictionary that explains where which additional term comes from,
+        Print dictionary explaining the origin of the additional terms,
         by default 'False'.
 
     Returns
@@ -411,7 +407,7 @@ if __name__ == "__main__":
 
     rixs_term_short = rixs_terms.args[0]
     rixs_sos_short = SumOverStates(rixs_term_short, [n])
-    rixs_isr_short = to_isr(rixs_sos_short)
+    #rixs_isr_short = to_isr(rixs_sos_short)
     #print(rixs_sos_short.expr)
     #print(rixs_isr_short)
     #build_tree(rixs_isr_short)

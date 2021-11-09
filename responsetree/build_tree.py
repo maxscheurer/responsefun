@@ -9,6 +9,18 @@ from responsetree.response_operators import MTM, S2S_MTM, ResponseVector
 
 class IsrTreeNode(NodeMixin):
     def __init__(self, expr, parent=None, children=None):
+        """
+        Parameters
+        ----------
+        expr: <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'>
+            SymPy expression the node represents.
+
+        parent: <class 'anytree.node.nodemixin.NodeMixin'>
+            Parent node.
+
+        children: iterable of <class 'anytree.node.nodemixin.NodeMixin'>
+            List of child nodes.
+        """
         super().__init__()
         self.expr = expr
         self.parent = parent
@@ -17,16 +29,30 @@ class IsrTreeNode(NodeMixin):
  
 
 class ResponseNode(NodeMixin):
-    def __init__(self, expr, tinv, rhs, parent=None, children=None):
+    def __init__(self, expr, tinv, rhs, parent=None):
+        """
+        Parameters
+        ----------
+        expr: <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'>
+            SymPy expression the node represents.
+        
+        tinv: <class 'sympy.core.mul.Mul'>
+            Term containing the inverse (shifted) ADC matrix.
+
+        rhs: <class 'responsetree.response_operators.MTM'> or sympy.physics.quantum.dagger.Dagger or <class 'sympy.core.mul.Mul'>
+            Rhs of the response equation to be solved.
+
+        parent: <class 'anytree.node.nodemixin.NodeMixin'>
+            Parent node.
+        """
         super().__init__()
+        assert isinstance(expr, Mul)
         self.expr = expr
         self.tinv = tinv
         self.rhs = rhs #rhs of response equation
         self.w = tinv.subs([(M, 0), (gamma, 0)])
         self.gamma = tinv.subs([(M, 0), (self.w, 0)])
         self.parent = parent
-        if children:
-            self.children = children
 
 
 def acceptable_rhs_lhs_MTM(term):
@@ -42,6 +68,8 @@ def acceptable_rhs_lhs_S2S_MTM(term1, term2):
 
 
 def build_branches(node, matrix):
+    """Find response equations to be solved by building up a tree structure.
+    """
     if isinstance(node.expr, Add):
         node.children = [IsrTreeNode(term) for term in node.expr.args]
         for child in node.children:
@@ -49,7 +77,7 @@ def build_branches(node, matrix):
     elif isinstance(node.expr, Mul):
         children = []
         for i, term in enumerate(node.expr.args):
-            if isinstance(term, Pow) and term.args[1] == -1 and matrix in term.args[0].args:
+            if isinstance(term, Pow) and term.args[1] == -1 and (matrix in term.args[0].args or term.args[0]==matrix):
                 tinv = term.args[0]
                 lhs = node.expr.args[i-1]
                 rhs = node.expr.args[i+1]
@@ -64,9 +92,13 @@ def build_branches(node, matrix):
                 else:
                     print("No invertable term found.")
         node.children = children
+    else:
+        raise TypeError("ADC/ISR expression must be either of type Mul or Add.")
                     
 
 def traverse_branches(node, old_expr, new_expr):
+    """Traverse the branch and replace the leaf expression in each node.
+    """
     oe = node.expr
     ne = node.expr.subs(old_expr, new_expr)
     node.expr = ne
@@ -81,7 +113,7 @@ def show_tree(root):
 
 
 def build_tree(isr_expression, matrix=Operator("M")):
-    """Build an expression tree to define response vectors for evaluating the ADC/ISR formulation of a molecular property.
+    """Build a tree structure to define response vectors for evaluating the ADC/ISR formulation of a molecular property.
     
     Parameters
     ----------
@@ -99,6 +131,7 @@ def build_tree(isr_expression, matrix=Operator("M")):
         the second entry is a dictionary with tuples as keys specifying the response vectors.
     """
     root = IsrTreeNode(isr_expression)
+    print(type(root))
     build_branches(root, matrix)
     show_tree(root)
     rvecs = {}
@@ -154,5 +187,5 @@ if __name__ == "__main__":
     gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C
     #build_tree(alpha_like)
     #build_tree(beta_like)
-    build_tree(beta_real)
+    #build_tree(beta_real)
     #build_tree(gamma_like)
