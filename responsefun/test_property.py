@@ -4,12 +4,12 @@ import numpy as np
 from scipy.constants import physical_constants
 
 
-from responsetree.testdata.static_data import xyz
-from responsetree.testdata import cache
-from responsetree.misc import expand_test_templates, assert_allclose_signfix
-from responsetree.symbols_and_labels import *
-from responsetree.sum_over_states import TransitionMoment
-from responsetree.evaluate_property import evaluate_property_isr, evaluate_property_sos, evaluate_property_sos_fast
+from responsefun.testdata.static_data import xyz
+from responsefun.testdata import cache
+from responsefun.misc import expand_test_templates, assert_allclose_signfix
+from responsefun.symbols_and_labels import *
+from responsefun.sum_over_states import TransitionMoment
+from responsefun.evaluate_property import evaluate_property_isr, evaluate_property_sos, evaluate_property_sos_fast
 from respondo.polarizability import static_polarizability, real_polarizability, complex_polarizability
 from respondo.tpa import tpa_resonant
 from respondo.rixs import rixs

@@ -70,10 +70,10 @@ class DipoleOperator(qmoperator.HermitianOperator):
         return self._comp
 
     def _print_contents(self, printer):
-        return "\mu_{{{}}}".format(self._comp)
+        return r"\mu_{{{}}}".format(self._comp)
 
     def _print_contents_latex(self, printer):
-        return "\mu_{{{}}}".format(self._comp)
+        return r"\mu_{{{}}}".format(self._comp)
 
 
 class DipoleMoment(Symbol):

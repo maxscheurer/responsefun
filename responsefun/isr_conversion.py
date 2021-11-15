@@ -20,10 +20,10 @@ from sympy.physics.quantum.state import Bra, Ket, StateBase
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, zoo
 from sympy.physics.quantum.operator import Operator
 
-from responsetree.symbols_and_labels import *
-from responsetree.response_operators import MTM, S2S_MTM, DipoleOperator, DipoleMoment, TransitionFrequency
-from responsetree.sum_over_states import TransitionMoment, SumOverStates
-from responsetree.build_tree import build_tree
+from responsefun.symbols_and_labels import *
+from responsefun.response_operators import MTM, S2S_MTM, DipoleOperator, DipoleMoment, TransitionFrequency
+from responsefun.sum_over_states import TransitionMoment, SumOverStates
+from responsefun.build_tree import build_tree
 
 
 def extract_bra_op_ket(expr):
@@ -147,6 +147,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     assert type(expr) == Mul        
     bok_list = extract_bra_op_ket(expr)
     special_cases = []
+    # find special cases
     for index in summation_indices:
         special_cases.append((index, O))
         for bok in bok_list:
@@ -155,6 +156,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
                 special_cases.append((bra, ket))
             elif ket == index and (ket, bra) not in special_cases and (bra, ket) not in special_cases:
                 special_cases.append((ket, bra))
+    #remove excluded cases
     if excluded_cases:
         for case in excluded_cases:
             special_cases.remove(case)
@@ -282,7 +284,7 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
                 ]
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
-        # convert single (transition) dipole moments into SymPy symbols
+        # convert single (transition) dipole moments to instances of DipoleMoment
             boks = extract_bra_op_ket(new_term_1)
             subs_list_2 = []
             for bok in boks:

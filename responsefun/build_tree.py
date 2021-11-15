@@ -3,8 +3,8 @@ from sympy.physics.quantum.operator import Operator
 from sympy.physics.quantum.state import Bra, Ket, StateBase
 from anytree import NodeMixin, RenderTree
 
-from responsetree.symbols_and_labels import *
-from responsetree.response_operators import MTM, S2S_MTM, ResponseVector
+from responsefun.symbols_and_labels import *
+from responsefun.response_operators import MTM, S2S_MTM, ResponseVector
 
 
 class IsrTreeNode(NodeMixin):
@@ -99,9 +99,10 @@ def build_branches(node, matrix):
 def traverse_branches(node, old_expr, new_expr):
     """Traverse the branch and replace the leaf expression in each node.
     """
-    oe = node.expr
-    ne = node.expr.subs(old_expr, new_expr)
+    oe = node.expr # new "old expression"
+    ne = node.expr.subs(old_expr, new_expr) # new "new expression"
     node.expr = ne
+    # keep traversing the branch if the root has not yet been reached
     if not node.is_root:
         traverse_branches(node.parent, oe, ne)
 

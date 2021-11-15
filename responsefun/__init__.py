@@ -4,7 +4,7 @@ Fun with Response Functions
 """
 
 # Add imports here
-from .responsefun import *
+from responsefun import *
 
 # Handle versioneer
 from ._version import get_versions

@@ -6,12 +6,12 @@ from sympy.physics.quantum.state import Bra, Ket, StateBase
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, im, Float, Integer, S, zoo, I
 from itertools import permutations, product, combinations_with_replacement
 
-from responsetree.symbols_and_labels import *
-from responsetree.response_operators import MTM, S2S_MTM, ResponseVector, DipoleOperator, DipoleMoment, TransitionFrequency
-from responsetree.sum_over_states import TransitionMoment, SumOverStates
-from responsetree.isr_conversion import to_isr, compute_extra_terms
-from responsetree.build_tree import build_tree
-from responsetree.testdata.cache import MockExcitedStates
+from responsefun.symbols_and_labels import *
+from responsefun.response_operators import MTM, S2S_MTM, ResponseVector, DipoleOperator, DipoleMoment, TransitionFrequency
+from responsefun.sum_over_states import TransitionMoment, SumOverStates
+from responsefun.isr_conversion import to_isr, compute_extra_terms
+from responsefun.build_tree import build_tree
+from responsefun.testdata.cache import MockExcitedStates
 
 from pyscf import gto, scf
 import adcc

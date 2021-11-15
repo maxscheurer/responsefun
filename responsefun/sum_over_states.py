@@ -1,9 +1,9 @@
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from responsetree.response_operators import DipoleOperator, DipoleMoment
+from responsefun.response_operators import DipoleOperator, DipoleMoment
 from itertools import permutations
 
-from responsetree.symbols_and_labels import *
+from responsefun.symbols_and_labels import *
 
 
 class TransitionMoment:
@@ -45,16 +45,19 @@ def _build_sos_via_permutation(term, perm_pairs):
     assert type(term) == Mul
     assert type(perm_pairs) == list
     
+    # extract operators from the entered SOS term
     operators = [
         op for op in term.args if isinstance(op, DipoleOperator)
     ]
-
+    # check that the (op, freq) pairs are specified in the correct order
     for op, pair in zip(operators, perm_pairs):
         if op != pair[0]:
             raise ValueError(
                 "The pairs (op, freq) must be in the same order as in the entered SOS term."
             )
+    # generate permutations
     perms = list(permutations(perm_pairs))
+    # successively build up the SOS expression
     sos_expr = term
     for i, p in enumerate(perms):
         if i > 0:

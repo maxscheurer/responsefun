@@ -1,6 +1,6 @@
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
 from sympy.physics.quantum.operator import Operator
-from responsetree.response_operators import MTM, S2S_MTM, ResponseVector, DipoleOperator, TransitionFrequency
+from responsefun.response_operators import MTM, S2S_MTM, ResponseVector, DipoleOperator, TransitionFrequency
 
 
 O, f = symbols(r"0, f", real=True)
