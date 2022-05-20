@@ -12,6 +12,7 @@ from responsefun.sum_over_states import TransitionMoment, SumOverStates
 from responsefun.isr_conversion import to_isr, compute_extra_terms
 from responsefun.build_tree import build_tree
 from responsefun.testdata.cache import MockExcitedStates
+from responsefun.b_matrix_vector_product import b_matrix_vector_product
 
 from pyscf import gto, scf
 import adcc
@@ -228,36 +229,58 @@ def evaluate_property_isr(
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
     isr = to_isr(sos, extra_terms)
     mod_isr = isr.subs(correlation_btw_freq)
-    root_expr, rvecs_dict = build_tree(mod_isr)
+    rvecs_dict_list = build_tree(mod_isr)
     
-    # check if response equations become equal after inserting values for omegas and gamma
-    rvecs_dict_mod = {}
-    for k, v in rvecs_dict.items():
-        om = float(k[1].subs(all_omegas))
-        gam = float(im(k[2].subs(gamma, gamma_val)))
-        if gam == 0 and gamma_val != 0:
-            raise ValueError(
-                    "Although the entered SOS expression is real, a value for gamma was specified."
-            )
-        new_key = (k[0], om, gam)
-        if new_key not in rvecs_dict_mod.keys():
-            rvecs_dict_mod[new_key] = [vv for vv in v.values()]
-        else:
-            rvecs_dict_mod[new_key] += [vv for vv in v.values()]
-    
-    # solve response equations
     response_dict = {}
-    for k, v in rvecs_dict_mod.items():
-        if k[0] == MTM:
-            if k[2] == 0.0:
-                response = [solve_response(matrix, rhs, -k[1], gamma=0.0, **solver_args) for rhs in rhss]
+    for tup in rvecs_dict_list:
+        root_expr, rvecs_dict = tup
+        # check if response equations become equal after inserting values for omegas and gamma
+        rvecs_dict_mod = {}
+        for k, v in rvecs_dict.items():
+            om = float(k[1].subs(all_omegas))
+            gam = float(im(k[2].subs(gamma, gamma_val)))
+            if gam == 0 and gamma_val != 0:
+                raise ValueError(
+                        "Although the entered SOS expression is real, a value for gamma was specified."
+                )
+            new_key = (k[0], om, gam)
+            if new_key not in rvecs_dict_mod.keys():
+                rvecs_dict_mod[new_key] = [v]
             else:
-                response = [solve_response(matrix, RV(rhs), -k[1], gamma=-k[2], **solver_args) for rhs in rhss]
-            for vv in v:
-                response_dict[vv] = response
-        else:
-            raise ValueError()
+                rvecs_dict_mod[new_key].append(v)
+        
+        # solve response equations
+        for k, v in rvecs_dict_mod.items():
+            if k[0] == MTM:
+                if k[2] == 0.0:
+                    response = [solve_response(matrix, rhs, -k[1], gamma=0.0, **solver_args) for rhs in rhss]
+                else:
+                    response = [solve_response(matrix, RV(rhs), -k[1], gamma=-k[2], **solver_args) for rhs in rhss]
+                for vv in v:
+                    response_dict[vv] = np.array(response, dtype=object)
+            elif type(k[0]) == tuple:
+                if len(k[0]) == 3:
+                    if k[2] == 0.0:
+                        no = k[0][2]
+                        rvecs = response_dict[no]
+                        product_vecs = b_matrix_vector_product(property_method, mp, dips, rvecs)
+                        iterables = [list(range(shape)) for shape in product_vecs.shape]
+                        components = list(product(*iterables))
+                        response = np.empty(product_vecs.shape, dtype=object)
+                        for c in components:
+                            rhs = product_vecs[c]
+                            response[c] = solve_response(matrix, rhs, -k[1], gamma=0.0)
+                    else:
+                        raise NotImplementedError("The case of complex response vectors has not been implemented yet.")
+                    for vv in v:
+                        response_dict[vv] = response
+                else:
+                    raise NotImplementedError()
+
+            else:
+                raise ValueError()
     
+    root_expr = rvecs_dict_list[-1][0]
     dtype = float
     if gamma_val != 0.0:
         dtype = complex
@@ -292,11 +315,11 @@ def evaluate_property_isr(
                     rhs = term.args[i+1]
                     if oper_a != a and isinstance(rhs, ResponseVector): # Dagger(F) * X
                         subs_dict[a*rhs] = from_vec_to_vec(
-                                rhss[comp_map[oper_a.comp]], response_dict[rhs][comp_map[rhs.comp]]
+                                rhss[comp_map[oper_a.comp]], response_dict[rhs.no][comp_map[rhs.comp]]
                         )
                     elif oper_a == a and isinstance(lhs.args[0], ResponseVector): # Dagger(X) * F
                         subs_dict[lhs*oper_a] = from_vec_to_vec(
-                                response_dict[lhs.args[0]][comp_map[lhs.args[0].comp]], rhss[comp_map[oper_a.comp]]
+                                response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]], rhss[comp_map[oper_a.comp]]
                         )
                     else:
                         raise ValueError("MTM cannot be evaluated.")
@@ -307,13 +330,15 @@ def evaluate_property_isr(
                     if isinstance(from_v, Bra): # <f| B * to_vec
                         fv = state.excitation_vector[final_state[1]]
                     elif isinstance(from_v.args[0], ResponseVector): # Dagger(X) * B * to_vec
-                        fv = response_dict[from_v.args[0]][comp_map[from_v.args[0].comp]]
+                        comp_list_int = [comp_map[char] for char in list(from_v.args[0].comp)]
+                        fv = response_dict[from_v.args[0].no][tuple(comp_list_int)]
                     else:
                         raise ValueError("Transition polarizability cannot be evaluated.")
                     if isinstance(to_v, Ket): # from_vec * B |f> 
                         tv = state.excitation_vector[final_state[1]]
                     elif isinstance(to_v, ResponseVector): # from_vec * B * X
-                        tv = response_dict[to_v][comp_map[to_v.comp]]
+                        comp_list_int = [comp_map[char] for char in list(to_v.comp)]
+                        tv = response_dict[to_v.no][tuple(comp_list_int)]
                     else:
                         raise ValueError("Transition polarizability cannot be evaluated.")
                     if isinstance(fv, AmplitudeVector) and isinstance(tv, AmplitudeVector):
@@ -745,14 +770,14 @@ if __name__ == "__main__":
             + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j*gamma)
         )
     rixs_term_short = rixs_terms.args[0]
-    #rixs_tens = evaluate_property_isr(state, rixs_term_short, [n], omega_rixs, gamma_val=0.124/Hartree, final_state=(f, 3))
-    #print(rixs_tens)
+    rixs_tens = evaluate_property_isr(state, rixs_term_short, [n], omega_rixs, gamma_val=0.124/Hartree, final_state=(f, 0))
+    print(rixs_tens)
     #rixs_strength = rixs_scattering_strength(rixs_tens, omega_rixs[0][1], omega_rixs[0][1]-state.excitation_energy_uncorrected[0])
     #print(rixs_strength)
-    #excited_state = Excitation(state, 0, "adc2")
-    #rixs_ref = rixs(excited_state, omega_rixs[0][1], gamma=0.124/Hartree)
-    #print(rixs_ref)
-    #np.testing.assert_allclose(rixs_tens, rixs_ref[1], atol=1e-7)
+    excited_state = Excitation(state, 0, "adc2")
+    rixs_ref = rixs(excited_state, omega_rixs[0][1], gamma=0.124/Hartree)
+    print(rixs_ref)
+    np.testing.assert_allclose(rixs_tens, rixs_ref[1], atol=1e-7)
     #rixs_tens_sos = evaluate_property_sos(state, rixs_term_short, [n], omega_rixs, gamma_val=0.124/Hartree, final_state=(f, 3))
     #print(rixs_tens_sos)
     #np.testing.assert_allclose(rixs_tens, rixs_tens_sos, atol=1e-7)
@@ -798,7 +823,15 @@ if __name__ == "__main__":
     #print(tpa_tens_sos_2)
     #np.testing.assert_allclose(tpa_tens, tpa_tens_sos_2, atol=1e-7)
 
-    omegas_gamma = [(w_1, 0.05), (w_2, 0.05), (w_3, 0.0), (w_o, w_1+w_2+w_3)]
+    omegas_gamma = [(w_1, 0.05), (w_2, 0.055), (w_3, 0.06), (w_o, w_1+w_2+w_3)]
+
+    gamma_term = TransitionMoment(O, op_a, n)*TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O) / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+    #gamma_term_tens = evaluate_property_isr(state, gamma_term, [n, m, p], omegas_gamma, extra_terms=False)
+    #print(gamma_term_tens)
+    #gamma_term_tens_sos = evaluate_property_sos_fast(state, gamma_term, [n, m, p], omegas_gamma, extra_terms=False)
+    #print(gamma_term_tens)
+    #np.testing.assert_allclose(gamma_term_tens, gamma_term_tens_sos, atol=1e-7)
+
     gamma_extra_terms = (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
             / ((w_n - w_o) * (-w_2 - w_3) * (w_m - w_3))
@@ -813,7 +846,7 @@ if __name__ == "__main__":
     #gamma_et_tens_sos = evaluate_property_sos_fast(
     #        state, gamma_extra_terms, [n, m], omegas_gamma, perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
     #)
-    #print(gamma_et_tens_2)
+    #print(gamma_et_tens_sos)
     #np.testing.assert_allclose(gamma_et_tens_sos, gamma_et_tens_2, atol=1e-7)
     
     gamma_extra_terms_2 = (

@@ -64,7 +64,18 @@ def acceptable_rhs_lhs_MTM(term):
 
 
 def acceptable_rhs_lhs_S2S_MTM(term1, term2):
-    return isinstance(term1, S2S_MTM) and (isinstance(term2, Bra) or isinstance(term2, Ket))
+    if isinstance(term1, S2S_MTM):
+        op_term2 = term2
+        if isinstance(term2, adjoint):
+            op_term2 = term2.args[0]
+        if isinstance(op_term2, Bra) or isinstance(op_term2, Ket): # <f|B or B|f> 
+            return True
+        elif isinstance(op_term2, ResponseVector): # Dagger(X) * B or B * X
+            return True
+        else:
+            return False
+    else:
+        return False
 
 
 def build_branches(node, matrix):
@@ -113,7 +124,7 @@ def show_tree(root):
         print(treestr.ljust(8))
 
 
-def build_tree(isr_expression, matrix=Operator("M")):
+def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=[], no=1):
     """Build a tree structure to define response vectors for evaluating the ADC/ISR formulation of a molecular property.
     
     Parameters
@@ -124,55 +135,73 @@ def build_tree(isr_expression, matrix=Operator("M")):
     matrix: <class 'sympy.physics.quantum.operator.Operator'>, optional
         The matrix contained in the SymPy expression.
 
+    rvecs_list: list, optional
+        bla
+
+    no: int, optional
+        bla
+
     Returns
     ----------
-    tuple
-        The first entry is the root expression, i.e., a SymPy expression that contains instances
+    list of tuples
+        For each tuple: The first entry is the root expression, i.e., a SymPy expression that contains instances
         of <class 'responsetree.response_operators.ResponseVector'>;
         the second entry is a dictionary with tuples as keys specifying the response vectors.
     """
     root = IsrTreeNode(isr_expression)
-    print(type(root))
     build_branches(root, matrix)
     show_tree(root)
     rvecs = {}
-    no = 1
+
     for leaf in root.leaves:
-        if isinstance(leaf, ResponseNode):
-            old_expr = leaf.expr
-            oper_rhs = leaf.rhs
-            if isinstance(leaf.rhs, adjoint):
-                oper_rhs = leaf.rhs.args[0]
-            
-            if isinstance(oper_rhs, Mul):
-                if isinstance(oper_rhs.args[0], S2S_MTM):
+        if not isinstance(leaf, ResponseNode):
+            continue
+        # if the leaf node is an instance of the ResponseNode class, a tuple will be defined that uniquely describes the resulting response vector
+        old_expr = leaf.expr
+        oper_rhs = leaf.rhs
+        if isinstance(leaf.rhs, adjoint):
+            oper_rhs = leaf.rhs.args[0]
+        
+        if isinstance(oper_rhs, Mul):
+            if isinstance(oper_rhs.args[0], S2S_MTM):
+                if isinstance(oper_rhs.args[1], ResponseVector):
+                    key = ((type(oper_rhs.args[0]), type(oper_rhs.args[1]), oper_rhs.args[1].no), leaf.w, leaf.gamma)
+                    comp = oper_rhs.args[0].comp + oper_rhs.args[1].comp
+                else:
                     key = ((type(oper_rhs.args[0]), oper_rhs.args[1]), leaf.w, leaf.gamma)
                     comp = oper_rhs.args[0].comp
-                elif isinstance(oper_rhs.args[1], S2S_MTM):
-                    key = ((oper_rhs.args[0], type(oper_rhs.args[1])), leaf.w, leaf.gamma)
-                    comp = oper_rhs.args[1].comp
+            elif isinstance(oper_rhs.args[1], S2S_MTM):
+                oper_rhs2 = oper_rhs.args[0]
+                if isinstance(oper_rhs2, adjoint):
+                    oper_rhs2 = oper_rhs.args[0].args[0]
+                if isinstance(oper_rhs2, ResponseVector):
+                    key = ((type(oper_rhs.args[1]), type(oper_rhs2), oper_rhs2.no), leaf.w, leaf.gamma)
+                    comp = oper_rhs.args[1].comp + oper_rhs2.comp
                 else:
-                    raise ValueError()
+                    key = ((type(oper_rhs.args[1]), oper_rhs2), leaf.w, leaf.gamma)
+                    comp = oper_rhs.args[1].comp
             else:
-                key = (type(oper_rhs), leaf.w, leaf.gamma)
-                comp = oper_rhs.comp
+                raise ValueError()
+        else:
+            key = (type(oper_rhs), leaf.w, leaf.gamma)
+            comp = oper_rhs.comp
 
-            if key not in rvecs:
-                rvecs[key] = {comp: ResponseVector(comp, no)}
-                no += 1
-            else:
-                if comp not in rvecs[key].keys():
-                    rv_no = list(rvecs[key].values())[0].no
-                    rvecs[key][comp] = ResponseVector(comp, rv_no)
-            
-            if oper_rhs == leaf.rhs:
-                leaf.expr = rvecs[key][comp]
-            else:
-                leaf.expr = adjoint(rvecs[key][comp])
-            traverse_branches(leaf.parent, old_expr, leaf.expr)
-    show_tree(root)
-    print(rvecs)
-    return root.expr, rvecs
+        # if the created tuple is not already among the keys of the rvecs dictionary, a new entry will be made 
+        if key not in rvecs:
+            rvecs[key] = no
+            no += 1
+        
+        if oper_rhs == leaf.rhs:
+            leaf.expr = ResponseVector(comp, rvecs[key])
+        else:
+            leaf.expr = adjoint(ResponseVector(comp, rvecs[key]))
+        traverse_branches(leaf.parent, old_expr, leaf.expr)
+
+    if rvecs:
+        rvecs_list.append((root.expr, rvecs))
+        build_tree(root.expr, matrix, rvecs_list, no)
+    return rvecs_list
+
 
 if __name__ == "__main__":
     alpha_like = adjoint(F_A) * (M - w - 1j*gamma)**-1 * F_B + adjoint(F_B) * (M + w +  1j*gamma)**-1 * F_A
@@ -185,8 +214,21 @@ if __name__ == "__main__":
         + adjoint(F_B) * (M + w_1)**-1 * B_A * (M - w_2)**-1 * F_C
         + adjoint(F_C) * (M + w_2)**-1 * B_A * (M - w_1)**-1 * F_B
     )
-    gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C
-    #build_tree(alpha_like)
-    #build_tree(beta_like)
+    gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C + adjoint(F_D) * (M - w)**-1 * B_A * (M + w)**-1 * B_C * (M + 2*w)**-1 * F_B
+    gamma_extra = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M - w_3)**-1 * F_D / (-w_2 - w_3)
+    B_E = S2S_MTM("E")
+    F_F = MTM("F")
+    higher_order_like = adjoint(F_A) * (M - w)**-1 * B_B * (M - w)**-1 * B_C * (M - w)**-1 * B_D * (M - w)**-1 * B_E * (M - w)**-1 * F_F
+    #test2 = adjoint(F_A) * (M)**-1 * F_B + adjoint(F_B) * (M)**-1 * F_A
+    #print(build_tree(test2))
+    #print(build_tree(beta_like))
     #build_tree(beta_real)
     #build_tree(gamma_like)
+    #print(build_tree(gamma_extra))
+    #gamma_test = ResponseVector("A", 2) * B_B * (M + w)**-1 * B_D * ResponseVector("B", 1) + ResponseVector("B", 2) * B_B * (M + w)**-1 * B_D * ResponseVector("C", 1)
+    #root_test = IsrTreeNode(gamma_test)
+    #build_branches(root_test, Operator("M"))
+    #show_tree(root_test)
+    #for leaf in root_test.leaves:
+    #    print(isinstance(leaf, ResponseNode))
+    print(build_tree(higher_order_like))
