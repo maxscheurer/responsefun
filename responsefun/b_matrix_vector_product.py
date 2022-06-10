@@ -10,17 +10,13 @@ from adcc import block as b
 from adcc.functions import einsum
 from adcc.AmplitudeVector import AmplitudeVector
 from adcc.adc_pp import modified_transition_moments
-from adcc.OneParticleOperator import product_trace
-
-# from respondo.misc import select_property_method
-# from respondo.solve_response import solve_response
 
 
 def b_matrix_vector_product(method, ground_state, dips, vecs):
     if not isinstance(method, AdcMethod):
         method = AdcMethod(method)
-    # if method.name != "adc2":
-    #     raise NotImplementedError(f"b_matrix_vector_product is not implemented for {method.name}.")
+    if method.name != "adc2":
+        raise NotImplementedError(f"b_matrix_vector_product is not implemented for {method.name}.")
     if not isinstance(ground_state, LazyMp):
         raise TypeError("ground_state should be a LazyMp object.")
     if not isinstance(dips, list):
@@ -69,33 +65,12 @@ def b_matrix_vector_product(method, ground_state, dips, vecs):
             # 
             - 1.0 * einsum('kc,kncf,imaf,mn->ia', vec.ph, t2, t2, dip.oo)
             + 1.0 * einsum('kc,knce,inaf,ef->ia', vec.ph, t2, t2, dip.vv)
-            # u12
+            # 
             - 2.0 * einsum('ilad,ld->ia', vec.pphh, dip.ov)
             + 2.0 * einsum('ilad,lndf,nf->ia', vec.pphh, t2, dip.ov)
-            # + 2.0 * einsum('ilca,lc->ia', vec.pphh, dip.ov)
-            # - 2.0 * einsum('ilca,lncf,nf->ia', vec.pphh, t2, dip.ov)
             - 1.0 * einsum('klad,kled,ie->ia', vec.pphh, t2, dip.ov)
             - 1.0 * einsum('ilcd,nlcd,na->ia', vec.pphh, t2, dip.ov)
         )
-        # pphh = 0.5 * (
-        #     (
-        #             - 1.0 * einsum('ia,jb->ijab', vec.ph, dip.ov)
-        #             + 1.0 * einsum('ia,jnbf,nf->ijab', vec.ph, t2, dip.ov)
-        #             + 1.0 * einsum('ja,ib->ijab', vec.ph, dip.ov)
-        #             - 1.0 * einsum('ja,inbf,nf->ijab', vec.ph, t2, dip.ov)
-        #             + 1.0 * einsum('ib,ja->ijab', vec.ph, dip.ov)
-        #             - 1.0 * einsum('ib,jnaf,nf->ijab', vec.ph, t2, dip.ov)
-        #             - 1.0 * einsum('jb,ia->ijab', vec.ph, dip.ov)
-        #             + 1.0 * einsum('jb,inaf,nf->ijab', vec.ph, t2, dip.ov)
-        #             - 1.0 * einsum('ka,ijeb,ke->ijab', vec.ph, t2, dip.ov)
-        #             + 1.0 * einsum('kb,ijea,ke->ijab', vec.ph, t2, dip.ov)
-        #             - 1.0 * einsum('ic,njab,nc->ijab', vec.ph, t2, dip.ov)
-        #             + 1.0 * einsum('jc,niab,nc->ijab', vec.ph, t2, dip.ov)
-        #             + 2.0 * einsum('ac,ijcb->ijab', dip.vv, vec.pphh)
-        #             - 2.0 * einsum('bc,ijca->ijab', dip.vv, vec.pphh)
-        #             - 2.0 * einsum('ki,kjab->ijab', dip.oo, vec.pphh)
-        #             + 2.0 * einsum('kj,kiab->ijab', dip.oo, vec.pphh)
-        # ).antisymmetrise((0, 1), (2, 3))
         pphh = 0.5 * (
             + (
                 - 1.0 * einsum('kc,ld->klcd', vec.ph, dip.ov)
@@ -116,11 +91,11 @@ def b_matrix_vector_product(method, ground_state, dips, vecs):
                 + 1.0 * einsum('la,nkcd,na->klcd', vec.ph, t2, dip.ov)
             ).antisymmetrise(0, 1)
         )
-        pphh += 2.0 * (
+        pphh += 1.0 * (
             + 1.0 * einsum('ac,ijcb->ijab', dip.vv, vec.pphh)
             - 1.0 * einsum('bc,ijca->ijab', dip.vv, vec.pphh)
         ).antisymmetrise(2, 3)
-        pphh += 2.0 * (
+        pphh += 1.0 * (
             - 1.0 * einsum('ki,kjab->ijab', dip.oo, vec.pphh)
             + 1.0 * einsum('kj,kiab->ijab', dip.oo, vec.pphh)
         ).antisymmetrise(0, 1)
@@ -129,6 +104,7 @@ def b_matrix_vector_product(method, ground_state, dips, vecs):
 
 
 if __name__ == "__main__":
+    from adcc.OneParticleOperator import product_trace
     mol = gto.M(
         atom="""
         O 0 0 0
@@ -143,21 +119,21 @@ if __name__ == "__main__":
     refstate = adcc.ReferenceState(scfres)
 
     state = adcc.adc2(scfres, n_singlets=10)
-    # property_method = select_property_method(matrix)
     mp = state.ground_state
     dips = state.reference_state.operators.electric_dipole
     mtms = modified_transition_moments("adc2", mp, dips)
-    # rvecs = [solve_response(matrix, rhs, -0.59, 0.0) for rhs in mtms]
-    
-    ev = state.excitation_vector[0]
-    product_vecs = b_matrix_vector_product("adc2", mp, dips, ev)
-    
-    print(ev)
-    dipmom = [ev @ pr for pr in product_vecs]
-    
-    diffdm = state.state_diffdm[0]
-    dipmom_ref = [
-        product_trace(diffdm, dip) for dip in dips
-    ]
-    print(dipmom)
-    print(dipmom_ref)
+
+    product_vecs = b_matrix_vector_product("adc2", mp, dips, state.excitation_vector)
+
+    for excitation in state.excitations:
+        dipmom = [
+            excitation.excitation_vector @ pr
+            for pr in product_vecs[:, excitation.index]
+        ]
+        diffdm = excitation.state_diffdm
+        dipmom_ref = [
+            product_trace(diffdm, dip) for dip in dips
+        ]
+        np.testing.assert_allclose(
+            dipmom, dipmom_ref, atol=1e-12
+        )
