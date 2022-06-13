@@ -124,7 +124,7 @@ def show_tree(root):
         print(treestr.ljust(8))
 
 
-def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=[], no=1):
+def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
     """Build a tree structure to define response vectors for evaluating the ADC/ISR formulation of a molecular property.
     
     Parameters
@@ -148,6 +148,8 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=[], no=1):
         of <class 'responsetree.response_operators.ResponseVector'>;
         the second entry is a dictionary with tuples as keys specifying the response vectors.
     """
+    if rvecs_list is None:
+        rvecs_list = []
     root = IsrTreeNode(isr_expression)
     build_branches(root, matrix)
     show_tree(root)
@@ -219,16 +221,9 @@ if __name__ == "__main__":
     B_E = S2S_MTM("E")
     F_F = MTM("F")
     higher_order_like = adjoint(F_A) * (M - w)**-1 * B_B * (M - w)**-1 * B_C * (M - w)**-1 * B_D * (M - w)**-1 * B_E * (M - w)**-1 * F_F
-    #test2 = adjoint(F_A) * (M)**-1 * F_B + adjoint(F_B) * (M)**-1 * F_A
-    #print(build_tree(test2))
+    #print(build_tree(alpha_like))
     #print(build_tree(beta_like))
     #build_tree(beta_real)
     #build_tree(gamma_like)
     #print(build_tree(gamma_extra))
-    #gamma_test = ResponseVector("A", 2) * B_B * (M + w)**-1 * B_D * ResponseVector("B", 1) + ResponseVector("B", 2) * B_B * (M + w)**-1 * B_D * ResponseVector("C", 1)
-    #root_test = IsrTreeNode(gamma_test)
-    #build_branches(root_test, Operator("M"))
-    #show_tree(root_test)
-    #for leaf in root_test.leaves:
-    #    print(isinstance(leaf, ResponseNode))
-    print(build_tree(higher_order_like))
+    #print(build_tree(higher_order_like))
