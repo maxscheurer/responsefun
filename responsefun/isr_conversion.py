@@ -21,7 +21,7 @@ from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, frac
 from sympy.physics.quantum.operator import Operator
 
 from responsefun.symbols_and_labels import *
-from responsefun.response_operators import MTM, S2S_MTM, DipoleOperator, DipoleMoment, TransitionFrequency
+from responsefun.response_operators import MTM, S2S_MTM, DipoleOperator, DipoleMoment, TransitionFrequency, LeviCivita
 from responsefun.sum_over_states import TransitionMoment, SumOverStates
 from responsefun.build_tree import build_tree
 
@@ -35,6 +35,22 @@ def extract_bra_op_ket(expr):
     ret = [list(expr.args[i:i+3]) for i, k in enumerate(expr_types)
            if expr_types[i:i+3] == bok]
     return ret
+
+
+def insert_single_dipole_moments(expr, summation_indices):
+    assert type(expr) == Mul
+    boks = extract_bra_op_ket(expr)
+    subs_list = []
+    for bok in boks:
+        bra, ket = bok[0].label[0], bok[2].label[0]
+        if bra == O and ket not in summation_indices:
+            mu_symbol = DipoleMoment(bok[1].comp, str(bra), str(ket))
+            subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
+        elif ket == O and bra not in summation_indices:
+            mu_symbol = DipoleMoment(bok[1].comp, str(ket), str(bra))
+            subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
+    return expr.subs(subs_list)
+
 
 
 def insert_matrix(expr, matrix=Operator("M")):
@@ -285,17 +301,7 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
         # convert single (transition) dipole moments to instances of DipoleMoment
-            boks = extract_bra_op_ket(new_term_1)
-            subs_list_2 = []
-            for bok in boks:
-                bra, ket = bok[0].label[0], bok[2].label[0]
-                if bra == O and ket not in summation_indices:
-                    mu_symbol = DipoleMoment(bok[1].comp, str(bra), str(ket))
-                    subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
-                elif ket == O and bra not in summation_indices:
-                    mu_symbol = DipoleMoment(bok[1].comp, str(ket), str(bra))
-                    subs_list_2.append((bok[0]*bok[1]*bok[2], mu_symbol))
-            new_term_2 = new_term_1.subs(subs_list_2)
+            new_term_2 = insert_single_dipole_moments(new_term_1, summation_indices)
             mod_extra_terms.append(new_term_2)
     return compute_remaining_terms(mod_extra_terms, correlation_btw_freq)
 
@@ -322,10 +328,18 @@ def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
     assert isinstance(sos, SumOverStates)
     assert type(extra_terms) == bool
 
-    if extra_terms:
-        mod_expr = sos.expr + compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_cases, sos.correlation_btw_freq, print_extra_term_dict)
+    if isinstance(sos.expr, Add):
+        terms_list = [arg for arg in sos.expr.args]
     else:
-        mod_expr = sos.expr
+        terms_list = [sos.expr]
+
+    mod_expr = 0
+    for term in terms_list:
+        mod_expr += insert_single_dipole_moments(term, sos.summation_indices)
+
+    if extra_terms:
+        mod_expr += compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_cases, sos.correlation_btw_freq, print_extra_term_dict)
+
     ret = 0
     if isinstance(mod_expr, Add):
         for s in mod_expr.args:
@@ -383,7 +397,7 @@ for case in test_cases:
     if ret != ref:
         raise AssertionError(f"Test {case} failed:"
                             " ref = {ref}, ret = {ret}")
-    # print(latex(ret))
+    #print(latex(ret))
 
 
 if __name__ == "__main__":
@@ -436,37 +450,52 @@ if __name__ == "__main__":
     #build_tree(esp_isr)
 
     beta_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
-    beta_sos = SumOverStates(beta_term, [n, k], [(w_o, w_1+w_2)], [(op_a, -w_o), (op_b, w_1), (op_c, w_2)])
-    #beta_isr = to_isr(beta_sos)
+    #beta_sos = SumOverStates(beta_term, [n, k], [(w_o, w_1+w_2)], [(op_a, -w_o), (op_b, w_1), (op_c, w_2)])
+    beta_sos_test = SumOverStates(beta_term, [n, k])
+    #beta_isr = to_isr(beta_sos_test, extra_terms=False)
     #print(beta_sos.expr)
     #print(beta_isr)
     #build_tree(beta_isr)
 
-    #TODO: make it work for beta complex, threepa and gamma
-
     beta_complex_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o - 1j*gamma) * (w_k - w_2 - 1j*gamma))
-    beta_complex_sos = SumOverStates(beta_complex_term, [n, k], [(w_o, w_1+w_2)], [(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)])
+    beta_complex_sos = SumOverStates(beta_complex_term, [n, k], correlation_btw_freq=[(w_o, w_1+w_2+1j*gamma)], perm_pairs=[(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)])
     #print(beta_complex_sos.expr)
     #extra_terms_beta = compute_extra_terms(beta_complex_sos.expr, beta_complex_sos.summation_indices, correlation_btw_freq=beta_complex_sos.correlation_btw_freq)
     #print(extra_terms_beta)
+    #beta_complex_isr = to_isr(beta_complex_sos)
 
-    threepa_term = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
-    threepa_sos = SumOverStates(threepa_term, [m, n], [(w_f, w_1+w_2+w_3)], [(op_b, w_1), (op_c, w_2), (op_d, w_3)])
+    threepa_term = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
+    #threepa_term_test = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w_f/3 - w_f/3) * (w_m - w_f/3))
+    #threepa_term_test = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w - w) * (w_m - w))
+    threepa_sos = SumOverStates(threepa_term, [m, n], correlation_btw_freq=[(w_f, w_1+w_2+w_3)], perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)])
+    #threepa_sos = SumOverStates(threepa_term_test, [m, n], [(w_f, 3*w)], perm_pairs=[(op_b, w_f), (op_c, w_f), (op_d, w_f)])
+    #threepa_terms_mod = threepa_sos.expr
+    #threepa_terms_mod = threepa_sos.expr.subs([(w_1, w), (w_2, w), (w_3, w)])
+    #for arg in threepa_sos.expr.args:
+    #    print(arg)
+    #threepa_extra_terms = compute_extra_terms(threepa_sos.expr, [m, n], correlation_btw_freq=[(w_f, w_1+w_2+w_3)], print_extra_term_dict=True)
+    #for arg in threepa_extra_terms.args:
+    #    print("here: ", arg)
     #threepa_isr = to_isr(threepa_sos)
     #print(threepa_sos.expr)
     #print(len(threepa_isr.args))
+    #for arg in threepa_isr.args:
+    #    print(arg)
 
     gamma_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_k - w_3))
-    gamma_sos = SumOverStates(gamma_term, [n, m, k], [(w_o, w_1+w_2+w_3)], [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)])
+    gamma_sos = SumOverStates(gamma_term, [n, m, k], correlation_btw_freq=[(w_o, w_1+w_2+w_3)], perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)])
     #gamma_isr = to_isr(gamma_sos)
     #print(gamma_sos.expr)
     #print(len(gamma_isr.args))
     #for arg in gamma_isr.args:
     #    print(arg)
-    #print(compute_extra_terms(gamma_sos.expr, gamma_sos.summation_indices, correlation_btw_freq=gamma_sos.correlation_btw_freq))
+    #extra_terms_gamma = compute_extra_terms(gamma_sos.expr, gamma_sos.summation_indices, correlation_btw_freq=gamma_sos.correlation_btw_freq)
+    #print(len(extra_terms_gamma.args))
+    #for arg in extra_terms_gamma.args:
+    #    print(arg)
 
     gamma_test_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O) / ((w_n - w_o) * (-w_2 - w_3) * (w_m - w_3))
-    print(gamma_test_term)
-    gamma_test_sos = SumOverStates(gamma_test_term, [n, m], [(w_o, w_1+w_2+w_3)])
-    gamma_test_isr = to_isr(gamma_test_sos, False)
-    print(gamma_test_isr)
+    #print(gamma_test_term)
+    #gamma_test_sos = SumOverStates(gamma_test_term, [n, m], [(w_o, w_1+w_2+w_3)])
+    #gamma_test_isr = to_isr(gamma_test_sos, False)
+    #print(gamma_test_isr)

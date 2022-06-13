@@ -24,25 +24,49 @@ class ResponseOperator(qmoperator.Operator):
 
 
 class MTM(ResponseOperator):
-    def __init__(self, comp):
+    def __init__(self, comp, op_type="electric"):
         super().__init__(comp)
+        assert op_type in ["electric", "magnetic"]
+        self._op_type = op_type
+        
+    @property
+    def op_type(self):
+        return self._op_type
 
     def _print_contents(self, printer):
-        return "F_{{{}}}".format(self._comp)
+        if self._op_type == "electric":
+            return "F_{{{}}}".format(self._comp)
+        else:
+            return "Fm_{{{}}}".format(self._comp)
 
     def _print_contents_latex(self, printer):
-        return "F_{{{}}}".format(self._comp)
+        if self._op_type == "electric":
+            return "F_{{{}}}".format(self._comp)
+        else:
+            "Fm_{{{}}}".format(self._comp)
 
 
 class S2S_MTM(ResponseOperator):
-    def __init__(self, comp):
+    def __init__(self, comp, op_type="electric"):
         super().__init__(comp)
+        assert op_type in ["electric", "magnetic"]
+        self._op_type = op_type
+
+    @property
+    def op_type(self):
+        return self._op_type
 
     def _print_contents(self, printer):
-        return "B_{{{}}}".format(self._comp)
+        if self._op_type == "electric":
+            return "B_{{{}}}".format(self._comp)
+        else:
+            return "Bm_{{{}}}".format(self._comp)
 
     def _print_contents_latex(self, printer):
-        return "B_{{{}}}".format(self._comp)
+        if self._op_type == "electric":
+            return "B_{{{}}}".format(self._comp)
+        else:
+            return "Bm_{{{}}}".format(self._comp)
 
 
 class ResponseVector(ResponseOperator):
@@ -62,30 +86,47 @@ class ResponseVector(ResponseOperator):
 
 
 class DipoleOperator(qmoperator.HermitianOperator):
-    def __init__(self, comp):
+    def __init__(self, comp, op_type="electric"):
+        assert op_type in ["electric", "magnetic"]
         self._comp = comp
+        self._op_type = op_type
 
     @property
     def comp(self):
         return self._comp
 
+    @property
+    def op_type(self):
+        return self._op_type
+
     def _print_contents(self, printer):
-        return r"\mu_{{{}}}".format(self._comp)
+        if self._op_type == "electric":
+            return r"\mu_{{{}}}".format(self._comp)
+        else:
+            return r"m_{{{}}}".format(self._comp)
 
     def _print_contents_latex(self, printer):
-        return r"\mu_{{{}}}".format(self._comp)
+        if self._op_type == "electric":
+            return r"\mu_{{{}}}".format(self._comp)
+        else:
+            return r"m_{{{}}}".format(self._comp)
 
 
 class DipoleMoment(Symbol):
-    def __new__(self, comp, from_state, to_state, **assumptions):
+    def __new__(self, comp, from_state, to_state, op_type="electric", **assumptions):
         assert type(comp) == str
         assert type(from_state) == str
         assert type(to_state) == str
-        name = r"\mu_{{{}}}^{{{}}}".format(comp, from_state+to_state)
+        assert op_type in ["electric", "magnetic"]
+        if op_type == "electric":
+            name = r"\mu_{{{}}}^{{{}}}".format(comp, from_state+to_state)
+        else:
+            name = r"m_{{{}}}^{{{}}}".format(comp, from_state+to_state)
         obj = Symbol.__new__(self, name, **assumptions)
         obj._comp = comp
         obj._from_state = from_state
         obj._to_state = to_state
+        obj._op_type = op_type
         return obj
 
     @property
@@ -100,6 +141,10 @@ class DipoleMoment(Symbol):
     def to_state(self):
         return self._to_state
 
+    @property
+    def op_type(self):
+        return self._op_type
+
 
 class TransitionFrequency(Symbol):
     def __new__(self, state, **assumptions):
@@ -112,3 +157,10 @@ class TransitionFrequency(Symbol):
     @property
     def state(self):
         return self._state
+
+
+class LeviCivita(Symbol):
+    def __new__(self, **assumptions):
+        name = r"\epsilon_{ABC}"
+        obj = Symbol.__new__(self, name, **assumptions)
+        return obj

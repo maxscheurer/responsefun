@@ -11,6 +11,7 @@ from responsefun.response_operators import MTM, S2S_MTM, ResponseVector, DipoleO
 from responsefun.sum_over_states import TransitionMoment, SumOverStates
 from responsefun.isr_conversion import to_isr, compute_extra_terms
 from responsefun.build_tree import build_tree
+from responsefun.testdata import cache
 from responsefun.testdata.cache import MockExcitedStates
 from responsefun.b_matrix_vector_product import b_matrix_vector_product
 
@@ -61,9 +62,10 @@ def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, gamma_
                     check_dict[o] = True
                     break
         if False in check_dict.values():
-            raise ValueError(
-                    "A frequency was specified that is not included in the entered SOS expression.\nomegas: {}".format(check_dict)
-            )
+            pass
+            #raise ValueError(
+            #        "A frequency was specified that is not included in the entered SOS expression.\nomegas: {}".format(check_dict)
+            #)
 
     if gamma_val:
         for denom in denom_list:
@@ -156,7 +158,7 @@ def from_vec_to_vec(from_vec, to_vec):
 
 def evaluate_property_isr(
         state, sos_expr, summation_indices, omegas=None, gamma_val=0.0,
-        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False, **solver_args
+        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False, excluded_cases=None, **solver_args
     ):
     """Compute a molecular property with the ADC/ISR approach from its SOS expression.
 
@@ -204,7 +206,7 @@ def evaluate_property_isr(
     property_method = select_property_method(matrix)
     mp = matrix.ground_state
     dips = state.reference_state.operators.electric_dipole
-    rhss = modified_transition_moments(property_method, mp, dips)
+    mtms = modified_transition_moments(property_method, mp, dips)
     gs_dip_moment = mp.dipole_moment(property_method.level)
 
     if omegas is None:
@@ -225,12 +227,14 @@ def evaluate_property_isr(
         )
     else:
         assert final_state is None
-    sos = SumOverStates(sos_expr, summation_indices, correlation_btw_freq, perm_pairs)
+    sos = SumOverStates(
+            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq, perm_pairs=perm_pairs, excluded_cases=excluded_cases
+    )
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
     isr = to_isr(sos, extra_terms)
     mod_isr = isr.subs(correlation_btw_freq)
     rvecs_dict_list = build_tree(mod_isr)
-    
+
     response_dict = {}
     for tup in rvecs_dict_list:
         root_expr, rvecs_dict = tup
@@ -253,15 +257,16 @@ def evaluate_property_isr(
         for k, v in rvecs_dict_mod.items():
             if k[0] == MTM:
                 if k[2] == 0.0:
-                    response = [solve_response(matrix, rhs, -k[1], gamma=0.0, **solver_args) for rhs in rhss]
+                    response = [solve_response(matrix, rhs, -k[1], gamma=0.0, **solver_args) for rhs in mtms]
                 else:
-                    response = [solve_response(matrix, RV(rhs), -k[1], gamma=-k[2], **solver_args) for rhs in rhss]
+                    response = [solve_response(matrix, RV(rhs), -k[1], gamma=-k[2], **solver_args) for rhs in mtms]
                 for vv in v:
                     response_dict[vv] = np.array(response, dtype=object)
             elif type(k[0]) == tuple:
                 if len(k[0]) == 3:
                     if k[2] == 0.0:
                         no = k[0][2]
+                        #print("no rvec: ", no)
                         rvecs = response_dict[no]
                         product_vecs = b_matrix_vector_product(property_method, mp, dips, rvecs)
                         iterables = [list(range(shape)) for shape in product_vecs.shape]
@@ -274,13 +279,25 @@ def evaluate_property_isr(
                         raise NotImplementedError("The case of complex response vectors has not been implemented yet.")
                     for vv in v:
                         response_dict[vv] = response
+                elif len(k[0]) == 2:
+                    product_vecs = b_matrix_vector_product(property_method, mp, dips, state.excitation_vector[final_state[1]])
+                    if k[2] == 0.0:
+                        response = [solve_response(matrix, rhs, -k[1], gamma=0.0, **solver_args) for rhs in product_vecs]
+                    else:
+                        response = [solve_response(matrix, RV(rhs), -k[1], gamma=-k[2], **solver_args) for rhs in product_vecs]
+                    for vv in v:
+                        response_dict[vv] = np.array(response, dtype=object)
                 else:
                     raise NotImplementedError()
 
             else:
                 raise ValueError()
     
-    root_expr = rvecs_dict_list[-1][0]
+    if rvecs_dict_list:
+        root_expr = rvecs_dict_list[-1][0]
+    else:
+        root_expr = mod_isr
+
     dtype = float
     if gamma_val != 0.0:
         dtype = complex
@@ -315,11 +332,11 @@ def evaluate_property_isr(
                     rhs = term.args[i+1]
                     if oper_a != a and isinstance(rhs, ResponseVector): # Dagger(F) * X
                         subs_dict[a*rhs] = from_vec_to_vec(
-                                rhss[comp_map[oper_a.comp]], response_dict[rhs.no][comp_map[rhs.comp]]
+                                mtms[comp_map[oper_a.comp]], response_dict[rhs.no][comp_map[rhs.comp]]
                         )
                     elif oper_a == a and isinstance(lhs.args[0], ResponseVector): # Dagger(X) * F
                         subs_dict[lhs*oper_a] = from_vec_to_vec(
-                                response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]], rhss[comp_map[oper_a.comp]]
+                                response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]], mtms[comp_map[oper_a.comp]]
                         )
                     else:
                         raise ValueError("MTM cannot be evaluated.")
@@ -379,7 +396,7 @@ def evaluate_property_isr(
 
 def evaluate_property_sos(
         state, sos_expr, summation_indices, omegas=None, gamma_val=0.0,
-        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False
+        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False, excluded_cases=None
     ):
     """Compute a molecular property from its SOS expression.
 
@@ -442,7 +459,9 @@ def evaluate_property_sos(
         )
     else:
         assert final_state is None
-    sos = SumOverStates(sos_expr, summation_indices, correlation_btw_freq, perm_pairs)
+    sos = SumOverStates(
+            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq, perm_pairs=perm_pairs, excluded_cases=excluded_cases
+    )
     _check_omegas_and_final_state(sos.expr, omegas, sos.correlation_btw_freq, gamma_val, final_state)
     
     # all terms are stored as dictionaries in a list
@@ -558,7 +577,7 @@ def evaluate_property_sos(
 
 def evaluate_property_sos_fast(
         state, sos_expr, summation_indices, omegas=None, gamma_val=0.0,
-        final_state=None, perm_pairs=None, extra_terms=True
+        final_state=None, perm_pairs=None, extra_terms=True, excluded_cases=None
     ):
     """Compute a molecular property from its SOS expression using the Einstein summation convention.
 
@@ -617,7 +636,9 @@ def evaluate_property_sos_fast(
     else:
         assert final_state is None
     subs_dict[gamma] = gamma_val
-    sos = SumOverStates(sos_expr, summation_indices, correlation_btw_freq, perm_pairs)
+    sos = SumOverStates(
+            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq, perm_pairs=perm_pairs, excluded_cases=excluded_cases
+    )
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
 
     if extra_terms:
@@ -747,8 +768,10 @@ if __name__ == "__main__":
 
     refstate = adcc.ReferenceState(scfres)
     matrix = adcc.AdcMatrix("adc2", refstate)
-    state = adcc.adc2(scfres, n_singlets=65)
-    
+    state = adcc.adc2(scfres, n_singlets=5)
+    mock_state = cache.data_fulldiag["h2o_sto3g_adc2"]
+   
+#------------------------------------------------------
     omega_alpha = (w, 0.59)
     alpha_terms = (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
@@ -758,9 +781,9 @@ if __name__ == "__main__":
     #print(alpha_tens)
     #alpha_ref = complex_polarizability(matrix, omega=omega_alpha[1], gamma=0.124/Hartree)
     #np.testing.assert_allclose(alpha_tens, alpha_ref, atol=1e-7)
-    #alpha_tens_sos = evaluate_property_sos(state, alpha_terms, [n], omega_alpha, gamma_val=0.124/Hartree, symmetric=True)
+    #alpha_tens_sos = evaluate_property_sos(mock_state, alpha_terms, [n], omega_alpha, gamma_val=0.124/Hartree, symmetric=True)
     #np.testing.assert_allclose(alpha_tens, alpha_tens_sos, atol=1e-7)
-    #alpha_tens_sos_2 = evaluate_property_sos_fast(state, alpha_terms, [n], omega_alpha, gamma_val=0.124/Hartree)
+    #alpha_tens_sos_2 = evaluate_property_sos_fast(mock_state, alpha_terms, [n], omega_alpha, gamma_val=0.124/Hartree)
     #print(alpha_tens_sos_2)
     #np.testing.assert_allclose(alpha_tens, alpha_tens_sos_2, atol=1e-7)
 
@@ -770,14 +793,14 @@ if __name__ == "__main__":
             + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j*gamma)
         )
     rixs_term_short = rixs_terms.args[0]
-    rixs_tens = evaluate_property_isr(state, rixs_term_short, [n], omega_rixs, gamma_val=0.124/Hartree, final_state=(f, 0))
-    print(rixs_tens)
+    #rixs_tens = evaluate_property_isr(state, rixs_term_short, [n], omega_rixs, gamma_val=0.124/Hartree, final_state=(f, 0))
+    #print(rixs_tens)
     #rixs_strength = rixs_scattering_strength(rixs_tens, omega_rixs[0][1], omega_rixs[0][1]-state.excitation_energy_uncorrected[0])
     #print(rixs_strength)
-    excited_state = Excitation(state, 0, "adc2")
-    rixs_ref = rixs(excited_state, omega_rixs[0][1], gamma=0.124/Hartree)
-    print(rixs_ref)
-    np.testing.assert_allclose(rixs_tens, rixs_ref[1], atol=1e-7)
+    #excited_state = Excitation(state, 0, "adc2")
+    #rixs_ref = rixs(excited_state, omega_rixs[0][1], gamma=0.124/Hartree)
+    #print(rixs_ref)
+    #np.testing.assert_allclose(rixs_tens, rixs_ref[1], atol=1e-7)
     #rixs_tens_sos = evaluate_property_sos(state, rixs_term_short, [n], omega_rixs, gamma_val=0.124/Hartree, final_state=(f, 3))
     #print(rixs_tens_sos)
     #np.testing.assert_allclose(rixs_tens, rixs_tens_sos, atol=1e-7)
@@ -785,11 +808,11 @@ if __name__ == "__main__":
     #print(rixs_tens_sos_2)
     #np.testing.assert_allclose(rixs_tens, rixs_tens_sos_2, atol=1e-7)
 
-    omegas_beta = [(w_1, 0.5), (w_2, 0.5), (w_o, w_1+w_2)]
-    beta_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
+    omegas_beta = [(w_1, 0.5), (w_2, 0.5), (w_o, w_1+w_2+1j*gamma)]
+    beta_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o - 1j*gamma) * (w_k - w_2 - 1j*gamma))
     #beta_tens = evaluate_property_isr(
-    #        state, beta_term, [n, k], omegas_beta,
-    #        perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)]
+    #        state, beta_term, [n, k], omegas_beta, gamma_val=0.01,
+    #        perm_pairs=[(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)]
     #)
     #print(beta_tens)
     #beta_tens_sos = evaluate_property_sos(
@@ -799,8 +822,8 @@ if __name__ == "__main__":
     #print(beta_tens_sos)
     #np.testing.assert_allclose(beta_tens, beta_tens_sos, atol=1e-7)
     #beta_tens_sos_2 = evaluate_property_sos_fast(
-    #    state, beta_term, [n, k], omegas_beta,
-    #    perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)]
+    #    mock_state, beta_term, [n, k], omegas_beta, gamma_val=0.01,
+    #    perm_pairs=[(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)]
     #)
     #print(beta_tens_sos_2)
     #np.testing.assert_allclose(beta_tens, beta_tens_sos_2, atol=1e-7)
@@ -828,9 +851,13 @@ if __name__ == "__main__":
     gamma_term = TransitionMoment(O, op_a, n)*TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O) / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     #gamma_term_tens = evaluate_property_isr(state, gamma_term, [n, m, p], omegas_gamma, extra_terms=False)
     #print(gamma_term_tens)
-    #gamma_term_tens_sos = evaluate_property_sos_fast(state, gamma_term, [n, m, p], omegas_gamma, extra_terms=False)
-    #print(gamma_term_tens)
+    #gamma_term_tens_sos = evaluate_property_sos_fast(mock_state, gamma_term, [n, m, p], omegas_gamma, extra_terms=False)
+    #print(gamma_term_tens_sos)
+    #gamma_term_tens_sos2 = evaluate_property_sos(mock_state, gamma_term, [n, m, p], omegas_gamma, extra_terms=False)
+    #print(gamma_term_tens_sos2)
     #np.testing.assert_allclose(gamma_term_tens, gamma_term_tens_sos, atol=1e-7)
+    #np.testing.assert_allclose(gamma_term_tens_sos, gamma_term_tens_sos2, atol=1e-7)
+
 
     gamma_extra_terms = (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
@@ -875,12 +902,34 @@ if __name__ == "__main__":
     #)
     #print(gamma_perm_1_sos)
     #print(gamma_perm_2_sos)
+    
 
+    #rixs_test1 = TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
+    #rixs_test2 = TransitionMoment(O, op_a, O) * TransitionMoment(f, op_b, O) / (w_f - w - 1j*gamma)
+    #rixs_test3 = TransitionMoment(O, op_b, O) * TransitionMoment(f, op_a, O) / (-w - 1j*gamma)
+    #rixs_test_tensor1 = evaluate_property_isr(state, rixs_test1, [n], omega_rixs, 0.124/Hartree, final_state=(f, 0), extra_terms=False)
+    #rixs_test_tensor2 = evaluate_property_isr(state, rixs_test2, [], omega_rixs, 0.124/Hartree, final_state=(f, 0))
+    #rixs_test_tensor3 = evaluate_property_isr(state, rixs_test3, [], omega_rixs, 0.124/Hartree, final_state=(f, 0))
+    #rixs_test_tensor = rixs_test_tensor1 + rixs_test_tensor2 + rixs_test_tensor3
+    #print(rixs_test_tensor)
+    #np.testing.assert_allclose(rixs_test_tensor, rixs_tens)
+
+    
+    threepa_term = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
+    #threepa_tens = evaluate_property_isr(state, threepa_term, [m, n], [(w_1, state.excitation_energy[0]/3), (w_2, state.excitation_energy[0]/3), (w_3, state.excitation_energy[0]/3), (w_f, w_1+w_2+w_3)], perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)], final_state=(f, 0))
+    #print(threepa_tens)
+    #threepa_tens_sos = evaluate_property_sos_fast(mock_state, threepa_term, [m, n], [(w_1, state.excitation_energy[0]/3), (w_2, state.excitation_energy[0]/3), (w_3, state.excitation_energy[0]/3), (w_f, w_1+w_2+w_3)], perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)], final_state=(f, 0))
+    #print(threepa_tens_sos)
+    #np.testing.assert_allclose(threepa_tens, threepa_tens_sos)
 
     # TODO: make it work for esp
     esp_terms = (
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)
-        + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
+        #+ TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
     )
-    #esp_tens = evaluate_property_isr(state, esp_terms, [n], omega_alpha, gamma_val=0.124/Hartree, final_state=(f, 0))
+    #esp_tens = evaluate_property_isr(state, esp_terms, [n], omega_alpha, final_state=(f, 0), extra_terms=False)
     #print(esp_tens)
+    #esp_tens_sos = evaluate_property_sos_fast(mock_state, esp_terms, [n], omega_alpha, final_state=(f, 0), extra_terms=False)
+    #print(esp_tens_sos)
+    #np.testing.assert_allclose(esp_tens, esp_tens_sos, atol=1e-7)
+

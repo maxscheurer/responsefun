@@ -19,6 +19,9 @@ op_b = DipoleOperator("B")
 op_c = DipoleOperator("C")
 op_d = DipoleOperator("D")
 
+opm_a = DipoleOperator("A", "magnetic")
+opm_b = DipoleOperator("B", "magnetic")
+
 F_A = MTM("A")
 F_B = MTM("B")
 F_C = MTM("C")

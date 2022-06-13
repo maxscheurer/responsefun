@@ -1,10 +1,12 @@
 from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from responsefun.response_operators import DipoleOperator, DipoleMoment
+from responsefun.response_operators import DipoleOperator, DipoleMoment, LeviCivita
 from itertools import permutations
+import string
 
 from responsefun.symbols_and_labels import *
 
+ABC = list(string.ascii_uppercase)
 
 class TransitionMoment:
     """
@@ -75,7 +77,7 @@ class SumOverStates:
     Class representing a sum-over-states (SOS) expression. 
     """
     
-    def __init__(self, expr, summation_indices, correlation_btw_freq=None, perm_pairs=None, excluded_cases=None):
+    def __init__(self, expr, summation_indices, *, correlation_btw_freq=None, perm_pairs=None, excluded_cases=None):
         """
         Parameters
         ----------
@@ -98,7 +100,7 @@ class SumOverStates:
 
         excluded_cases: list of tuples, optional
             List of (summation_index, value) pairs with values that are excluded from the summation
-            (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, int).
+            (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.symbol.Symbol'>).
         """
         assert type(summation_indices) == list
         if correlation_btw_freq:
@@ -106,26 +108,31 @@ class SumOverStates:
         if excluded_cases:
             assert type(excluded_cases) == list
             for case in excluded_cases:
-                assert type(case[0]) == Symbol and type(case[1]) == int
+                assert type(case[0]) == Symbol and type(case[1]) == Symbol
 
         if isinstance(expr, Add):
             self._operators = []
+            self._components = []
             for arg in expr.args:
                 for a in arg.args:
                     if isinstance(a, DipoleOperator) and a not in self._operators:
                         self._operators.append(a)
+                        self._components.append(a.comp)
                     if isinstance(a, DipoleMoment):
                         raise TypeError(
                                 "SOS expression must not contain an instance of <class 'responsetree.response_operators.DipoleMoment'>. "
                                 "All transition moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for example by "
                                 "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
                         )
+            self._components.sort()
             for index in summation_indices:
                 for arg in expr.args:
                     if Bra(index) not in arg.args or Ket(index) not in arg.args:
                         raise ValueError("Given indices of summation are not correct.")
         elif isinstance(expr, Mul):
             self._operators = [a for a in expr.args if isinstance(a, DipoleOperator)]
+            self._components = [a.comp for a in expr.args if isinstance(a, DipoleOperator)]
+            self._components.sort()
             for a in expr.args:
                 if isinstance(a, DipoleMoment):
                     raise TypeError(
@@ -138,6 +145,16 @@ class SumOverStates:
                     raise ValueError("Given indices of summation are not correct.")
         else:
             raise TypeError("SOS expression must be either of type Mul or Add.")
+
+        for op in self._operators:
+            if op.op_type == "magnetic":
+                raise NotImplementedError("The evaluation of SOS expressions containing magnetic dipole operators is not yet implemented.")
+
+        self._order = len(self._operators)
+        if self._components != ABC[:self._order]:
+            raise ValueError(
+                    f"It is important that the Cartesian components of an order {self._order} tensor be specified as {ABC[:self._order]}."
+            )
 
         self._summation_indices = summation_indices
         self._transition_frequencies = [TransitionFrequency(str(index), real=True) for index in self._summation_indices]
@@ -160,6 +177,10 @@ class SumOverStates:
     @property
     def operators(self):
         return self._operators
+
+    @property
+    def components(self):
+        return self._components
     
     @property
     def transition_frequencies(self):
@@ -167,7 +188,7 @@ class SumOverStates:
 
     @property
     def order(self):
-        return len(self._operators)
+        return self._order
 
     @property
     def number_of_terms(self):
@@ -183,7 +204,6 @@ if __name__ == "__main__":
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
             + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
         )
-
     alpha_sos = SumOverStates(alpha_sos_expr, [n])
     #print(alpha_sos.expr, alpha_sos.summation_indices, alpha_sos.transition_frequencies, alpha_sos.order, alpha_sos.operators, alpha_sos.correlation_btw_freq)
     
