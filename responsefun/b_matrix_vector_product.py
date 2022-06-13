@@ -11,9 +11,6 @@ from adcc.functions import einsum
 from adcc.AmplitudeVector import AmplitudeVector
 from adcc.adc_pp import modified_transition_moments
 
-from respondo.misc import select_property_method
-from respondo.solve_response import solve_response
-
 
 def b_matrix_vector_product(method, ground_state, dips, vecs):
     if not isinstance(method, AdcMethod):
@@ -41,57 +38,73 @@ def b_matrix_vector_product(method, ground_state, dips, vecs):
         dip = dips[c[0]]
         vec = vecs[c[1:]]
         ph = (
-                    einsum('ac,ic->ia', dip.vv, vec.ph)
-                    - 1.0 * einsum('ik,ka->ia', dip.oo, vec.ph)
-                    - 1.0 * einsum('ic,ja,jc->ia', vec.ph, p0.ov, dip.ov)
-                    - 1.0 * einsum('ic,jc,ja->ia', vec.ph, p0.ov, dip.ov)
-                    - 1.0 * einsum('ka,ib,kb->ia', vec.ph, p0.ov, dip.ov)
-                    - 1.0 * einsum('ka,kb,ib->ia', vec.ph, p0.ov, dip.ov)
-                    - 0.25 * einsum('ic,mnef,mnaf,ec->ia', vec.ph, t2, t2, dip.vv)
-                    - 0.25 * einsum('ic,mnef,mncf,ea->ia', vec.ph, t2, t2, dip.vv)
-                    - 0.5 * einsum('ic,mnce,mnaf,ef->ia', vec.ph, t2, t2, dip.vv)
-                    + 1.0 * einsum('ic,mncf,jnaf,jm->ia', vec.ph, t2, t2, dip.oo)
-                    + 0.25 * einsum('ka,mnef,inef,km->ia', vec.ph, t2, t2, dip.oo)
-                    + 0.25 * einsum('ka,mnef,knef,im->ia', vec.ph, t2, t2, dip.oo)
-                    - 1.0 * einsum('ka,knef,indf,ed->ia', vec.ph, t2, t2, dip.vv)
-                    + 0.5 * einsum('ka,knef,imef,mn->ia', vec.ph, t2, t2, dip.oo)
-                    + 0.5 * einsum('kc,knef,inaf,ec->ia', vec.ph, t2, t2, dip.vv)
-                    - 0.5 * einsum('kc,mncf,inaf,km->ia', vec.ph, t2, t2, dip.oo)
-                    + 0.5 * einsum('kc,inef,kncf,ea->ia', vec.ph, t2, t2, dip.vv)
-                    - 0.5 * einsum('kc,mnaf,kncf,im->ia', vec.ph, t2, t2, dip.oo)
-                    - 1.0 * einsum('kc,kncf,imaf,mn->ia', vec.ph, t2, t2, dip.oo)
-                    + 1.0 * einsum('kc,knce,inaf,ef->ia', vec.ph, t2, t2, dip.vv)
-                    - 2.0 * einsum('ilad,ld->ia', vec.pphh, dip.ov)
-                    + 2.0 * einsum('ilad,lndf,nf->ia', vec.pphh, t2, dip.ov)
-                    + 2.0 * einsum('ilca,lc->ia', vec.pphh, dip.ov)
-                    - 2.0 * einsum('ilca,lncf,nf->ia', vec.pphh, t2, dip.ov)
-                    - 2.0 * einsum('klad,kled,ie->ia', vec.pphh, t2, dip.ov)
-                    - 2.0 * einsum('ilcd,nlcd,na->ia', vec.pphh, t2, dip.ov)
+            + 1.0 * einsum('ac,ic->ia', dip.vv, vec.ph)
+            - 1.0 * einsum('ik,ka->ia', dip.oo, vec.ph)
         )
-        pphh = (
-                    - 1.0 * einsum('ia,jb->ijab', vec.ph, dip.ov)
-                    + 1.0 * einsum('ia,jnbf,nf->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('ja,ib->ijab', vec.ph, dip.ov)
-                    - 1.0 * einsum('ja,inbf,nf->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('ib,ja->ijab', vec.ph, dip.ov)
-                    - 1.0 * einsum('ib,jnaf,nf->ijab', vec.ph, t2, dip.ov)
-                    - 1.0 * einsum('jb,ia->ijab', vec.ph, dip.ov)
-                    + 1.0 * einsum('jb,inaf,nf->ijab', vec.ph, t2, dip.ov)
-                    - 1.0 * einsum('ka,ijeb,ke->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('kb,ijea,ke->ijab', vec.ph, t2, dip.ov)
-                    - 1.0 * einsum('ic,njab,nc->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('jc,niab,nc->ijab', vec.ph, t2, dip.ov)
-                    + 2.0 * einsum('ac,ijcb->ijab', dip.vv, vec.pphh)
-                    - 2.0 * einsum('bc,ijca->ijab', dip.vv, vec.pphh)
-                    - 2.0 * einsum('ki,kjab->ijab', dip.oo, vec.pphh)
-                    + 2.0 * einsum('kj,kiab->ijab', dip.oo, vec.pphh)
+        ph += (
+            - 1.0 * einsum('ic,ja,jc->ia', vec.ph, p0.ov, dip.ov)
+            - 1.0 * einsum('ic,jc,ja->ia', vec.ph, p0.ov, dip.ov)
+            - 1.0 * einsum('ka,ib,kb->ia', vec.ph, p0.ov, dip.ov)
+            - 1.0 * einsum('ka,kb,ib->ia', vec.ph, p0.ov, dip.ov)
+            # 
+            - 0.25 * einsum('ic,mnef,mnaf,ec->ia', vec.ph, t2, t2, dip.vv)
+            - 0.25 * einsum('ic,mnef,mncf,ea->ia', vec.ph, t2, t2, dip.vv)
+            - 0.5 * einsum('ic,mnce,mnaf,ef->ia', vec.ph, t2, t2, dip.vv)
+            + 1.0 * einsum('ic,mncf,jnaf,jm->ia', vec.ph, t2, t2, dip.oo)
+            # 
+            + 0.25 * einsum('ka,mnef,inef,km->ia', vec.ph, t2, t2, dip.oo)
+            + 0.25 * einsum('ka,mnef,knef,im->ia', vec.ph, t2, t2, dip.oo)
+            # 
+            - 1.0 * einsum('ka,knef,indf,ed->ia', vec.ph, t2, t2, dip.vv)
+            + 0.5 * einsum('ka,knef,imef,mn->ia', vec.ph, t2, t2, dip.oo)
+            # 
+            + 0.5 * einsum('kc,knef,inaf,ec->ia', vec.ph, t2, t2, dip.vv)
+            - 0.5 * einsum('kc,mncf,inaf,km->ia', vec.ph, t2, t2, dip.oo)
+            + 0.5 * einsum('kc,inef,kncf,ea->ia', vec.ph, t2, t2, dip.vv)
+            - 0.5 * einsum('kc,mnaf,kncf,im->ia', vec.ph, t2, t2, dip.oo)
+            # 
+            - 1.0 * einsum('kc,kncf,imaf,mn->ia', vec.ph, t2, t2, dip.oo)
+            + 1.0 * einsum('kc,knce,inaf,ef->ia', vec.ph, t2, t2, dip.vv)
+            # 
+            - 2.0 * einsum('ilad,ld->ia', vec.pphh, dip.ov)
+            + 2.0 * einsum('ilad,lndf,nf->ia', vec.pphh, t2, dip.ov)
+            - 1.0 * einsum('klad,kled,ie->ia', vec.pphh, t2, dip.ov)
+            - 1.0 * einsum('ilcd,nlcd,na->ia', vec.pphh, t2, dip.ov)
         )
+        pphh = 0.5 * (
+            + (
+                - 1.0 * einsum('kc,ld->klcd', vec.ph, dip.ov)
+                + 1.0 * einsum('kc,lndf,nf->klcd', vec.ph, t2, dip.ov)
+                + 1.0 * einsum('lc,kd->klcd', vec.ph, dip.ov)
+                - 1.0 * einsum('lc,kndf,nf->klcd', vec.ph, t2, dip.ov)
+                + 1.0 * einsum('kd,lc->klcd', vec.ph, dip.ov)
+                - 1.0 * einsum('kd,lncf,nf->klcd', vec.ph, t2, dip.ov)
+                - 1.0 * einsum('ld,kc->klcd', vec.ph, dip.ov)
+                + 1.0 * einsum('ld,kncf,nf->klcd', vec.ph, t2, dip.ov)
+            ).antisymmetrise(0, 1).antisymmetrise(2, 3)
+            + (
+                - 1.0 * einsum('ic,kled,ie->klcd', vec.ph, t2, dip.ov)
+                + 1.0 * einsum('id,klec,ie->klcd', vec.ph, t2, dip.ov)
+            ).antisymmetrise(2, 3)
+            + (
+                - 1.0 * einsum('ka,nlcd,na->klcd', vec.ph, t2, dip.ov)
+                + 1.0 * einsum('la,nkcd,na->klcd', vec.ph, t2, dip.ov)
+            ).antisymmetrise(0, 1)
+        )
+        pphh += 1.0 * (
+            + 1.0 * einsum('ac,ijcb->ijab', dip.vv, vec.pphh)
+            - 1.0 * einsum('bc,ijca->ijab', dip.vv, vec.pphh)
+        ).antisymmetrise(2, 3)
+        pphh += 1.0 * (
+            - 1.0 * einsum('ki,kjab->ijab', dip.oo, vec.pphh)
+            + 1.0 * einsum('kj,kiab->ijab', dip.oo, vec.pphh)
+        ).antisymmetrise(0, 1)
         ret[c] = AmplitudeVector(ph=ph, pphh=pphh)
     return ret
 
 
 if __name__ == "__main__":
-
+    from adcc.OneParticleOperator import product_trace
     mol = gto.M(
         atom="""
         O 0 0 0
@@ -104,13 +117,23 @@ if __name__ == "__main__":
     scfres = scf.RHF(mol)
     scfres.kernel()
     refstate = adcc.ReferenceState(scfres)
-    matrix = adcc.AdcMatrix("adc2", refstate)
-    state = adcc.adc2(scfres, n_singlets=5)
-    property_method = select_property_method(matrix)
-    mp = matrix.ground_state
+
+    state = adcc.adc2(scfres, n_singlets=10)
+    mp = state.ground_state
     dips = state.reference_state.operators.electric_dipole
-    mtms = modified_transition_moments(property_method, mp, dips)
-    rvecs = [solve_response(matrix, rhs, -0.59, 0.0) for rhs in mtms]
-    
-    product_vecs = b_matrix_vector_product("adc2", mp, dips, rvecs)
-    print(product_vecs)
+    mtms = modified_transition_moments("adc2", mp, dips)
+
+    product_vecs = b_matrix_vector_product("adc2", mp, dips, state.excitation_vector)
+
+    for excitation in state.excitations:
+        dipmom = [
+            excitation.excitation_vector @ pr
+            for pr in product_vecs[:, excitation.index]
+        ]
+        diffdm = excitation.state_diffdm
+        dipmom_ref = [
+            product_trace(diffdm, dip) for dip in dips
+        ]
+        np.testing.assert_allclose(
+            dipmom, dipmom_ref, atol=1e-12
+        )
