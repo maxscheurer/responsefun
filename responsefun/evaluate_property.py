@@ -207,7 +207,6 @@ def evaluate_property_isr(
     mp = matrix.ground_state
     dips = state.reference_state.operators.electric_dipole
     mtms = modified_transition_moments(property_method, mp, dips)
-    gs_dip_moment = mp.dipole_moment(property_method.level)
 
     if omegas is None:
         omegas = []
@@ -372,6 +371,7 @@ def evaluate_property_isr(
                         )
                 elif isinstance(a, DipoleMoment):
                     if a.from_state == "0" and a.to_state == "0":
+                        gs_dip_moment = mp.dipole_moment(property_method.level)
                         subs_dict[a] = gs_dip_moment[comp_map[a.comp]]
                     elif a.from_state == "0" and a.to_state == str(final_state[0]):
                         subs_dict[a] = state.transition_dipole_moment[final_state[1]][comp_map[a.comp]] 

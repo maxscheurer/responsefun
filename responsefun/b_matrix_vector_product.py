@@ -10,19 +10,18 @@ from adcc.AmplitudeVector import AmplitudeVector
 
 
 def bmvp_adc0(ground_state, dip, vec):
-    ph = einsum('ac,ic->ia', dip.vv, vec.ph)
-    return AmplitudeVector(ph=ph)
-
-
-def bmvp_adc1(ground_state, dip, vec):
+    assert type(vec) == AmplitudeVector
     ph = (
-            einsum('ac,ic->ia', dip.vv, vec.ph)
+            einsum('ac,ic->ia', dip.vv, vec.ph) 
             - 1.0 * einsum('ik,ka->ia', dip.oo, vec.ph)
     )
     return AmplitudeVector(ph=ph)
 
 
 def bmvp_adc2(ground_state, dip, vec):
+    assert type(vec) == AmplitudeVector
+    if not dip.is_symmetric:
+        raise NotImplementedError("b_matrix_vector_product is only implemented for symmetric one-particle operators.")
     p0 = ground_state.mp2_diffdm
     t2 = ground_state.t2(b.oovv)
 
@@ -100,7 +99,7 @@ def bmvp_adc2(ground_state, dip, vec):
 
 DISPATCH = {
     "adc0": bmvp_adc0,
-    "adc1": bmvp_adc1,
+    "adc1": bmvp_adc0,
     "adc2": bmvp_adc2,
 }
 
@@ -134,6 +133,7 @@ def b_matrix_vector_product(method, ground_state, dips, vecs):
 
 if __name__ == "__main__":
     from pyscf import gto, scf
+    import adcc
     from adcc.OneParticleOperator import product_trace
     from adcc.adc_pp import modified_transition_moments
     from respondo.solve_response import solve_response
@@ -153,15 +153,16 @@ if __name__ == "__main__":
     scfres = scf.RHF(mol)
     scfres.kernel()
     refstate = adcc.ReferenceState(scfres)
-    matrix = adcc.AdcMatrix("adc2", refstate)
-    
-    state = adcc.adc2(scfres, n_singlets=5)
+    method = "adc2"
+    state = adcc.run_adc(scfres, method=method, n_singlets=5)
+    matrix = adcc.AdcMatrix(method, refstate)
     mp = state.ground_state
     dips = state.reference_state.operators.electric_dipole
-    mtms = modified_transition_moments("adc2", mp, dips)
+    magdips = state.reference_state.operators.magnetic_dipole
+    mtms = modified_transition_moments(method, mp, dips)
     
     # test state difference dipole moments
-    product_vecs = b_matrix_vector_product("adc2", mp, dips, state.excitation_vector)
+    product_vecs = b_matrix_vector_product(method, mp, dips, state.excitation_vector)
 
     for excitation in state.excitations:
         dipmom = [
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     omega_2 = 0.5
     rvecs1 = [solve_response(matrix, rhs, omega_2, gamma=0.0) for rhs in mtms]
     components1 = list(product([0, 1, 2], repeat=2))
-    product_bmatrix_rvecs1 = b_matrix_vector_product("adc2", mp, dips, rvecs1)
+    product_bmatrix_rvecs1 = b_matrix_vector_product(method, mp, dips, rvecs1)
     beta_tens1 = np.zeros((3,3,3))
     for c in components1:
         rhs = product_bmatrix_rvecs1[c]
@@ -195,4 +196,3 @@ if __name__ == "__main__":
     omegas_beta = [(w_o, omega_o), (w_2, omega_2)]
     beta_tens1_ref = evaluate_property_isr(state, beta_sos_term, [n, k], omegas_beta, extra_terms=False)
     np.testing.assert_allclose(beta_tens1, beta_tens1_ref, atol=1e-7)
-
