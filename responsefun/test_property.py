@@ -414,18 +414,17 @@ class TestIsrAgainstSosFast(unittest.TestCase):
         refstate = adcc.ReferenceState(scfres)
         beta_expr, perm_pairs = SOS_expressions["beta_complex"]
         omega_list = [
-                [(w_o, w_1+w_2), (w_1, 0.05), (w_2, 0.05)],
-                [(w_o, w_1+w_2), (w_1, -0.05), (w_2, 0.05)],
-                [(w_o, w_1+w_2), (w_1, 0.04), (w_2, 0.06)]
+                [(w_o, w_1+w_2+1j*gamma), (w_1, 0.05), (w_2, 0.05)],
+                [(w_o, w_1+w_2+1j*gamma), (w_1, -0.05), (w_2, 0.05)],
+                [(w_o, w_1+w_2+1j*gamma), (w_1, 0.04), (w_2, 0.06)]
         ]
         gamma_val = 0.124/Hartree
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
         for omegas in omega_list:
-            # extra terms of beta complex are not evaluated automatically
-            beta_sos = evaluate_property_sos_fast(mock_state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs, extra_terms=False)
-            beta_isr = evaluate_property_isr(state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs, extra_terms=False)
+            beta_sos = evaluate_property_sos_fast(mock_state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs)
+            beta_isr = evaluate_property_isr(state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs)
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)#, err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
 
     def template_extra_terms_second_hyperpolarizability(self, case):
