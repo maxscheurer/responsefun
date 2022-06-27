@@ -7,6 +7,7 @@ from adcc import LazyMp
 from adcc import block as b
 from adcc.functions import einsum
 from adcc.AmplitudeVector import AmplitudeVector
+from respondo.cpp_algebra import ResponseVector as RV
 
 
 def bmvp_adc0(ground_state, dip, vec):
@@ -64,20 +65,20 @@ def bmvp_adc2(ground_state, dip, vec):
             + 0.5 * (
                 (
                     - 1.0 * einsum('ia,jb->ijab', vec.ph, dip.ov)
-                    + 1.0 * einsum('ia,jnbf,nf->ijab', vec.ph, t2, dip.ov)#
+                    + 1.0 * einsum('ia,jnbf,nf->ijab', vec.ph, t2, dip.ov)
                     + 1.0 * einsum('ja,ib->ijab', vec.ph, dip.ov)
                     - 1.0 * einsum('ja,inbf,nf->ijab', vec.ph, t2, dip.ov)
                     + 1.0 * einsum('ib,ja->ijab', vec.ph, dip.ov)
-                    - 1.0 * einsum('ib,jnaf,nf->ijab', vec.ph, t2, dip.ov)#
+                    - 1.0 * einsum('ib,jnaf,nf->ijab', vec.ph, t2, dip.ov)
                     - 1.0 * einsum('jb,ia->ijab', vec.ph, dip.ov)
                     + 1.0 * einsum('jb,inaf,nf->ijab', vec.ph, t2, dip.ov)
                 ).antisymmetrise(0,1).antisymmetrise(2,3)
                 +(
-                    - 1.0 * einsum('ka,ijeb,ke->ijab', vec.ph, t2, dip.ov)#
+                    - 1.0 * einsum('ka,ijeb,ke->ijab', vec.ph, t2, dip.ov)
                     + 1.0 * einsum('kb,ijea,ke->ijab', vec.ph, t2, dip.ov)
                 ).antisymmetrise(2,3)
                 +(
-                    - 1.0 * einsum('ic,njab,nc->ijab', vec.ph, t2, dip.ov)#
+                    - 1.0 * einsum('ic,njab,nc->ijab', vec.ph, t2, dip.ov)
                     + 1.0 * einsum('jc,niab,nc->ijab', vec.ph, t2, dip.ov)
                 ).antisymmetrise(0,1)
             )
@@ -104,7 +105,7 @@ DISPATCH = {
 }
 
     
-def b_matrix_vector_product(method, ground_state, dips, vecs):
+def bmatrix_vector_product(method, ground_state, dips, vecs):
     if not isinstance(method, AdcMethod):
         method = AdcMethod(method)
     if method.name not in DISPATCH:
@@ -127,6 +128,32 @@ def b_matrix_vector_product(method, ground_state, dips, vecs):
         dip = dips[c[0]]
         vec = vecs[c[1:]]
         ret[c] = DISPATCH[method.name](ground_state, dip, vec)
+
+    #TODO: unpacking?
+    return ret
+
+
+#TODO: testing (however, since solve_response can only handle real right-hand sides, it is difficult) 
+def bmatrix_vector_product_complex(method, ground_state, dips, vecs):
+    if not isinstance(dips, list):
+        dips = [dips]
+    if not isinstance(vecs, np.ndarray):
+        vecs = np.array(vecs)
+
+    comp_list_dips = list(range(len(dips)))
+    comp_list_vecs = [list(range(shape)) for shape in vecs.shape]
+    comp = list(product(comp_list_dips, *comp_list_vecs))
+
+    ret_shape = (len(dips), *vecs.shape)
+    ret = np.empty(ret_shape, dtype=object)
+    
+    for c in comp:
+        dip = dips[c[0]]
+        vec = vecs[c[1:]]
+        assert isinstance(vec, RV)
+        product_real = bmatrix_vector_product(method, ground_state, dip, vec.real)[0]
+        product_imag = bmatrix_vector_product(method, ground_state, dip, vec.imag)[0]
+        ret[c] = RV(product_real, product_imag)
 
     return ret
 
@@ -162,7 +189,7 @@ if __name__ == "__main__":
     mtms = modified_transition_moments(method, mp, dips)
     
     # test state difference dipole moments
-    product_vecs = b_matrix_vector_product(method, mp, dips, state.excitation_vector)
+    product_vecs = bmatrix_vector_product(method, mp, dips, state.excitation_vector)
 
     for excitation in state.excitations:
         dipmom = [
@@ -182,7 +209,7 @@ if __name__ == "__main__":
     omega_2 = 0.5
     rvecs1 = [solve_response(matrix, rhs, omega_2, gamma=0.0) for rhs in mtms]
     components1 = list(product([0, 1, 2], repeat=2))
-    product_bmatrix_rvecs1 = b_matrix_vector_product(method, mp, dips, rvecs1)
+    product_bmatrix_rvecs1 = bmatrix_vector_product(method, mp, dips, rvecs1)
     beta_tens1 = np.zeros((3,3,3))
     for c in components1:
         rhs = product_bmatrix_rvecs1[c]
@@ -196,3 +223,7 @@ if __name__ == "__main__":
     omegas_beta = [(w_o, omega_o), (w_2, omega_2)]
     beta_tens1_ref = evaluate_property_isr(state, beta_sos_term, [n, k], omegas_beta, extra_terms=False)
     np.testing.assert_allclose(beta_tens1, beta_tens1_ref, atol=1e-7)
+
+    # test b_matrix_vector_product_complex
+    rvecs_test = [solve_response(matrix, RV(rhs), omega_2, gamma=0.01) for rhs in mtms]
+    product_bmatrix_rvecs_test = bmatrix_vector_product_complex(method, mp, dips, rvecs_test)

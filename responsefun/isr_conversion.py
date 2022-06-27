@@ -44,10 +44,10 @@ def insert_single_dipole_moments(expr, summation_indices):
     for bok in boks:
         bra, ket = bok[0].label[0], bok[2].label[0]
         if bra == O and ket not in summation_indices:
-            mu_symbol = DipoleMoment(bok[1].comp, str(bra), str(ket))
+            mu_symbol = DipoleMoment(bok[1].comp, str(bra), str(ket), bok[1].op_type)
             subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
         elif ket == O and bra not in summation_indices:
-            mu_symbol = DipoleMoment(bok[1].comp, str(ket), str(bra))
+            mu_symbol = DipoleMoment(bok[1].comp, str(ket), str(bra), bok[1].op_type)
             subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
     return expr.subs(subs_list)
 
@@ -115,12 +115,12 @@ def insert_isr_transition_moments(expr, operators):
     assert isinstance(operators, list)
     ret = expr.copy()
     for op in operators:
-        F = MTM(op.comp)
+        F = MTM(op.comp, op.op_type)
         Fd = adjoint(F)
         ret = ret.subs(Bra(O) * op, Fd)
         ret = ret.subs(op * Ket(O), F)
         # replace the remaining operators with the ISR matrix
-        B = S2S_MTM(op.comp)
+        B = S2S_MTM(op.comp, op.op_type)
         ret = ret.subs(op, B)
     if ret == expr:
         print("Term contains no transition moment.")
@@ -499,3 +499,14 @@ if __name__ == "__main__":
     #gamma_test_sos = SumOverStates(gamma_test_term, [n, m], [(w_o, w_1+w_2+w_3)])
     #gamma_test_isr = to_isr(gamma_test_sos, False)
     #print(gamma_test_isr)
+
+    epsilon = LeviCivita()
+    mcd_term1 = (
+            -1.0 * epsilon
+            * TransitionMoment(O, opm_b, k) * TransitionMoment(k, op_c, f) * TransitionMoment(f, op_a, O)
+            / w_k
+    )
+    mcd_term1_sos = SumOverStates(mcd_term1, [k], excluded_cases=[(k, O)])
+    #mcd_term1_isr = to_isr(mcd_term1_sos)
+    #print(mcd_term1_sos.expr)
+    #print(mcd_term1_isr)

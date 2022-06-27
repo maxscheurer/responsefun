@@ -146,9 +146,9 @@ class SumOverStates:
         else:
             raise TypeError("SOS expression must be either of type Mul or Add.")
 
-        for op in self._operators:
-            if op.op_type == "magnetic":
-                raise NotImplementedError("The evaluation of SOS expressions containing magnetic dipole operators is not yet implemented.")
+        #for op in self._operators:
+        #    if op.op_type == "magnetic":
+        #        raise NotImplementedError("The evaluation of SOS expressions containing magnetic dipole operators is not yet implemented.")
 
         self._order = len(self._operators)
         if self._components != ABC[:self._order]:

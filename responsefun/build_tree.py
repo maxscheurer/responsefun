@@ -167,25 +167,40 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
         if isinstance(oper_rhs, Mul):
             if isinstance(oper_rhs.args[0], S2S_MTM):
                 if isinstance(oper_rhs.args[1], ResponseVector):
-                    key = ((type(oper_rhs.args[0]), type(oper_rhs.args[1]), oper_rhs.args[1].no), leaf.w, leaf.gamma)
+                    key = (
+                            type(oper_rhs.args[0]), oper_rhs.args[0].op_type,
+                            leaf.w, leaf.gamma, type(oper_rhs.args[1]), oper_rhs.args[1].no
+                    )
                     comp = oper_rhs.args[0].comp + oper_rhs.args[1].comp
                 else:
-                    key = ((type(oper_rhs.args[0]), oper_rhs.args[1]), leaf.w, leaf.gamma)
+                    key = (
+                            type(oper_rhs.args[0]), oper_rhs.args[0].op_type,
+                            leaf.w, leaf.gamma, oper_rhs.args[1].label[0]
+                    )
                     comp = oper_rhs.args[0].comp
+
             elif isinstance(oper_rhs.args[1], S2S_MTM):
                 oper_rhs2 = oper_rhs.args[0]
                 if isinstance(oper_rhs2, adjoint):
                     oper_rhs2 = oper_rhs.args[0].args[0]
                 if isinstance(oper_rhs2, ResponseVector):
-                    key = ((type(oper_rhs.args[1]), type(oper_rhs2), oper_rhs2.no), leaf.w, leaf.gamma)
+                    key = (
+                            type(oper_rhs.args[1]), oper_rhs.args[1].op_type,
+                            leaf.w, leaf.gamma, type(oper_rhs2), oper_rhs2.no
+                    )
                     comp = oper_rhs.args[1].comp + oper_rhs2.comp
                 else:
-                    key = ((type(oper_rhs.args[1]), oper_rhs2), leaf.w, leaf.gamma)
+                    key = (
+                            type(oper_rhs.args[1]), oper_rhs.args[1].op_type,
+                            leaf.w, leaf.gamma, oper_rhs2.label[0]
+                    )
                     comp = oper_rhs.args[1].comp
+
             else:
                 raise ValueError()
+
         else:
-            key = (type(oper_rhs), leaf.w, leaf.gamma)
+            key = (type(oper_rhs), oper_rhs.op_type, leaf.w, leaf.gamma)
             comp = oper_rhs.comp
 
         # if the created tuple is not already among the keys of the rvecs dictionary, a new entry will be made 
@@ -206,7 +221,7 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
 
 
 if __name__ == "__main__":
-    alpha_like = adjoint(F_A) * (M - w - 1j*gamma)**-1 * F_B + adjoint(F_B) * (M + w +  1j*gamma)**-1 * F_A
+    alpha_like = adjoint(F_A) * (M - w - 1j*gamma)**-1 * F_B + adjoint(F_B) * (M + w + 1j*gamma)**-1 * F_A
     beta_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * F_C
     beta_real = (
         adjoint(F_A) * (M - w_o)**-1 * B_B * (M - w_2)**-1 * F_C
@@ -223,7 +238,7 @@ if __name__ == "__main__":
     higher_order_like = adjoint(F_A) * (M - w)**-1 * B_B * (M - w)**-1 * B_C * (M - w)**-1 * B_D * (M - w)**-1 * B_E * (M - w)**-1 * F_F
     #print(build_tree(alpha_like))
     #print(build_tree(beta_like))
-    #build_tree(beta_real)
+    #print(build_tree(beta_real))
     #build_tree(gamma_like)
     #print(build_tree(gamma_extra))
     #print(build_tree(higher_order_like))

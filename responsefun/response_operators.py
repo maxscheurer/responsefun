@@ -26,7 +26,7 @@ class ResponseOperator(qmoperator.Operator):
 class MTM(ResponseOperator):
     def __init__(self, comp, op_type="electric"):
         super().__init__(comp)
-        assert op_type in ["electric", "magnetic"]
+        assert op_type in ["electric", "magnetic"] or op_type in [Symbol("electric"), Symbol("magnetic")]
         self._op_type = op_type
         
     @property
@@ -49,7 +49,7 @@ class MTM(ResponseOperator):
 class S2S_MTM(ResponseOperator):
     def __init__(self, comp, op_type="electric"):
         super().__init__(comp)
-        assert op_type in ["electric", "magnetic"]
+        assert op_type in ["electric", "magnetic"] or op_type in [Symbol("electric"), Symbol("magnetic")]
         self._op_type = op_type
 
     @property
@@ -87,7 +87,7 @@ class ResponseVector(ResponseOperator):
 
 class DipoleOperator(qmoperator.HermitianOperator):
     def __init__(self, comp, op_type="electric"):
-        assert op_type in ["electric", "magnetic"]
+        assert op_type in ["electric", "magnetic"] or op_type in [Symbol("electric"), Symbol("magnetic")]
         self._comp = comp
         self._op_type = op_type
 
@@ -159,8 +159,9 @@ class TransitionFrequency(Symbol):
         return self._state
 
 
-class LeviCivita(Symbol):
-    def __new__(self, **assumptions):
-        name = r"\epsilon_{ABC}"
-        obj = Symbol.__new__(self, name, **assumptions)
-        return obj
+class LeviCivita(qmoperator.Operator):
+    def _print_contents(self, printer):
+        return r"\epsilon_{ABC}"
+
+    def _print_contents_latex(self, printer):
+        return r"\epsilon_{ABC}"
