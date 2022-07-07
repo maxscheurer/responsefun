@@ -165,6 +165,7 @@ class SumOverStates:
             self.expr = _build_sos_via_permutation(expr, perm_pairs)
         else:
             self.expr = expr
+        self.expr = self.expr.doit()
 
     @property
     def summation_indices(self):

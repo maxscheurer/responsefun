@@ -48,7 +48,8 @@ def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, gamma_
         omega_symbols = [tup[0] for tup in omegas]
         for o in omega_symbols:
             if omega_symbols.count(o) > 1:
-                raise ValueError("Two different values were given for the same frequency.")
+                pass
+                #raise ValueError("Two different values were given for the same frequency.")
 
         sum_freq = [freq for tup in correlation_btw_freq for freq in tup[1].args]
         check_dict = {o[0]: False for o in omegas}
@@ -867,7 +868,6 @@ if __name__ == "__main__":
     from respondo.tpa import tpa_resonant
     import time
     from responsefun.test_property import SOS_expressions
-    from responsefun.mcd_ref import mcd_bterm
 
     mol = gto.M(
         atom="""
@@ -884,7 +884,7 @@ if __name__ == "__main__":
 
     refstate = adcc.ReferenceState(scfres)
     matrix = adcc.AdcMatrix("adc2", refstate)
-    state = adcc.adc2(scfres, n_singlets=65)
+    state = adcc.adc2(scfres, n_singlets=5)
     mock_state = cache.data_fulldiag["h2o_sto3g_adc2"] 
     
     
@@ -921,12 +921,26 @@ if __name__ == "__main__":
             (w_1, state.excitation_energy[0]/3),
             (w_2, state.excitation_energy[0]/3),
             (w_3, state.excitation_energy[0]/3),
-            (w_f, w_1+w_2+w_3)
+            (w_1, w_f-w_2-w_3)
     ]
+    threepa_tens = (
+            evaluate_property_isr(state, threepa_term, [m, n], threepa_omegas, perm_pairs=threepa_perm_pairs, final_state=(f, 0))
+    )
+    print(threepa_tens)
+    threepa_term = (
+            TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f)
+            / ((w_n - 2*(w_f/3)) * (w_m - (w_f/3)))
+    )
+    threepa_perm_pairs = [(op_a, w), (op_b, w), (op_c, w)]
+    #threepa_omegas = [
+    #        #(w, state.excitation_energy[0]/3),
+    #        #(w, w_f/3)
+    #]
     #threepa_tens = (
     #        evaluate_property_isr(state, threepa_term, [m, n], threepa_omegas, perm_pairs=threepa_perm_pairs, final_state=(f, 0))
     #)
     #print(threepa_tens)
+
     #threepa_tens_sos = (
     #        evaluate_property_sos_fast(state, threepa_term, [m, n], threepa_omegas, perm_pairs=threepa_perm_pairs, final_state=(f, 0))
     #)

@@ -17,7 +17,7 @@
 #
 
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, zoo
+from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, zoo, Integer, Float
 from sympy.physics.quantum.operator import Operator
 
 from responsefun.symbols_and_labels import *
@@ -224,19 +224,21 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
         correlation_btw_freq = []
     else:
         assert type(correlation_btw_freq) == list
-    num_list = [] # list with numerators
+    num_dict = {}
     for term in extra_terms:
         num = fraction(term)[0]
-        if num not in num_list and -num not in num_list:
-            num_list.append(num)
+        mod_num = num
+        for arg in num.args:
+            if isinstance(arg, Integer) or isinstance(arg, Float):
+                mod_num = mod_num.subs(arg, 1)
+        if mod_num not in num_dict:
+            num_dict[mod_num] = term
+        else:
+            num_dict[mod_num] += term
     remaining_terms = 0
-    for num in num_list:
-        terms_with_num = 0
-        for term in extra_terms:
-            if fraction(term)[0] == num or fraction(term)[0] == -num:
-                terms_with_num += term
-        if simplify(terms_with_num.subs(correlation_btw_freq)) != 0:
-            remaining_terms += terms_with_num
+    for term in num_dict.values():
+        if simplify(term.subs(correlation_btw_freq)) != 0:
+            remaining_terms += term
     return remaining_terms
 
 
@@ -465,17 +467,17 @@ if __name__ == "__main__":
     #beta_complex_isr = to_isr(beta_complex_sos)
 
     threepa_term = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
-    #threepa_term_test = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w_f/3 - w_f/3) * (w_m - w_f/3))
-    #threepa_term_test = TransitionMoment(O, op_b, m) * TransitionMoment(m, op_c, n) * TransitionMoment(n, op_d, f) / ((w_n - w - w) * (w_m - w))
-    threepa_sos = SumOverStates(threepa_term, [m, n], correlation_btw_freq=[(w_f, w_1+w_2+w_3)], perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)])
-    #threepa_sos = SumOverStates(threepa_term_test, [m, n], [(w_f, 3*w)], perm_pairs=[(op_b, w_f), (op_c, w_f), (op_d, w_f)])
+    #threepa_term_test = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w_f/3 - w_f/3) * (w_m - w_f/3))
+    #threepa_term_test = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w - w) * (w_m - w))
+    threepa_sos = SumOverStates(threepa_term, [m, n], correlation_btw_freq=[(w_1, (w_f/3)), (w_2, w_1), (w_3, w_1)], perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)])
+    #threepa_sos = SumOverStates(threepa_term_test, [m, n], perm_pairs=[(op_a, w), (op_b, w), (op_c, w)])
     #threepa_terms_mod = threepa_sos.expr
     #threepa_terms_mod = threepa_sos.expr.subs([(w_1, w), (w_2, w), (w_3, w)])
     #for arg in threepa_sos.expr.args:
     #    print(arg)
-    #threepa_extra_terms = compute_extra_terms(threepa_sos.expr, [m, n], correlation_btw_freq=[(w_f, w_1+w_2+w_3)], print_extra_term_dict=True)
-    #for arg in threepa_extra_terms.args:
-    #    print("here: ", arg)
+    threepa_extra_terms = compute_extra_terms(threepa_sos.expr, [m, n], correlation_btw_freq=threepa_sos.correlation_btw_freq, print_extra_term_dict=True)
+    for arg in threepa_extra_terms.args:
+        print("here: ", arg)
     #threepa_isr = to_isr(threepa_sos)
     #print(threepa_sos.expr)
     #print(len(threepa_isr.args))
