@@ -55,15 +55,15 @@ class ResponseNode(NodeMixin):
         self.parent = parent
 
 
-def acceptable_rhs_lhs_MTM(term):
+def acceptable_rhs_lhs(term):
     if isinstance(term, adjoint):
         op_expr = term.args[0]
     else:
         op_expr = term
-    return isinstance(op_expr, MTM)
+    return isinstance(op_expr, MTM) or isinstance(op_expr, ResponseVector)
 
 
-def acceptable_rhs_lhs_S2S_MTM(term1, term2):
+def acceptable_two_rhss_lhss(term1, term2):
     if isinstance(term1, S2S_MTM):
         op_term2 = term2
         if isinstance(term2, adjoint):
@@ -92,13 +92,13 @@ def build_branches(node, matrix):
                 tinv = term.args[0]
                 lhs = node.expr.args[i-1]
                 rhs = node.expr.args[i+1]
-                if acceptable_rhs_lhs_MTM(rhs):
+                if acceptable_rhs_lhs(rhs):
                     children.append(ResponseNode(tinv**-1 * rhs, tinv, rhs))
-                elif acceptable_rhs_lhs_MTM(lhs):
+                elif acceptable_rhs_lhs(lhs):
                     children.append(ResponseNode(lhs * tinv**-1, tinv, lhs))
-                elif acceptable_rhs_lhs_S2S_MTM(rhs, node.expr.args[i+2]):
+                elif acceptable_two_rhss_lhss(rhs, node.expr.args[i+2]):
                     children.append(ResponseNode(tinv**-1 * rhs * node.expr.args[i+2], tinv, rhs * node.expr.args[i+2]))
-                elif acceptable_rhs_lhs_S2S_MTM(lhs, node.expr.args[i-2]):
+                elif acceptable_two_rhss_lhss(lhs, node.expr.args[i-2]):
                     children.append(ResponseNode(node.expr.args[i-2] * lhs * tinv**-1, tinv, node.expr.args[i-2] * lhs))
                 else:
                     print("No invertable term found.")
@@ -161,11 +161,13 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
         # if the leaf node is an instance of the ResponseNode class, a tuple will be defined that uniquely describes the resulting response vector
         old_expr = leaf.expr
         oper_rhs = leaf.rhs
+        with_dagger = None
         if isinstance(leaf.rhs, adjoint):
             oper_rhs = leaf.rhs.args[0]
         
         if isinstance(oper_rhs, Mul):
             if isinstance(oper_rhs.args[0], S2S_MTM):
+                with_dagger = False
                 if isinstance(oper_rhs.args[1], ResponseVector):
                     key = (
                             type(oper_rhs.args[0]), oper_rhs.args[0].op_type,
@@ -175,11 +177,12 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
                 else:
                     key = (
                             type(oper_rhs.args[0]), oper_rhs.args[0].op_type,
-                            leaf.w, leaf.gamma, oper_rhs.args[1].label[0]
+                            leaf.w, leaf.gamma, oper_rhs.args[1].label[0], None
                     )
                     comp = oper_rhs.args[0].comp
 
             elif isinstance(oper_rhs.args[1], S2S_MTM):
+                with_dagger = True
                 oper_rhs2 = oper_rhs.args[0]
                 if isinstance(oper_rhs2, adjoint):
                     oper_rhs2 = oper_rhs.args[0].args[0]
@@ -192,15 +195,19 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
                 else:
                     key = (
                             type(oper_rhs.args[1]), oper_rhs.args[1].op_type,
-                            leaf.w, leaf.gamma, oper_rhs2.label[0]
+                            leaf.w, leaf.gamma, oper_rhs2.label[0], None
                     )
                     comp = oper_rhs.args[1].comp
 
             else:
                 raise ValueError()
 
+        elif isinstance(oper_rhs, ResponseVector):
+            key = (type(oper_rhs), None, leaf.w, leaf.gamma, None, oper_rhs.no)
+            comp = oper_rhs.comp
+
         else:
-            key = (type(oper_rhs), oper_rhs.op_type, leaf.w, leaf.gamma)
+            key = (type(oper_rhs), oper_rhs.op_type, leaf.w, leaf.gamma, None, None)
             comp = oper_rhs.comp
 
         # if the created tuple is not already among the keys of the rvecs dictionary, a new entry will be made 
@@ -208,7 +215,12 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
             rvecs[key] = no
             no += 1
         
-        if oper_rhs == leaf.rhs:
+        if with_dagger is None:
+            if oper_rhs == leaf.rhs:
+                with_dagger = False
+            else:
+                with_dagger = True
+        if not with_dagger:
             leaf.expr = ResponseVector(comp, rvecs[key])
         else:
             leaf.expr = adjoint(ResponseVector(comp, rvecs[key]))
@@ -233,12 +245,16 @@ if __name__ == "__main__":
     )
     gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C + adjoint(F_D) * (M - w)**-1 * B_A * (M + w)**-1 * B_C * (M + 2*w)**-1 * F_B
     gamma_extra = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M - w_3)**-1 * F_D / (-w_2 - w_3)
+    gamma_extra2 = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M + w_2)**-1 * (M - w_3)**-1 * F_D
     B_E = S2S_MTM("E")
     F_F = MTM("F")
     higher_order_like = adjoint(F_A) * (M - w)**-1 * B_B * (M - w)**-1 * B_C * (M - w)**-1 * B_D * (M - w)**-1 * B_E * (M - w)**-1 * F_F
+    higher_order_extra_like = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M + w_o)**-1 * (M + w_2)**-1 * (M - w_3)**-1 * (M + w)**-1 * F_D
     #print(build_tree(alpha_like))
     #print(build_tree(beta_like))
     #print(build_tree(beta_real))
     #build_tree(gamma_like)
     #print(build_tree(gamma_extra))
     #print(build_tree(higher_order_like))
+    #print(build_tree(gamma_extra2))
+    #print(build_tree(higher_order_extra_like))

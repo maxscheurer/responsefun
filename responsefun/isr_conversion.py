@@ -86,10 +86,11 @@ def insert_matrix(expr, matrix=Operator("M")):
                 raise TypeError("The denominator must be either of type Add or Symbol.")
             for tf in trans_freq:
                 if state_label == tf.state:
-                    if state_label in denominator_match:
-                        raise ValueError("{} was found twice in the SOS expression.".format(tf))
                     rest = d.subs(tf, 0)
-                    denominator_match[state_label] = (rest, d)
+                    if state_label in denominator_match:
+                        denominator_match[state_label].append((rest, d))
+                    else:
+                        denominator_match[state_label] = [(rest, d)]
                     break
         assert len(denominator_match) == 1
         denominator_matches.update(denominator_match)
@@ -99,12 +100,19 @@ def insert_matrix(expr, matrix=Operator("M")):
     sub = expr.copy()
     for k in ketbra_match:
         ket, bra = ketbra_match[k]
-        freq_argument, denom_remove = denominator_matches[k]
-        sub = sub.subs({
-            ket: 1,
-            bra: (matrix + freq_argument)**-1,
-            denom_remove: 1
-        })
+        bra_subs = 1
+        denom_dict = {}
+        for tup in denominator_matches[k]:
+            freq_argument, denom_remove = tup
+            bra_subs *= (matrix + freq_argument)**-1
+            denom_dict[denom_remove] = 1
+        assert bra_subs != 1
+        assert len(denom_dict) > 0
+        subs_dict = {}
+        subs_dict[ket] = 1
+        subs_dict[bra] = bra_subs
+        subs_dict.update(denom_dict)
+        sub = sub.subs(subs_dict)
     return sub
 
 
@@ -136,6 +144,7 @@ def to_isr_single_term(expr, operators=None):
             op for op in expr.args if isinstance(op, DipoleOperator)
         ]
     i1 = insert_isr_transition_moments(expr, operators)
+    print(i1)
     M = Operator("M")
     return insert_matrix(i1, M)
 
@@ -469,15 +478,15 @@ if __name__ == "__main__":
     threepa_term = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w_1 - w_2) * (w_m - w_1))
     #threepa_term_test = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w_f/3 - w_f/3) * (w_m - w_f/3))
     #threepa_term_test = TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f) / ((w_n - w - w) * (w_m - w))
-    threepa_sos = SumOverStates(threepa_term, [m, n], correlation_btw_freq=[(w_1, (w_f/3)), (w_2, w_1), (w_3, w_1)], perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)])
+    #threepa_sos = SumOverStates(threepa_term, [m, n], correlation_btw_freq=[(w_f, w_1+w_2+w_3)], perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)])
     #threepa_sos = SumOverStates(threepa_term_test, [m, n], perm_pairs=[(op_a, w), (op_b, w), (op_c, w)])
     #threepa_terms_mod = threepa_sos.expr
     #threepa_terms_mod = threepa_sos.expr.subs([(w_1, w), (w_2, w), (w_3, w)])
     #for arg in threepa_sos.expr.args:
     #    print(arg)
-    threepa_extra_terms = compute_extra_terms(threepa_sos.expr, [m, n], correlation_btw_freq=threepa_sos.correlation_btw_freq, print_extra_term_dict=True)
-    for arg in threepa_extra_terms.args:
-        print("here: ", arg)
+    #threepa_extra_terms = compute_extra_terms(threepa_sos.expr, [m, n], correlation_btw_freq=threepa_sos.correlation_btw_freq, print_extra_term_dict=True)
+    #for arg in threepa_extra_terms.args:
+    #    print("here: ", arg)
     #threepa_isr = to_isr(threepa_sos)
     #print(threepa_sos.expr)
     #print(len(threepa_isr.args))
@@ -495,10 +504,10 @@ if __name__ == "__main__":
     #print(len(extra_terms_gamma.args))
     #for arg in extra_terms_gamma.args:
     #    print(arg)
-
-    gamma_test_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O) / ((w_n - w_o) * (-w_2 - w_3) * (w_m - w_3))
+    
+    gamma_test_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O) / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
     #print(gamma_test_term)
-    #gamma_test_sos = SumOverStates(gamma_test_term, [n, m], [(w_o, w_1+w_2+w_3)])
+    #gamma_test_sos = SumOverStates(gamma_test_term, [n, m], correlation_btw_freq=[(w_o, w_1+w_2+w_3)])
     #gamma_test_isr = to_isr(gamma_test_sos, False)
     #print(gamma_test_isr)
 

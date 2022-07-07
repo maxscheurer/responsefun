@@ -410,7 +410,9 @@ def evaluate_property_isr(
                         raise ValueError("Unknown dipole moment.")
                 elif isinstance(a, LeviCivita):
                     subs_dict[a] = lc_tensor[c]
+            print(subs_dict)
             res = term.subs(subs_dict)
+            print(res)
             if res == zoo:
                 raise ZeroDivisionError()
             res_tens[c] += res
@@ -916,22 +918,22 @@ if __name__ == "__main__":
             TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f)
             / ((w_n - w_1 - w_2) * (w_m - w_1))
     )
-    threepa_perm_pairs = [(op_a, w_1), (op_b, w_2), (op_c, w_3)]
-    threepa_omegas = [
-            (w_1, state.excitation_energy[0]/3),
-            (w_2, state.excitation_energy[0]/3),
-            (w_3, state.excitation_energy[0]/3),
-            (w_1, w_f-w_2-w_3)
-    ]
-    threepa_tens = (
-            evaluate_property_isr(state, threepa_term, [m, n], threepa_omegas, perm_pairs=threepa_perm_pairs, final_state=(f, 0))
-    )
-    print(threepa_tens)
-    threepa_term = (
-            TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f)
-            / ((w_n - 2*(w_f/3)) * (w_m - (w_f/3)))
-    )
-    threepa_perm_pairs = [(op_a, w), (op_b, w), (op_c, w)]
+    #threepa_perm_pairs = [(op_a, w_1), (op_b, w_2), (op_c, w_3)]
+    #threepa_omegas = [
+    #        (w_1, state.excitation_energy[0]/3),
+    #        (w_2, state.excitation_energy[0]/3),
+    #        (w_3, state.excitation_energy[0]/3),
+    #        (w_1, w_f-w_2-w_3)
+    #]
+    #threepa_tens = (
+    #        evaluate_property_isr(state, threepa_term, [m, n], threepa_omegas, perm_pairs=threepa_perm_pairs, final_state=(f, 0))
+    #)
+    #print(threepa_tens)
+    #threepa_term = (
+    #        TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f)
+    #        / ((w_n - 2*(w_f/3)) * (w_m - (w_f/3)))
+    #)
+    #threepa_perm_pairs = [(op_a, w), (op_b, w), (op_c, w)]
     #threepa_omegas = [
     #        #(w, state.excitation_energy[0]/3),
     #        #(w, w_f/3)
@@ -992,3 +994,21 @@ if __name__ == "__main__":
     #excited_state = Excitation(state, 0, "adc2")
     #mcd_ref = mcd_bterm(excited_state)
     #print(mcd_ref)
+
+    gamma_extra_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O) / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
+    #gamma_extra_tens = evaluate_property_isr(
+    #        state, gamma_extra_term, [n, m], omegas=[(w_1, 0.5), (w_2, 0.6), (w_3, 0.5), (w_o, w_1+w_2+w_3)],
+    #        #perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)],
+    #        extra_terms=False
+    #)
+    #print(gamma_extra_tens)
+
+    esp_extra_terms =  (
+        TransitionMoment(f, op_a, O) * TransitionMoment(O, op_b, f) / (- w_f - w - 1j*gamma)
+        + TransitionMoment(f, op_b, O) * TransitionMoment(O, op_a, f) / (- w_f + w + 1j*gamma)
+    )
+    esp_extra_tens = evaluate_property_isr(
+            state, esp_extra_terms, [], omegas=[(w, 0.5)], gamma_val=0.01, final_state=(f, 2), extra_terms=False
+    )
+    print(esp_extra_tens)
+
