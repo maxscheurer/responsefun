@@ -143,20 +143,22 @@ def state_to_state_transition_moments(state, op_type, final_state=None):
 
 
 def from_vec_to_vec(from_vec, to_vec):
-    """Evaluate the scalar product of a vector of modified transition moments and a response vector."""
-
-    if isinstance(from_vec, AmplitudeVector) and isinstance(to_vec, AmplitudeVector):
-        return from_vec @ to_vec
-    elif isinstance(from_vec, RV) and isinstance(to_vec, AmplitudeVector):
-        real = from_vec.real @ to_vec
-        imag = from_vec.imag @ to_vec
-        return real + 1j*imag
-    elif isinstance(from_vec, AmplitudeVector) and isinstance(to_vec, RV):
-        real = from_vec @ to_vec.real
-        imag = from_vec @ to_vec.imag
-        return real + 1j*imag
+    """Evaluate the scalar product between two instances of ResponseVector and/or AmplitudeVector."""
+    if isinstance(from_vec, AmplitudeVector):
+        fv = RV(from_vec)
     else:
-        raise ValueError()
+        fv = from_vec.copy()
+    if isinstance(to_vec, AmplitudeVector):
+        tv = RV(to_vec)
+    else:
+        tv = to_vec.copy()
+    assert isinstance(fv, RV) and isinstance(tv, RV)
+    real = fv.real @ tv.real - fv.imag @ tv.imag
+    imag = fv.real @ tv.imag + fv.imag @ tv.real
+    if imag == 0:
+        return real
+    else:
+        return real + 1j*imag
 
 
 def evaluate_property_isr(
@@ -343,57 +345,89 @@ def evaluate_property_isr(
                 oper_a = a
                 if isinstance(a, adjoint):
                     oper_a = a.args[0]
-                if isinstance(oper_a, MTM):
-                    if oper_a.op_type == "electric":
-                        mtms = mtms_el
-                    else:
-                        mtms = mtms_mag
+                if isinstance(oper_a, ResponseVector) and oper_a == a: # vec * X
                     lhs = term.args[i-1]
+                    if isinstance(lhs, S2S_MTM): # from_vec * B * X --> transition polarizability
+                        if lhs.op_type == "electric":
+                            dips = dips_el
+                        else:
+                            dips = dips_mag
+                        lhs2 = term.args[i-2]
+                        key = lhs2*lhs*a
+                        if isinstance(lhs2, adjoint) and isinstance(lhs2.args[0], ResponseVector): # Dagger(X) * B * X
+                            comp_list_int = [comp_map[char] for char in list(lhs2.args[0].comp)]
+                            from_v = response_dict[lhs2.args[0].no][tuple(comp_list_int)]
+                        elif isinstance(lhs2, Bra): # <f| * B * X
+                            assert lhs2.label[0] == final_state[0]
+                            from_v = state.excitation_vector[final_state[1]]
+                        else:
+                            raise ValueError("Expression cannot be evaluated.")
+                        comp_list_int = [comp_map[char] for char in list(oper_a.comp)]
+                        to_v = response_dict[oper_a.no][tuple(comp_list_int)]
+                        if isinstance(from_v, AmplitudeVector) and isinstance(to_v, AmplitudeVector):
+                            subs_dict[key] = transition_polarizability(
+                                    property_method, mp, from_v, dips[comp_map[lhs.comp]], to_v
+                            )
+                        else:
+                            if isinstance(from_v, AmplitudeVector):
+                                from_v = RV(from_v)
+                            subs_dict[key] = transition_polarizability_complex(
+                                    property_method, mp, from_v, dips[comp_map[lhs.comp]], to_v
+                            )
+                    elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], MTM): # Dagger(F) * X
+                        if lhs.args[0].op_type == "electric":
+                            mtms = mtms_el
+                        else:
+                            mtms = mtms_mag
+                        subs_dict[lhs*a] = from_vec_to_vec(
+                                mtms[comp_map[lhs.args[0].comp]], response_dict[oper_a.no][comp_map[oper_a.comp]]
+                        )
+                    elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], ResponseVector): # Dagger(X) * X
+                        subs_dict[lhs*a] = from_vec_to_vec(
+                                response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]], response_dict[oper_a.no][comp_map[oper_a.comp]]
+                        )
+                    else:
+                        raise ValueError("Expression cannot be evaluated.")
+                elif isinstance(oper_a, ResponseVector) and oper_a != a:
                     rhs = term.args[i+1]
-                    if oper_a != a and isinstance(rhs, ResponseVector): # Dagger(F) * X
+                    if isinstance(rhs, S2S_MTM): # Dagger(X) * B * to_vec --> transition polarizability
+                        if rhs.op_type == "electric":
+                            dips = dips_el
+                        else:
+                            dips = dips_mag
+                        rhs2 = term.args[i+2]
+                        key = a*rhs*rhs2
+                        if isinstance(rhs2, ResponseVector): # Dagger(X) * B * X (taken care of above)
+                            continue
+                        elif isinstance(rhs2, Ket): # Dagger(X) * B * |f>
+                            assert rhs2.label[0] == final_state[0]
+                            to_v = state.excitation_vector[final_state[1]]
+                        else:
+                            raise ValueError("Expression cannot be evaluated.")
+                        comp_list_int = [comp_map[char] for char in list(oper_a.comp)]
+                        from_v = response_dict[oper_a.no][tuple(comp_list_int)]
+                        if isinstance(from_v, AmplitudeVector) and isinstance(to_v, AmplitudeVector):
+                            subs_dict[key] = transition_polarizability(
+                                    property_method, mp, from_v, dips[comp_map[rhs.comp]], to_v
+                            )
+                        else:
+                            to_v = RV(to_v)
+                            subs_dict[key] = transition_polarizability_complex(
+                                    property_method, mp, from_v, dips[comp_map[rhs.comp]], to_v
+                            )
+                    elif isinstance(rhs, MTM): # Dagger(X) * F
+                        if rhs.op_type == "electric":
+                            mtms = mtms_el
+                        else:
+                            mtms = mtms_mag
                         subs_dict[a*rhs] = from_vec_to_vec(
-                                mtms[comp_map[oper_a.comp]], response_dict[rhs.no][comp_map[rhs.comp]]
+                                response_dict[oper_a.no][comp_map[oper_a.comp]], mtms[comp_map[rhs.comp]]
                         )
-                    elif oper_a == a and isinstance(lhs.args[0], ResponseVector): # Dagger(X) * F
-                        subs_dict[lhs*oper_a] = from_vec_to_vec(
-                                response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]], mtms[comp_map[oper_a.comp]]
-                        )
+                    elif isinstance(rhs, ResponseVector): # Dagger(X) * X (taken care of above)
+                        continue
                     else:
-                        raise ValueError("MTM cannot be evaluated.")
-                elif isinstance(a, S2S_MTM): # from_vec * B * to_vec --> transition polarizability
-                    if a.op_type == "electric":
-                        dips = dips_el
-                    else:
-                        dips = dips_mag
-                    from_v = term.args[i-1]
-                    to_v = term.args[i+1]
-                    key = from_v*a*to_v
-                    if isinstance(from_v, Bra): # <f| B * to_vec
-                        fv = state.excitation_vector[final_state[1]]
-                    elif isinstance(from_v.args[0], ResponseVector): # Dagger(X) * B * to_vec
-                        comp_list_int = [comp_map[char] for char in list(from_v.args[0].comp)]
-                        fv = response_dict[from_v.args[0].no][tuple(comp_list_int)]
-                    else:
-                        raise ValueError("Transition polarizability cannot be evaluated.")
-                    if isinstance(to_v, Ket): # from_vec * B |f> 
-                        tv = state.excitation_vector[final_state[1]]
-                    elif isinstance(to_v, ResponseVector): # from_vec * B * X
-                        comp_list_int = [comp_map[char] for char in list(to_v.comp)]
-                        tv = response_dict[to_v.no][tuple(comp_list_int)]
-                    else:
-                        raise ValueError("Transition polarizability cannot be evaluated.")
-                    if isinstance(fv, AmplitudeVector) and isinstance(tv, AmplitudeVector):
-                        subs_dict[key] = transition_polarizability(
-                                property_method, mp, fv, dips[comp_map[a.comp]], tv
-                        )
-                    else:
-                        if isinstance(fv, AmplitudeVector):
-                            fv = RV(fv)
-                        elif isinstance(tv, AmplitudeVector):
-                            tv = RV(tv)
-                        subs_dict[key] = transition_polarizability_complex(
-                                property_method, mp, fv, dips[comp_map[a.comp]], tv
-                        )
+                        raise ValueError("Expression cannot be evaluated.")
+
                 elif isinstance(a, DipoleMoment):
                     if a.from_state == "0" and a.to_state == "0":
                         if a.op_type == "electric":
@@ -410,9 +444,7 @@ def evaluate_property_isr(
                         raise ValueError("Unknown dipole moment.")
                 elif isinstance(a, LeviCivita):
                     subs_dict[a] = lc_tensor[c]
-            print(subs_dict)
             res = term.subs(subs_dict)
-            print(res)
             if res == zoo:
                 raise ZeroDivisionError()
             res_tens[c] += res
@@ -995,10 +1027,13 @@ if __name__ == "__main__":
     #mcd_ref = mcd_bterm(excited_state)
     #print(mcd_ref)
 
-    gamma_extra_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O) / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
+    gamma_extra_term = (
+            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
+            / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
+    )
     #gamma_extra_tens = evaluate_property_isr(
-    #        state, gamma_extra_term, [n, m], omegas=[(w_1, 0.5), (w_2, 0.6), (w_3, 0.5), (w_o, w_1+w_2+w_3)],
-    #        #perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)],
+    #        state, gamma_extra_term, [n, m], omegas=[(w_1, 0.5), (w_2, 0.6), (w_3, 0.7), (w_o, w_1+w_2+w_3)],
+    #        perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)],
     #        extra_terms=False
     #)
     #print(gamma_extra_tens)
@@ -1007,8 +1042,8 @@ if __name__ == "__main__":
         TransitionMoment(f, op_a, O) * TransitionMoment(O, op_b, f) / (- w_f - w - 1j*gamma)
         + TransitionMoment(f, op_b, O) * TransitionMoment(O, op_a, f) / (- w_f + w + 1j*gamma)
     )
-    esp_extra_tens = evaluate_property_isr(
-            state, esp_extra_terms, [], omegas=[(w, 0.5)], gamma_val=0.01, final_state=(f, 2), extra_terms=False
-    )
-    print(esp_extra_tens)
+    #esp_extra_tens = evaluate_property_isr(
+    #        state, esp_extra_terms, [], omegas=[(w, 0.5)], gamma_val=0.01, final_state=(f, 2), extra_terms=False
+    #)
+    #print(esp_extra_tens)
 

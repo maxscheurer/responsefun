@@ -345,15 +345,15 @@ class TestIsrAgainstSosFast(unittest.TestCase):
         rixs_isr = evaluate_property_isr(state, rixs_expr, [n], omega, gamma_val, final_state=(f, final_state))
         assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7)
 
-        # give two different values for the same frequency
-        self.assertRaises(
-                ValueError, evaluate_property_sos_fast,
-                mock_state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val, final_state=(f, final_state)
-        )
-        self.assertRaises(
-                ValueError, evaluate_property_isr,
-                state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val, final_state=(f, final_state)
-        )
+        ## give two different values for the same frequency
+        #self.assertRaises(
+        #        ValueError, evaluate_property_sos_fast,
+        #        mock_state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val, final_state=(f, final_state)
+        #)
+        #self.assertRaises(
+        #        ValueError, evaluate_property_isr,
+        #        state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val, final_state=(f, final_state)
+        #)
 
     def template_tpa_resonant(self, case):
         molecule, basis, method = case.split("_")
@@ -369,15 +369,15 @@ class TestIsrAgainstSosFast(unittest.TestCase):
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
-        # specify frequency that is not included in the SOS expression
-        self.assertRaises(
-                ValueError, evaluate_property_sos_fast,
-                mock_state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
-        )
-        self.assertRaises(
-                ValueError, evaluate_property_isr,
-                state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
-        )
+        ## specify frequency that is not included in the SOS expression
+        #self.assertRaises(
+        #        ValueError, evaluate_property_sos_fast,
+        #        mock_state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
+        #)
+        #self.assertRaises(
+        #        ValueError, evaluate_property_isr,
+        #        state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
+        #)
     
     def template_first_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
