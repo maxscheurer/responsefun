@@ -1,8 +1,10 @@
+import numpy as np
 from adcc.adc_pp.modified_transition_moments import modified_transition_moments
 from adcc.functions import einsum
 from adcc import AmplitudeVector
 from adcc.LazyMp import LazyMp
 from adcc.AdcMethod import AdcMethod
+from adcc.OneParticleOperator import product_trace
 
 # modified magnetic transition moments are taken from respondo
 
@@ -78,13 +80,13 @@ def modified_magnetic_transition_moments(method, ground_state, dips_mag):
 def gs_magnetic_dipole_moment(ground_state, level=2):
     magdips = ground_state.reference_state.operators.magnetic_dipole
     ref_dipmom = np.array(
-            product_trace(dip, ground_state.reference_state.density) for dip in magdips
+            [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
     )
     if level == 1:
         return ref_dipmom
     elif level == 2:
         mp2corr = np.array(
-                product_trace(dip, ground_state.mp2_diffdm) for dip in magdips
+                [product_trace(dip, ground_state.mp2_diffdm) for dip in magdips]
         )
         return ref_dipmom + mp2corr
     else:
