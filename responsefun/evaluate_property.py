@@ -79,7 +79,7 @@ def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, gamma_
             raise ValueError("A final state was mistakenly specified.")
 
 
-def find_indices(sos_expr, summation_indices):
+def find_remaining_indices(sos_expr, summation_indices):
     """Find indices of summation of the entered SOS term and return them in a list. 
     """
     assert isinstance(sos_expr, Mul)
@@ -283,12 +283,12 @@ def evaluate_property_isr(
                     no = k[5]
                     rvecs = response_dict[no]
                     if k[3] == 0.0:
-                        product_vecs = bmatrix_vector_product(property_method, mp, dips, rvecs)
-                        iterables = [list(range(shape)) for shape in product_vecs.shape]
+                        product_vecs_shape = (3, *rvecs.shape)
+                        iterables = [list(range(shape)) for shape in product_vecs_shape]
                         components = list(product(*iterables))
-                        response = np.empty(product_vecs.shape, dtype=object)
+                        response = np.empty(product_vecs_shape, dtype=object)
                         for c in components:
-                            rhs = product_vecs[c]
+                            rhs = bmatrix_vector_product(property_method, mp, dips[c[0]], rvecs[c[1:]])
                             response[c] = solve_response(matrix, rhs, -k[2], gamma=-k[3], **solver_args)
                     else:
                         # complex bmatrix vector product is implemented (but not tested),
@@ -552,7 +552,7 @@ def evaluate_property_sos(
         else:
             et_list = []
         for et in et_list:
-            sum_ind = find_indices(et, sos.summation_indices) # the extra terms contain less indices of summation
+            sum_ind = find_remaining_indices(et, sos.summation_indices) # the extra terms contain less indices of summation
             trans_freq = [TransitionFrequency(str(index), real=True) for index in sum_ind]
             term_list.append(
                     {"expr": et, "summation_indices": sum_ind, "transition_frequencies": trans_freq}

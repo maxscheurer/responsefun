@@ -1,6 +1,4 @@
 import numpy as np
-from itertools import product
-
 import adcc
 from adcc import AdcMethod
 from adcc import LazyMp
@@ -11,7 +9,7 @@ from respondo.cpp_algebra import ResponseVector as RV
 
 
 def bmvp_adc0(ground_state, dip, vec):
-    assert type(vec) == AmplitudeVector
+    assert isinstance(vec, AmplitudeVector)
     ph = (
             + 1.0 * einsum('ic,ac->ia', vec.ph, dip.vv) 
             - 1.0 * einsum('ka,ki->ia', vec.ph, dip.oo)
@@ -20,7 +18,7 @@ def bmvp_adc0(ground_state, dip, vec):
 
 
 def bmvp_adc2(ground_state, dip, vec):
-    assert type(vec) == AmplitudeVector
+    assert isinstance(vec, AmplitudeVector)
     if dip.is_symmetric:
         dip_vo = dip.ov.transpose((1, 0))
     else:
@@ -111,61 +109,67 @@ def bmvp_adc2(ground_state, dip, vec):
 
 DISPATCH = {
     "adc0": bmvp_adc0,
-    "adc1": bmvp_adc0,
+    "adc1": bmvp_adc0, # identical to ADC(0)
     "adc2": bmvp_adc2,
 }
 
     
-def bmatrix_vector_product(method, ground_state, dips, vecs):
+def bmatrix_vector_product(method, ground_state, dips, vec):
+    """Compute the matrix-vector product of an ISR one-particle operator
+    for the provided ADC method.
+    The product was derived using the original equations from the work of
+    Schirmer and Trofimov (J. Schirmer and A. B. Trofimov, “Intermediate state
+    representation approach to physical properties of electronically excited
+    molecules,” J. Chem. Phys. 120, 11449–11464 (2004).).
+
+    Parameters
+    ----------
+    method: str, AdcMethod
+        The  method to use for the computation of the matrix-vector product
+    ground_state : adcc.LazyMp
+        The MP ground state
+    dips : OneParticleOperator or list of OneParticleOperator
+        One-particle matrix elements associated with the dipole operator        
+    vec: AmplitudeVector
+        A vector with singles and doubles block
+    Returns
+    -------
+    adcc.AmplitudeVector or list of adcc.AmplitudeVector
+    """
     if not isinstance(method, AdcMethod):
         method = AdcMethod(method)
     if method.name not in DISPATCH:
         raise NotImplementedError(f"b_matrix_vector_product is not implemented for {method.name}.")
     if not isinstance(ground_state, LazyMp):
         raise TypeError("ground_state should be a LazyMp object.")
+    unpack = False
     if not isinstance(dips, list):
+        unpack = True
         dips = [dips]
-    if not isinstance(vecs, np.ndarray):
-        vecs = np.array(vecs)
 
-    comp_list_dips = list(range(len(dips)))
-    comp_list_vecs = [list(range(shape)) for shape in vecs.shape]
-    comp = list(product(comp_list_dips, *comp_list_vecs))
-
-    ret_shape = (len(dips), *vecs.shape)
-    ret = np.empty(ret_shape, dtype=object)
-    
-    for c in comp:
-        dip = dips[c[0]]
-        vec = vecs[c[1:]]
-        ret[c] = DISPATCH[method.name](ground_state, dip, vec)
-
-    #TODO: unpacking?
+    ret = [DISPATCH[method.name](ground_state, dip, vec) for dip in dips]
+    if unpack:
+        assert len(ret) == 1
+        ret = ret[0]
     return ret
 
 
 #TODO: testing (however, since solve_response can only handle real right-hand sides, it is difficult) 
-def bmatrix_vector_product_complex(method, ground_state, dips, vecs):
+def bmatrix_vector_product_complex(method, ground_state, dips, vec):
+    unpack = False
     if not isinstance(dips, list):
+        unpack = True
         dips = [dips]
-    if not isinstance(vecs, np.ndarray):
-        vecs = np.array(vecs)
-
-    comp_list_dips = list(range(len(dips)))
-    comp_list_vecs = [list(range(shape)) for shape in vecs.shape]
-    comp = list(product(comp_list_dips, *comp_list_vecs))
-
-    ret_shape = (len(dips), *vecs.shape)
-    ret = np.empty(ret_shape, dtype=object)
+    assert isinstance(vec, RV)
+    ret = []
     
-    for c in comp:
-        dip = dips[c[0]]
-        vec = vecs[c[1:]]
-        assert isinstance(vec, RV)
-        product_real = bmatrix_vector_product(method, ground_state, dip, vec.real)[0]
-        product_imag = bmatrix_vector_product(method, ground_state, dip, vec.imag)[0]
-        ret[c] = RV(product_real, product_imag)
-
+    for dip in dips:
+        product_real = bmatrix_vector_product(method, ground_state, dip, vec.real)
+        product_imag = bmatrix_vector_product(method, ground_state, dip, vec.imag)
+        ret.append(RV(product_real, product_imag))
+    if unpack:
+        assert len(1) == 1
+        ret = ret[0]
     return ret
 
 
@@ -179,6 +183,7 @@ if __name__ == "__main__":
     from responsefun.symbols_and_labels import *
     from responsefun.sum_over_states import TransitionMoment
     from responsefun.evaluate_property import evaluate_property_isr
+    from itertools import product
 
     mol = gto.M(
         atom="""
@@ -201,15 +206,13 @@ if __name__ == "__main__":
     magdips = state.reference_state.operators.magnetic_dipole
     mtms = modified_transition_moments(method, mp, dips)
 
-
     # test state difference dipole moments
     # electric
-    product_vecs = bmatrix_vector_product(method, mp, dips, state.excitation_vector)
-
     for excitation in state.excitations:
+        product_vecs = bmatrix_vector_product(method, mp, dips, excitation.excitation_vector)
         dipmom = [
                 excitation.excitation_vector @ pr
-                for pr in product_vecs[:, excitation.index]
+                for pr in product_vecs
         ]
         diffdm = excitation.state_diffdm
         dipmom_ref = [
@@ -220,12 +223,11 @@ if __name__ == "__main__":
         )
 
     # magnetic
-    product_vecs_mag = bmatrix_vector_product(method, mp, magdips, state.excitation_vector)
-
     for excitation in state.excitations:
+        product_vecs_mag = bmatrix_vector_product(method, mp, magdips, excitation.excitation_vector)
         dipmom = [
                 excitation.excitation_vector @ pr
-                for pr in product_vecs_mag[:, excitation.index]
+                for pr in product_vecs_mag
         ]
         diffdm = excitation.state_diffdm
         dipmom_ref = [
@@ -241,10 +243,9 @@ if __name__ == "__main__":
     #omega_2 = 0.5
     #rvecs1 = [solve_response(matrix, rhs, omega_2, gamma=0.0) for rhs in mtms]
     #components1 = list(product([0, 1, 2], repeat=2))
-    #product_bmatrix_rvecs1 = bmatrix_vector_product(method, mp, dips, rvecs1)
     #beta_tens1 = np.zeros((3,3,3))
     #for c in components1:
-    #    rhs = product_bmatrix_rvecs1[c]
+    #    rhs = bmatrix_vector_product(method, mp, dips[c[0]], rvecs1[c[1]])
     #    rvec2 = solve_response(matrix, rhs, omega_o, gamma=0.0)
     #    for A in range(3):
     #        beta_tens1[A][c] = mtms[A] @ rvec2
@@ -279,6 +280,7 @@ if __name__ == "__main__":
     #np.testing.assert_allclose(mcd_bterm2, mcd_bterm2_ref, atol=1e-12)
 
 
-    ## test b_matrix_vector_product_complex
+    # test b_matrix_vector_product_complex
     #rvecs_test = [solve_response(matrix, RV(rhs), omega_2, gamma=0.01) for rhs in mtms]
-    #product_bmatrix_rvecs_test = bmatrix_vector_product_complex(method, mp, dips, rvecs_test)
+    #product_bmatrix_rvecs_test = [bmatrix_vector_product_complex(method, mp, dips, rvec) for rvec in rvecs_test]
+    #print(product_bmatrix_rvecs_test)
