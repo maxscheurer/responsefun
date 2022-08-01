@@ -17,7 +17,7 @@
 #
 
 from sympy.physics.quantum.state import Bra, Ket, StateBase
-from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, zoo, Integer, Float
+from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction, zoo, Integer, Float, Abs
 from sympy.physics.quantum.operator import Operator
 
 from responsefun.symbols_and_labels import *
@@ -63,9 +63,12 @@ def insert_matrix(expr, matrix=Operator("M")):
                     if expr_types[i:i+2] == kb  # find Ket-Bra sequence
                     and expr.args[i].label[0] == expr.args[i+1].label[0] # make sure they have the same state
     }
-    denominators = [
-        x.args[0] for x in expr.args if isinstance(x, Pow) and x.args[1] == -1
-    ]
+    denominators = []
+    for term in expr.args:
+        if isinstance(term, Pow) and term.args[1] < 0:
+            assert isinstance(term.args[1], Integer)
+            list_to_append = [term.args[0]] * Abs(term.args[1])
+            denominators += list_to_append
     denominator_matches = {}
     for state_label in ketbra_match:
         denominator_match = {}
@@ -96,7 +99,7 @@ def insert_matrix(expr, matrix=Operator("M")):
         denominator_matches.update(denominator_match)
     assert len(denominator_matches) == len(ketbra_match)
     assert denominator_matches.keys() == ketbra_match.keys()
-    
+
     sub = expr.copy()
     for k in ketbra_match:
         ket, bra = ketbra_match[k]
@@ -144,7 +147,6 @@ def to_isr_single_term(expr, operators=None):
             op for op in expr.args if isinstance(op, DipoleOperator)
         ]
     i1 = insert_isr_transition_moments(expr, operators)
-    print(i1)
     M = Operator("M")
     return insert_matrix(i1, M)
 
@@ -494,7 +496,7 @@ if __name__ == "__main__":
     #    print(arg)
 
     gamma_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, k) * TransitionMoment(k, op_d, O) / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_k - w_3))
-    gamma_sos = SumOverStates(gamma_term, [n, m, k], correlation_btw_freq=[(w_o, w_1+w_2+w_3)], perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)])
+    #gamma_sos = SumOverStates(gamma_term, [n, m, k], correlation_btw_freq=[(w_o, w_1+w_2+w_3)], perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)])
     #gamma_isr = to_isr(gamma_sos)
     #print(gamma_sos.expr)
     #print(len(gamma_isr.args))
@@ -505,7 +507,7 @@ if __name__ == "__main__":
     #for arg in extra_terms_gamma.args:
     #    print(arg)
     
-    gamma_test_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O) / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
+    gamma_test_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O) / ((w_n) * (w_m) * (w_m))
     #print(gamma_test_term)
     #gamma_test_sos = SumOverStates(gamma_test_term, [n, m], correlation_btw_freq=[(w_o, w_1+w_2+w_3)])
     #gamma_test_isr = to_isr(gamma_test_sos, False)

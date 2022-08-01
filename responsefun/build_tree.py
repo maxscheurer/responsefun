@@ -1,4 +1,4 @@
-from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex
+from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, Abs, UnevaluatedExpr
 from sympy.physics.quantum.operator import Operator
 from sympy.physics.quantum.state import Bra, Ket, StateBase
 from anytree import NodeMixin, RenderTree
@@ -88,20 +88,34 @@ def build_branches(node, matrix):
     elif isinstance(node.expr, Mul):
         children = []
         for i, term in enumerate(node.expr.args):
-            if isinstance(term, Pow) and term.args[1] == -1 and (matrix in term.args[0].args or term.args[0]==matrix):
+            if isinstance(term, Pow) and (matrix in term.args[0].args or term.args[0]==matrix):
                 tinv = term.args[0]
                 lhs = node.expr.args[i-1]
                 rhs = node.expr.args[i+1]
-                if acceptable_rhs_lhs(rhs):
-                    children.append(ResponseNode(tinv**-1 * rhs, tinv, rhs))
-                elif acceptable_rhs_lhs(lhs):
-                    children.append(ResponseNode(lhs * tinv**-1, tinv, lhs))
-                elif acceptable_two_rhss_lhss(rhs, node.expr.args[i+2]):
-                    children.append(ResponseNode(tinv**-1 * rhs * node.expr.args[i+2], tinv, rhs * node.expr.args[i+2]))
-                elif acceptable_two_rhss_lhss(lhs, node.expr.args[i-2]):
-                    children.append(ResponseNode(node.expr.args[i-2] * lhs * tinv**-1, tinv, node.expr.args[i-2] * lhs))
+                if term.args[1] != -1:
+                    if acceptable_rhs_lhs(rhs):
+                        children.append(ResponseNode(tinv**-1 * rhs, tinv, rhs))
+                    elif acceptable_two_rhss_lhss(rhs, node.expr.args[i+2]):
+                        children.append(ResponseNode(tinv**-1 * rhs * node.expr.args[i+2], tinv, rhs * node.expr.args[i+2]))
+                    else:
+                        print("No invertable term found.")
+                    if acceptable_rhs_lhs(lhs):
+                        children.append(ResponseNode(lhs * tinv**-1, tinv, lhs))
+                    elif acceptable_two_rhss_lhss(lhs, node.expr.args[i-2]):
+                        children.append(ResponseNode(node.expr.args[i-2] * lhs * tinv**-1, tinv, node.expr.args[i-2] * lhs))
+                    else:
+                        print("No invertable term found.")
                 else:
-                    print("No invertable term found.")
+                    if acceptable_rhs_lhs(rhs):
+                        children.append(ResponseNode(tinv**-1 * rhs, tinv, rhs))
+                    elif acceptable_rhs_lhs(lhs):
+                        children.append(ResponseNode(lhs * tinv**-1, tinv, lhs))
+                    elif acceptable_two_rhss_lhss(rhs, node.expr.args[i+2]):
+                        children.append(ResponseNode(tinv**-1 * rhs * node.expr.args[i+2], tinv, rhs * node.expr.args[i+2]))
+                    elif acceptable_two_rhss_lhss(lhs, node.expr.args[i-2]):
+                        children.append(ResponseNode(node.expr.args[i-2] * lhs * tinv**-1, tinv, node.expr.args[i-2] * lhs))
+                    else:
+                        print("No invertable term found.")
         node.children = children
     else:
         raise TypeError("ADC/ISR expression must be either of type Mul or Add.")
@@ -245,7 +259,7 @@ if __name__ == "__main__":
     )
     gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C + adjoint(F_D) * (M - w)**-1 * B_A * (M + w)**-1 * B_C * (M + 2*w)**-1 * F_B
     gamma_extra = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M - w_3)**-1 * F_D / (-w_2 - w_3)
-    gamma_extra2 = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M + w_2)**-1 * (M - w_3)**-1 * F_D
+    gamma_extra2 = adjoint(F_A) * (M)**-1 * F_B * adjoint(F_C) * (M)**-1 * (M)**-1 * F_D
     B_E = S2S_MTM("E")
     F_F = MTM("F")
     higher_order_like = adjoint(F_A) * (M - w)**-1 * B_B * (M - w)**-1 * B_C * (M - w)**-1 * B_D * (M - w)**-1 * B_E * (M - w)**-1 * F_F
