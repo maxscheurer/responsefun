@@ -180,6 +180,10 @@ class SumOverStates:
         return self._operators
 
     @property
+    def operator_types(self):
+        return set([op.op_type for op in self._operators])
+
+    @property
     def components(self):
         return self._components
     

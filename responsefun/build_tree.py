@@ -5,6 +5,7 @@ from anytree import NodeMixin, RenderTree
 
 from responsefun.symbols_and_labels import *
 from responsefun.response_operators import MTM, S2S_MTM, ResponseVector
+from responsefun.adcc_properties import available_operators
 
 
 class IsrTreeNode(NodeMixin):
@@ -234,10 +235,13 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
                 with_dagger = False
             else:
                 with_dagger = True
+        mtm_type = key[0]
+        op_type = key[1]
+        symmetry = available_operators[op_type][1]
         if not with_dagger:
-            leaf.expr = ResponseVector(comp, rvecs[key])
+            leaf.expr = ResponseVector(comp, rvecs[key], str(mtm_type), symmetry)
         else:
-            leaf.expr = adjoint(ResponseVector(comp, rvecs[key]))
+            leaf.expr = adjoint(ResponseVector(comp, rvecs[key], str(mtm_type), symmetry))
         traverse_branches(leaf.parent, old_expr, leaf.expr)
 
     if rvecs:
@@ -260,8 +264,8 @@ if __name__ == "__main__":
     gamma_like = adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * B_D * (M + 2*w)**-1 * F_C + adjoint(F_D) * (M - w)**-1 * B_A * (M + w)**-1 * B_C * (M + 2*w)**-1 * F_B
     gamma_extra = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M - w_3)**-1 * F_D / (-w_2 - w_3)
     gamma_extra2 = adjoint(F_A) * (M)**-1 * F_B * adjoint(F_C) * (M)**-1 * (M)**-1 * F_D
-    B_E = S2S_MTM("E")
-    F_F = MTM("F")
+    B_E = S2S_MTM("E", "electric")
+    F_F = MTM("F", "electric")
     higher_order_like = adjoint(F_A) * (M - w)**-1 * B_B * (M - w)**-1 * B_C * (M - w)**-1 * B_D * (M - w)**-1 * B_E * (M - w)**-1 * F_F
     higher_order_extra_like = adjoint(F_A) * (M - w_o)**-1 * F_B * adjoint(F_C) * (M + w_o)**-1 * (M + w_2)**-1 * (M - w_3)**-1 * (M + w)**-1 * F_D
     #print(build_tree(alpha_like))

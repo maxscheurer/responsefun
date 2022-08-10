@@ -14,6 +14,7 @@ from responsefun.build_tree import build_tree
 from responsefun.testdata.cache import MockExcitedStates
 from responsefun.bmatrix_vector_product import bmatrix_vector_product
 from responsefun.magnetic_dipole_moments import modified_magnetic_transition_moments, gs_magnetic_dipole_moment
+from responsefun.adcc_properties import AdccProperties
 
 from adcc import AmplitudeVector
 from adcc.workflow import construct_adcmatrix
@@ -33,6 +34,7 @@ ABC = list(string.ascii_uppercase)
 lc_tensor = np.zeros((3, 3, 3))
 lc_tensor[0, 1, 2] = lc_tensor[1, 2, 0] = lc_tensor[2, 0, 1] = 1
 lc_tensor[2, 1, 0] = lc_tensor[0, 2, 1] = lc_tensor[1, 0, 2] = -1
+
 
 def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, gamma_val, final_state):
     """Checks for errors in the entered frequencies or the final state.
@@ -92,54 +94,18 @@ def find_remaining_indices(sos_expr, summation_indices):
 
 
 def replace_bra_op_ket(expr):
-    """Replace Bra(from_state)*op*Ket(to_state) sequence in a SymPy term
+    """Replace Bra(to_state)*op*Ket(from_state) sequence in a SymPy term
     by an instance of <class 'responsetree.response_operators.DipoleMoment'>.
     """
     assert type(expr) == Mul
     subs_dict = {}
     for ia, a in enumerate(expr.args):
         if isinstance(a, DipoleOperator):
-            from_state = expr.args[ia-1]
-            to_state = expr.args[ia+1]
-            key = from_state*a*to_state
+            from_state = expr.args[ia+1]
+            to_state = expr.args[ia-1]
+            key = to_state*a*from_state
             subs_dict[key] = DipoleMoment(a.comp, str(from_state.label[0]), str(to_state.label[0]), a.op_type)
     return expr.subs(subs_dict)
-
-
-def state_to_state_transition_moments(state, op_type, final_state=None):
-    if isinstance(state, MockExcitedStates):
-        if op_type == "electric":
-            tdms_s2s = state.transition_dipole_moment_s2s
-        else:
-            tdms_s2s = state.transition_magnetic_moment_s2s
-        if final_state is None:
-            return tdms_s2s
-        else:
-            return tdms_s2s[:, final_state]
-    else:
-        if op_type == "electric":
-            dips = state.reference_state.operators.electric_dipole
-        else:
-            dips = state.reference_state.operators.magnetic_dipole
-        if final_state is None:
-            s2s_tdms = np.zeros((state.size, state.size, 3))
-            excitations = state.excitations
-        else:
-            assert type(final_state) == int
-            s2s_tdms = np.zeros((state.size, 1, 3))
-            excitations = [state.excitations[final_state]]
-        for ee1 in tqdm(state.excitations):
-            i = ee1.index
-            for j, ee2 in enumerate(excitations):
-                tdm = state2state_transition_dm(
-                    state.property_method,
-                    state.ground_state,
-                    ee1.excitation_vector,
-                    ee2.excitation_vector,
-                    state.matrix.intermediates,
-                )
-                s2s_tdms[i, j] = np.array([product_trace(tdm, dip) for dip in dips])
-        return np.squeeze(s2s_tdms)
 
 
 def from_vec_to_vec(from_vec, to_vec):
@@ -210,8 +176,6 @@ def evaluate_property_isr(
     matrix = construct_adcmatrix(state.matrix)
     property_method = select_property_method(matrix)
     mp = matrix.ground_state
-    dips_el = state.reference_state.operators.electric_dipole
-    mtms_el = modified_transition_moments(property_method, mp, dips_el)
 
     if omegas is None:
         omegas = []
@@ -234,15 +198,15 @@ def evaluate_property_isr(
     sos = SumOverStates(
             sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq, perm_pairs=perm_pairs, excluded_cases=excluded_cases
     )
-    if "magnetic" in set([op.op_type for op in sos.operators]):
-        dips_mag = state.reference_state.operators.magnetic_dipole
-        mtms_mag = modified_magnetic_transition_moments(property_method, mp, dips_mag)
+    adcc_prop_dict = {}
+    for op_type in sos.operator_types:
+        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
     
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
     isr = to_isr(sos, extra_terms)
     mod_isr = isr.subs(correlation_btw_freq)
     rvecs_dict_list = build_tree(mod_isr)
-
+    
     response_dict = {}
     for tup in rvecs_dict_list:
         root_expr, rvecs_dict = tup
@@ -263,11 +227,9 @@ def evaluate_property_isr(
         
         # solve response equations
         for k, v in rvecs_dict_mod.items():
+            op_type = k[1]
             if k[0] == MTM:
-                if k[1] == "electric":
-                    rhss = mtms_el
-                else:
-                    rhss = mtms_mag
+                rhss = adcc_prop_dict[op_type].mtms
                 if k[3] == 0.0:
                     response = [solve_response(matrix, rhs, -k[2], gamma=0.0, **solver_args) for rhs in rhss]
                 else:
@@ -275,10 +237,7 @@ def evaluate_property_isr(
                 for vv in v:
                     response_dict[vv] = np.array(response, dtype=object)
             elif k[0] == S2S_MTM:
-                if k[1] == "electric":
-                    dips = dips_el
-                else:
-                    dips = dips_mag
+                dips = adcc_prop_dict[op_type].dips
                 if k[4] == ResponseVector:
                     no = k[5]
                     rvecs = response_dict[no]
@@ -340,6 +299,7 @@ def evaluate_property_isr(
         
         for term in term_list:
             subs_dict = {o[0]: o[1] for o in all_omegas}
+            print("check: ", gamma_val)
             subs_dict[gamma] = gamma_val
             for i, a in enumerate(term.args):
                 oper_a = a
@@ -348,15 +308,18 @@ def evaluate_property_isr(
                 if isinstance(oper_a, ResponseVector) and oper_a == a: # vec * X
                     lhs = term.args[i-1]
                     if isinstance(lhs, S2S_MTM): # from_vec * B * X --> transition polarizability
-                        if lhs.op_type == "electric":
-                            dips = dips_el
-                        else:
-                            dips = dips_mag
+                        dips = adcc_prop_dict[lhs.op_type].dips
                         lhs2 = term.args[i-2]
                         key = lhs2*lhs*a
                         if isinstance(lhs2, adjoint) and isinstance(lhs2.args[0], ResponseVector): # Dagger(X) * B * X
                             comp_list_int = [comp_map[char] for char in list(lhs2.args[0].comp)]
-                            from_v = response_dict[lhs2.args[0].no][tuple(comp_list_int)]
+                            # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
+                            if lhs2.args[0].mtm_type == str(S2S_MTM) or lhs2.args[0].symmetry == 1: # Hermitian operators
+                                from_v = response_dict[lhs2.args[0].no][tuple(comp_list_int)]
+                            elif symmetry == 2: # anti-Hermitian operators
+                                from_v = -1.0 * response_dict[lhs2.args[0].no][tuple(comp_list_int)]
+                            else:
+                                raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                         elif isinstance(lhs2, Bra): # <f| * B * X
                             assert lhs2.label[0] == final_state[0]
                             from_v = state.excitation_vector[final_state[1]]
@@ -375,26 +338,32 @@ def evaluate_property_isr(
                                     property_method, mp, from_v, dips[comp_map[lhs.comp]], to_v
                             )
                     elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], MTM): # Dagger(F) * X
-                        if lhs.args[0].op_type == "electric":
-                            mtms = mtms_el
+                        if lhs.args[0].symmetry == 1: # Hermitian operators
+                            mtms = adcc_prop_dict[lhs.args[0].op_type].mtms
+                        elif lhs.args[0].symmetry == 2: # anti-Hermitian operators
+                            mtms = -1.0 * adcc_prop_dict[lhs.args[0].op_type].mtms
                         else:
-                            mtms = mtms_mag
+                            raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                         subs_dict[lhs*a] = from_vec_to_vec(
                                 mtms[comp_map[lhs.args[0].comp]], response_dict[oper_a.no][comp_map[oper_a.comp]]
                         )
                     elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], ResponseVector): # Dagger(X) * X
+                        # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
+                        if lhs.args[0].mtm_type == str(S2S_MTM) or lhs.args[0].symmetry == 1: # Hermitian operators
+                            left_rvec = response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]]
+                        elif lhs.args[0].symmetry == 2: # anti-Hermitian operators
+                            left_rvec = -1.0 * response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]]
+                        else:
+                             raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                         subs_dict[lhs*a] = from_vec_to_vec(
-                                response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]], response_dict[oper_a.no][comp_map[oper_a.comp]]
+                                left_rvec, response_dict[oper_a.no][comp_map[oper_a.comp]]
                         )
                     else:
                         raise ValueError("Expression cannot be evaluated.")
                 elif isinstance(oper_a, ResponseVector) and oper_a != a:
                     rhs = term.args[i+1]
                     if isinstance(rhs, S2S_MTM): # Dagger(X) * B * to_vec --> transition polarizability
-                        if rhs.op_type == "electric":
-                            dips = dips_el
-                        else:
-                            dips = dips_mag
+                        dips = adcc_prop_dict[rhs.op_type].dips
                         rhs2 = term.args[i+2]
                         key = a*rhs*rhs2
                         if isinstance(rhs2, ResponseVector): # Dagger(X) * B * X (taken care of above)
@@ -405,7 +374,14 @@ def evaluate_property_isr(
                         else:
                             raise ValueError("Expression cannot be evaluated.")
                         comp_list_int = [comp_map[char] for char in list(oper_a.comp)]
-                        from_v = response_dict[oper_a.no][tuple(comp_list_int)]
+                        # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
+                        print(oper_a.mtm_type)
+                        if oper_a.mtm_type == str(S2S_MTM) or oper_a.symmetry == 1: # Hermitian operators
+                            from_v = response_dict[oper_a.no][tuple(comp_list_int)]
+                        elif oper_a.symmetry == 2: # anti-Hermitian operators
+                            from_v = -1.0 * response_dict[oper_a.no][tuple(comp_list_int)] # HHHHHHeeeere
+                        else:
+                             raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                         if isinstance(from_v, AmplitudeVector) and isinstance(to_v, AmplitudeVector):
                             subs_dict[key] = transition_polarizability(
                                     property_method, mp, from_v, dips[comp_map[rhs.comp]], to_v
@@ -416,12 +392,15 @@ def evaluate_property_isr(
                                     property_method, mp, from_v, dips[comp_map[rhs.comp]], to_v
                             )
                     elif isinstance(rhs, MTM): # Dagger(X) * F
-                        if rhs.op_type == "electric":
-                            mtms = mtms_el
+                        if oper_a.mtm_type == S2S_MTM or oper_a.symmetry == 1: # Hermitian operators
+                            left_rvec = response_dict[oper_a.no][comp_map[oper_a.comp]]
+                        elif oper_a.symmetry == 2: # anti-Hermitian operators
+                            left_rvec = -1.0 * response_dict[oper_a.no][comp_map[oper_a.comp]]
                         else:
-                            mtms = mtms_mag
+                             raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
+                        mtms = adcc_prop_dict[rhs.op_type].mtms
                         subs_dict[a*rhs] = from_vec_to_vec(
-                                response_dict[oper_a.no][comp_map[oper_a.comp]], mtms[comp_map[rhs.comp]]
+                                left_rvec, mtms[comp_map[rhs.comp]]
                         )
                     elif isinstance(rhs, ResponseVector): # Dagger(X) * X (taken care of above)
                         continue
@@ -430,16 +409,11 @@ def evaluate_property_isr(
 
                 elif isinstance(a, DipoleMoment):
                     if a.from_state == "0" and a.to_state == "0":
-                        if a.op_type == "electric":
-                            gs_dip_moment = mp.dipole_moment(property_method.level)
-                        else:
-                            gs_dip_moment = gs_magnetic_dipole_moment(mp, property_method.level)
+                        gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
                         subs_dict[a] = gs_dip_moment[comp_map[a.comp]]
                     elif a.from_state == "0" and a.to_state == str(final_state[0]):
-                        if a.op_type == "electric":
-                            subs_dict[a] = state.transition_dipole_moment[final_state[1]][comp_map[a.comp]]
-                        else:
-                            subs_dict[a] = state.transition_magnetic_dipole_moment[final_state[1]][comp_map[a.comp]]
+                        tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
+                        subs_dict[a] = tdms[final_state[1]][comp_map[a.comp]]
                     else:
                         raise ValueError("Unknown dipole moment.")
                 elif isinstance(a, LeviCivita):
@@ -529,6 +503,10 @@ def evaluate_property_sos(
     sos = SumOverStates(
             sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq, perm_pairs=perm_pairs, excluded_cases=excluded_cases
     )
+    adcc_prop_dict = {}
+    for op_type in sos.operator_types:
+        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
+
     _check_omegas_and_final_state(sos.expr, omegas, sos.correlation_btw_freq, gamma_val, final_state)
     
     # all terms are stored as dictionaries in a list
@@ -563,24 +541,15 @@ def evaluate_property_sos(
         dtype = complex
     res_tens = np.zeros((3,)*len(sos.operators), dtype=dtype)
     
-    if isinstance(state, MockExcitedStates):
-        pm_level = state.property_method.replace("adc", "")
-    else:
-        pm_level = state.property_method.level
-    if "electric" in set([op.op_type for op in sos.operators]):
-        tdms_el = state.transition_dipole_moment
-    if "magnetic" in set([op.op_type for op in sos.operators]):
-        tdms_mag = state.transition_magnetic_dipole_moment
-    s2s_tdms_el = None # state-to-state transition moments are calculated below if needed
-    s2s_tdms_f_el = None
-    s2s_tdms_mag = None
-    s2s_tdms_f_mag = None
-
     if symmetric:
         components = list(combinations_with_replacement([0, 1, 2], len(sos.operators))) # if tensor is symmetric
     else:
         components = list(product([0, 1, 2], repeat=len(sos.operators)))
     
+    modified_excluded_cases = [
+            (str(tup[0]), final_state[1]) if tup[1] == final_state[0] else (str(tup[0]), tup[1]) for tup in excluded_cases
+    ]
+
     for term_dict in tqdm(term_list):
         mod_expr = replace_bra_op_ket(
                 term_dict["expr"].subs(sos.correlation_btw_freq)
@@ -600,6 +569,11 @@ def evaluate_property_sos(
             state_map = {
                     sum_ind_str[ii]: ind for ii, ind in enumerate(i)
                 }
+            
+            # skip the rest of the loop for this iteration if it corresponds to one of the excluded cases
+            if set(modified_excluded_cases).intersection(set(state_map.items())):
+                continue
+
             if final_state:
                 state_map[str(final_state[0])] = final_state[1]
             for c in components:
@@ -614,58 +588,38 @@ def evaluate_property_sos(
 
                 for a in dip_mom_list:
                     if a.from_state == "0" and a.to_state == "0":
-                        if a.op_type == "electric":
-                            if isinstance(state, MockExcitedStates):
-                                gs_dip_moment = state.ground_state.dipole_moment[pm_level]
-                            else:
-                                gs_dip_moment = state.ground_state.dipole_moment(pm_level)
-                        else:
-                            gs_dip_moment = gs_magnetic_dipole_moment(state.ground_state, pm_level)
+                        gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
                         subs_dict[a] = gs_dip_moment[comp_map[a.comp]]
                     elif a.from_state == "0":
                         index = state_map[a.to_state]
                         comp = comp_map[a.comp]
-                        if a.op_type == "electric":
-                            subs_dict[a] = tdms_el[index][comp]
-                        else:
-                            subs_dict[a] = tdms_mag[index][comp]
+                        tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
+                        subs_dict[a] = tdms[index][comp]
                     elif a.to_state == "0":
                         index = state_map[a.from_state]
                         comp = comp_map[a.comp]
-                        if a.op_type == "electric":
-                            subs_dict[a] = tdms_el[index][comp]
+                        tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
+                        if a.symmetry == 1: # Hermitian operators
+                            subs_dict[a] = tdms[index][comp]
+                        elif a.symmetry == 2: # anti-Hermitian operators
+                            subs_dict[a] = -1.0 * tdms[index][comp] # TODO: correct sign?
                         else:
-                            subs_dict[a] = tdms_mag[index][comp]
+                            raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                     else:
                         index1 = state_map[a.from_state]
                         index2 = state_map[a.to_state]
                         comp = comp_map[a.comp]
-                        if a.op_type == "electric":
-                            s2s_tdms = s2s_tdms_el
-                            s2s_tdms_f = s2s_tdms_f_el
-                        else:
-                            s2s_tdms = s2s_tdms_mag
-                            s2s_tdms_f = s2s_tdms_f_mag
                         if a.from_state in sum_ind_str and a.to_state in sum_ind_str: # e.g., <n|\mu|m>
-                            if s2s_tdms is None:
-                                s2s_tdms = state_to_state_transition_moments(state, a.op_type)
+                            s2s_tdms = adcc_prop_dict[a.op_type].state_to_state_transition_moment
                             subs_dict[a] = s2s_tdms[index1, index2, comp]
-                        elif a.from_state in sum_ind_str: # e.g., <n|\mu|f>
-                            if s2s_tdms_f is None:
-                                s2s_tdms_f = state_to_state_transition_moments(state, a.op_type, index2)
+                        elif a.from_state in sum_ind_str: # e.g., <f|\mu|n>
+                            s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(final_state=index2)
                             subs_dict[a] = s2s_tdms_f[index1, comp]
-                        elif a.to_state in sum_ind_str: # e.g., <f|\mu|n>
-                            if s2s_tdms_f is None:
-                                s2s_tdms_f = state_to_state_transition_moments(state, a.op_type, index1)
+                        elif a.to_state in sum_ind_str: # e.g., <n|\mu|f>
+                            s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(initial_state=index1)
                             subs_dict[a] = s2s_tdms_f[index2, comp]
                         else:
                             raise ValueError()
-                        if a.op_type == "electric":
-                            s2s_tdms_el = s2s_tdms
-                            s2s_tdms_f_el = s2s_tdms_f
-                        else:
-                            s2s_tdms_mag = s2s_tdms
-                            s2s_tdms_f_mag = s2s_tdms_f
                 if lc_contained:
                     subs_dict[LeviCivita()] = lc_tensor[c]
                 res = mod_expr.xreplace(subs_dict)
@@ -743,6 +697,10 @@ def evaluate_property_sos_fast(
     sos = SumOverStates(
             sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq, perm_pairs=perm_pairs, excluded_cases=excluded_cases
     )
+    adcc_prop_dict = {}
+    for op_type in sos.operator_types:
+        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
+
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
 
     if extra_terms:
@@ -763,75 +721,44 @@ def evaluate_property_sos_fast(
     else:
         term_list = [replace_bra_op_ket(sos_expr_mod)]
     
-    if isinstance(state, MockExcitedStates):
-        pm_level = state.property_method.replace("adc", "")
-    else:
-        pm_level = state.property_method.level
-    s2s_tdms_el = None # state-to-state transition moments are calculated below if needed
-    s2s_tdms_f_el = None
-    s2s_tdms_mag = None
-    s2s_tdms_f_mag = None
-
     for term in term_list:
         einsum_list = []
-        sign = 1
+        factor = 1
+        divergences = []
         for a in term.args:
             if isinstance(a, DipoleMoment):
-                print(a.op_type)
                 if a.from_state == "0" and a.to_state == "0": # <0|\mu|0>
-                    if a.op_type == "electric":
-                        if isinstance(state, MockExcitedStates):
-                            gs_dip_moment = state.ground_state.dipole_moment[pm_level]
-                        else:
-                            gs_dip_moment = state.ground_state.dipole_moment(pm_level)
-                    else:
-                        gs_dip_moment = gs_magnetic_dipole_moment(state.ground_state, pm_level)
+                    gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
                     einsum_list.append(("", a.comp, gs_dip_moment))
                 elif a.from_state == "0":
-                    if a.op_type == "electric":
-                        tdms = state.transition_dipole_moment
-                    else:
-                        tdms = state.transition_magnetic_dipole_moment
-                    if a.to_state in sos.summation_indices_str: # e.g., <0|\mu|n>
+                    tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
+                    if a.to_state in sos.summation_indices_str: # e.g., <n|\mu|0>
                         einsum_list.append((a.to_state, a.comp, tdms))
-                    else: # e.g., <0|\mu|f>
-                        einsum_list.append(("", a.comp, tdms[final_state[1]]))
-                elif a.to_state == "0":
-                    if a.op_type == "electric":
-                        tdms = state.transition_dipole_moment
-                    else:
-                        tdms = state.transition_magnetic_dipole_moment
-                    if a.from_state in sos.summation_indices_str: # e.g., <n|\mu|0>
-                        einsum_list.append((a.from_state, a.comp, tdms))
                     else: # e.g., <f|\mu|0>
                         einsum_list.append(("", a.comp, tdms[final_state[1]]))
-                else:
-                    if a.op_type == "electric":
-                        s2s_tdms = s2s_tdms_el
-                        s2s_tdms_f = s2s_tdms_f_el
+                elif a.to_state == "0":
+                    if a.symmetry == 1: # Hermitian operators
+                        tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
+                    elif a.symmetry == 2: # anti-Hermitian operators
+                        tdms = -1.0 * adcc_prop_dict[a.op_type].transition_dipole_moment # TODO: correct sign?
                     else:
-                        s2s_tdms = s2s_tdms_mag
-                        s2s_tdms_f = s2s_tdms_f_mag
+                        raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
+                    if a.from_state in sos.summation_indices_str: # e.g., <0|\mu|n>
+                        einsum_list.append((a.from_state, a.comp, tdms))
+                    else: # e.g., <0|\mu|f>
+                        einsum_list.append(("", a.comp, tdms[final_state[1]]))
+                else:
                     if a.from_state in sos.summation_indices_str and a.to_state in sos.summation_indices_str: # e.g., <n|\mu|m>
-                        if s2s_tdms is None:
-                            s2s_tdms = state_to_state_transition_moments(state, a.op_type)
+                        s2s_tdms = adcc_prop_dict[a.op_type].state_to_state_transition_moment
                         einsum_list.append((a.from_state+a.to_state, a.comp, s2s_tdms))
-                    elif a.from_state in sos.summation_indices_str and a.to_state == str(final_state[0]): # e.g., <n|\mu|f>
-                        if s2s_tdms_f is None:
-                            s2s_tdms_f = state_to_state_transition_moments(state, a.op_type, final_state[1])
+                    elif a.from_state in sos.summation_indices_str and a.to_state == str(final_state[0]): # e.g., <f|\mu|n>
+                        s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(final_state=final_state[1])
                         einsum_list.append((a.from_state, a.comp, s2s_tdms_f))
-                    elif a.to_state in sos.summation_indices_str and a.from_state == str(final_state[0]): # e.g., <f|\mu|n>
-                        if s2s_tdms_f is None:
-                            s2s_tdms_f = state_to_state_transition_moments(state, a.op_type, final_state[1])
+                    elif a.to_state in sos.summation_indices_str and a.from_state == str(final_state[0]): # e.g., <n|\mu|f>
+                        s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(initial_state=final_state[1])
                         einsum_list.append((a.to_state, a.comp, s2s_tdms_f))
                     else:
                         raise ValueError()
-                    if a.op_type == "electric":
-                        s2s_tdms_el = s2s_tdms
-                        s2s_tdms_f_el = s2s_tdms_f
-                    else:
-                        s2s_tdms_mag = s2s_tdms
-                        s2s_tdms_f_mag = s2s_tdms_f
 
             elif isinstance(a, Pow):
                 pow_expr = a.args[0].subs(subs_dict)
@@ -861,33 +788,63 @@ def evaluate_property_sos_fast(
                 else:
                     array = 1/(state.excitation_energy_uncorrected + shift)
                     if np.inf in array:
-                        raise ZeroDivisionError()
+                        index_with_inf = np.where(array ==  np.inf)
+                        assert len(index_with_inf) == 1
+                        assert len(index_with_inf[0]) == 1
+                        divergences.append((Symbol(index, real=True), index_with_inf[0][0]))
                     einsum_list.append((index, "", array))
             
             elif isinstance(a, LeviCivita):
                 einsum_list.append(("", "ABC", lc_tensor))
 
-            elif Integer(a) is S.NegativeOne:
-                sign = -1
+            elif isinstance(a, Integer) or isinstance(a, Float):
+                factor *= float(a)
 
             else:
-                raise ValueError()
+                raise TypeError(f"The following type was not recognized: {type(a)}.")
         
+        if len(divergences) != 0:
+            print("The following divergences have been found (explaining the RuntimeWarning): ", divergences)
         einsum_left = ""
         einsum_right = ""
         array_list = []
+        removed_divergences = []
         # create string of subscript labels and list of np.arrays for np.einsum
         for tup in einsum_list:
-            einsum_left += tup[0] + tup[1] + ","
-            einsum_right += tup[1]
-            array_list.append(tup[2])
+            state_str, comp_str, array = tup
+            einsum_left += state_str + comp_str + ","
+            einsum_right += comp_str
+            # remove excluded cases from corresponding arrays
+            if excluded_cases and state_str:
+                for case in excluded_cases:
+                    if str(case[0]) in state_str and case[1] != O:
+                        assert case[1] == final_state[0]
+                        index_to_delete = final_state[1]
+                        axis = state_str.index(str(case[0]))
+                        array = np.delete(array, index_to_delete, axis=axis)
+                        removed_divergences.append((case[0], final_state[1]))
+            array_list.append(array)
+        removed_divergences = list(set(removed_divergences))
+        divergences_copied = divergences.copy()
+        for rd in removed_divergences:
+            if rd not in divergences:
+                raise ValueError(
+                        "A case that did not cause any divergences was excluded from the summation.\n"
+                        "Please check the excluded_cases list that was passed to the function."
+                )
+            divergences_copied.remove(rd)
+        if len(divergences) != 0:
+            if len(divergences_copied) != 0:
+                raise ZeroDivisionError(f"Not all divergences that occured could be eliminated. The following divergences remain: {divergences}.")
+            else:
+                print("However, all of these divergences have been successfully removed.")
         einsum_left_mod = einsum_left[:-1]
         einsum_right_list = list(set(einsum_right))
         einsum_right_list.sort()
         einsum_right_mod = ''.join(einsum_right_list)
         einsum_string = einsum_left_mod + " -> " + einsum_right_mod
-        print(einsum_string)
-        res_tens += sign * np.einsum(einsum_string, *array_list)
+        print("Created string of subscript labels that is used by np.einsum:\n", einsum_string)
+        res_tens += (factor * np.einsum(einsum_string, *array_list))
     
     return res_tens
 
@@ -1008,20 +965,36 @@ if __name__ == "__main__":
     #)
     #print(mcd_tens1)
     #mcd_tens1_sos = evaluate_property_sos_fast(
-    #        mock_state, mcd_term1, [k], final_state=(f, 0), extra_terms=False
+    #        mock_state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, O)]
     #)
     #print(mcd_tens1_sos)
-    #np.testing.assert_allclose(mcd_tens1, mcd_tens1_sos, atol=1e-7)
+    #mcd_tens1_sos2 = evaluate_property_sos(
+    #        mock_state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, O)]
+    #)
+    #print(mcd_tens1_sos2)
+    #np.testing.assert_allclose(mcd_tens1_sos, mcd_tens1_sos2, atol=1e-7)
     #mcd_term2 = (
     #        -1.0 * epsilon
     #        * TransitionMoment(O, op_c, k) * TransitionMoment(k, opm_b, f) * TransitionMoment(f, op_a, O)
     #        / (w_k - w_f)
     #)
-    #mcd_tens2 = evaluate_property_isr(
-    #        state, mcd_term2, [k], final_state=(f, 0), extra_terms=False
+    ##mcd_tens2 = evaluate_property_isr(
+    ##        state, mcd_term2, [k], final_state=(f, 0), extra_terms=False
+    ##)
+    ##print(mcd_tens2)
+    #mcd_tens2_sos = evaluate_property_sos_fast(
+    #        mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, f)]
     #)
-    #print(mcd_tens2)
-    #print(mcd_tens1-mcd_tens2)
+    #print(mcd_tens2_sos)
+    #mcd_tens2_sos2 = evaluate_property_sos(
+    #        mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, f)]
+    #)
+    #print(mcd_tens2_sos2)
+    #np.testing.assert_allclose(mcd_tens2_sos, mcd_tens2_sos2, atol=1e-7)
+    #mcd_tens = mcd_tens1_sos+mcd_tens2_sos
+    #mcd_tens2 = mcd_tens1_sos2+mcd_tens2_sos2
+    #print(mcd_tens, mcd_tens2)
+    #np.testing.assert_allclose(mcd_tens, mcd_tens2)
     
     #excited_state = Excitation(state, 0, "adc2")
     #mcd_ref = mcd_bterm(excited_state)

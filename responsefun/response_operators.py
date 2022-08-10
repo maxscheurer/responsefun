@@ -1,5 +1,16 @@
 from sympy import Symbol
 import sympy.physics.quantum.operator as qmoperator
+from responsefun.adcc_properties import available_operators
+
+
+available_operators_symb = [Symbol(op) for op in available_operators]
+for op_type, tup in available_operators.items():
+    if tup[1] not in [0, 1, 2]:
+        raise ValueError(
+                f"An unknown symmetry was specified for the {op_type} operator. "
+                "Only the following symmetries are allowed:\n"
+                "0: no symmetry assumed, 1: hermitian, 2: anti-hermitian"
+        )
 
 
 class ResponseOperator(qmoperator.Operator):
@@ -24,60 +35,92 @@ class ResponseOperator(qmoperator.Operator):
 
 
 class MTM(ResponseOperator):
-    def __init__(self, comp, op_type="electric"):
+    def __init__(self, comp, op_type):
         super().__init__(comp)
-        assert op_type in ["electric", "magnetic"] or op_type in [Symbol("electric"), Symbol("magnetic")]
+        assert op_type in available_operators or op_type in available_operators_symb
         self._op_type = op_type
+        if isinstance(op_type, Symbol):
+            key = str(op_type)
+        else:
+            key = op_type
+        self._symmetry = available_operators[key][1]
         
     @property
     def op_type(self):
         return self._op_type
 
+    @property
+    def symmetry(self):
+        return self._symmetry
+
     def _print_contents(self, printer):
         if self._op_type == "electric":
             return "F_{{{}}}".format(self._comp)
         else:
-            return "Fm_{{{}}}".format(self._comp)
+            return "F({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
 
     def _print_contents_latex(self, printer):
         if self._op_type == "electric":
             return "F_{{{}}}".format(self._comp)
         else:
-            "Fm_{{{}}}".format(self._comp)
+            return "F({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
 
 
 class S2S_MTM(ResponseOperator):
-    def __init__(self, comp, op_type="electric"):
+    def __init__(self, comp, op_type):
         super().__init__(comp)
-        assert op_type in ["electric", "magnetic"] or op_type in [Symbol("electric"), Symbol("magnetic")]
+        assert op_type in available_operators or op_type in available_operators_symb
         self._op_type = op_type
+        if isinstance(op_type, Symbol):
+            key = str(op_type)
+        else:
+            key = op_type
+        self._symmetry = available_operators[key][1]
 
     @property
     def op_type(self):
         return self._op_type
 
+    @property
+    def symmetry(self):
+        return self._symmetry
+
     def _print_contents(self, printer):
         if self._op_type == "electric":
             return "B_{{{}}}".format(self._comp)
         else:
-            return "Bm_{{{}}}".format(self._comp)
+            return "B({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
 
     def _print_contents_latex(self, printer):
         if self._op_type == "electric":
             return "B_{{{}}}".format(self._comp)
         else:
-            return "Bm_{{{}}}".format(self._comp)
+            return "B({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
 
 
 class ResponseVector(ResponseOperator):
-    def __init__(self, comp, no=None):
+    def __init__(self, comp, no=None, mtm_type=None, symmetry=None):
+        if mtm_type:
+            assert mtm_type in [str(MTM), str(S2S_MTM)]
+        if symmetry:
+            assert symmetry in [0, 1, 2]
         super().__init__(comp)
         self._no = no
+        self._mtm_type = mtm_type
+        self._symmetry = symmetry
 
     @property
     def no(self):
         return self._no
 
+    @property
+    def mtm_type(self):
+        return self._mtm_type
+
+    @property
+    def symmetry(self):
+        return self._symmetry
+
     def _print_contents(self, printer):
         return "X_{{{}, {}}}".format(self._comp, self._no)
 
@@ -85,48 +128,45 @@ class ResponseVector(ResponseOperator):
         return "X_{{{}, {}}}".format(self._comp, self._no)
 
 
-class DipoleOperator(qmoperator.HermitianOperator):
-    def __init__(self, comp, op_type="electric"):
-        assert op_type in ["electric", "magnetic"] or op_type in [Symbol("electric"), Symbol("magnetic")]
-        self._comp = comp
+class DipoleOperator(ResponseOperator):
+    def __init__(self, comp, op_type):
+        super().__init__(comp)
+        assert op_type in available_operators or op_type in available_operators_symb
         self._op_type = op_type
-
-    @property
-    def comp(self):
-        return self._comp
+        if isinstance(op_type, Symbol):
+            key = str(op_type)
+        else:
+            key = op_type
+        self._symmetry = available_operators[key][1]
 
     @property
     def op_type(self):
         return self._op_type
 
+    @property
+    def symmetry(self):
+        return self._symmetry
+
     def _print_contents(self, printer):
-        if self._op_type == "electric":
-            return r"\mu_{{{}}}".format(self._comp)
-        else:
-            return r"m_{{{}}}".format(self._comp)
+        return r"{}_{{{}}}".format(available_operators[self._op_type][0], self._comp)
 
     def _print_contents_latex(self, printer):
-        if self._op_type == "electric":
-            return r"\mu_{{{}}}".format(self._comp)
-        else:
-            return r"m_{{{}}}".format(self._comp)
+        return r"{}_{{{}}}".format(available_operators[self._op_type][0], self._comp)
 
 
 class DipoleMoment(Symbol):
-    def __new__(self, comp, from_state, to_state, op_type="electric", **assumptions):
+    def __new__(self, comp, from_state, to_state, op_type, **assumptions):
         assert type(comp) == str
         assert type(from_state) == str
         assert type(to_state) == str
-        assert op_type in ["electric", "magnetic"]
-        if op_type == "electric":
-            name = r"\mu_{{{}}}^{{{}}}".format(comp, from_state+to_state)
-        else:
-            name = r"m_{{{}}}^{{{}}}".format(comp, from_state+to_state)
+        assert op_type in available_operators
+        name = r"{}_{{{}}}^{{{}}}".format(available_operators[op_type][0], comp, from_state+to_state)
         obj = Symbol.__new__(self, name, **assumptions)
         obj._comp = comp
         obj._from_state = from_state
         obj._to_state = to_state
         obj._op_type = op_type
+        obj._symmetry = available_operators[op_type][1]
         return obj
 
     @property
@@ -144,6 +184,10 @@ class DipoleMoment(Symbol):
     @property
     def op_type(self):
         return self._op_type
+
+    @property
+    def symmetry(self):
+        return self._symmetry
 
 
 class TransitionFrequency(Symbol):

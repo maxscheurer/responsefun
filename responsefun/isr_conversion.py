@@ -43,14 +43,28 @@ def insert_single_dipole_moments(expr, summation_indices):
     subs_list = []
     for bok in boks:
         bra, ket = bok[0].label[0], bok[2].label[0]
-        if bra == O and ket not in summation_indices:
-            mu_symbol = DipoleMoment(bok[1].comp, str(bra), str(ket), bok[1].op_type)
-            subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
-        elif ket == O and bra not in summation_indices:
-            mu_symbol = DipoleMoment(bok[1].comp, str(ket), str(bra), bok[1].op_type)
-            subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
+        op = bok[1]
+        if ket == O and bra not in summation_indices:
+            from_state = str(ket)
+            to_state = str(bra)
+            sign = 1.0
+        elif bra == O and ket not in summation_indices:
+            if op.symmetry == 0:
+                from_state = str(ket)
+                to_state = str(bra)
+                sign = 1.0
+            else:
+                from_state = str(bra)
+                to_state = str(ket)
+                if op.symmetry == 1:
+                    sign = 1.0
+                else:
+                    sign = -1.0
+        else:
+            continue
+        mu_symbol = sign * DipoleMoment(op.comp, from_state, to_state, op.op_type)
+        subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
     return expr.subs(subs_list)
-
 
 
 def insert_matrix(expr, matrix=Operator("M")):
