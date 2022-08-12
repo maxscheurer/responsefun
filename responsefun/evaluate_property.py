@@ -299,7 +299,6 @@ def evaluate_property_isr(
         
         for term in term_list:
             subs_dict = {o[0]: o[1] for o in all_omegas}
-            print("check: ", gamma_val)
             subs_dict[gamma] = gamma_val
             for i, a in enumerate(term.args):
                 oper_a = a
@@ -316,7 +315,7 @@ def evaluate_property_isr(
                             # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
                             if lhs2.args[0].mtm_type == str(S2S_MTM) or lhs2.args[0].symmetry == 1: # Hermitian operators
                                 from_v = response_dict[lhs2.args[0].no][tuple(comp_list_int)]
-                            elif symmetry == 2: # anti-Hermitian operators
+                            elif lhs2.args[0].symmetry == 2: # anti-Hermitian operators
                                 from_v = -1.0 * response_dict[lhs2.args[0].no][tuple(comp_list_int)]
                             else:
                                 raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
@@ -375,11 +374,10 @@ def evaluate_property_isr(
                             raise ValueError("Expression cannot be evaluated.")
                         comp_list_int = [comp_map[char] for char in list(oper_a.comp)]
                         # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
-                        print(oper_a.mtm_type)
                         if oper_a.mtm_type == str(S2S_MTM) or oper_a.symmetry == 1: # Hermitian operators
                             from_v = response_dict[oper_a.no][tuple(comp_list_int)]
                         elif oper_a.symmetry == 2: # anti-Hermitian operators
-                            from_v = -1.0 * response_dict[oper_a.no][tuple(comp_list_int)] # HHHHHHeeeere
+                            from_v = -1.0 * response_dict[oper_a.no][tuple(comp_list_int)]
                         else:
                              raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                         if isinstance(from_v, AmplitudeVector) and isinstance(to_v, AmplitudeVector):
@@ -875,7 +873,7 @@ if __name__ == "__main__":
 
     refstate = adcc.ReferenceState(scfres)
     matrix = adcc.AdcMatrix("adc2", refstate)
-    state = adcc.adc2(scfres, n_singlets=5)
+    state = adcc.adc2(scfres, n_singlets=65)
     mock_state = cache.data_fulldiag["h2o_sto3g_adc2"] 
     
     
@@ -965,13 +963,14 @@ if __name__ == "__main__":
     #)
     #print(mcd_tens1)
     #mcd_tens1_sos = evaluate_property_sos_fast(
-    #        mock_state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, O)]
+    #        state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, O)]
     #)
     #print(mcd_tens1_sos)
     #mcd_tens1_sos2 = evaluate_property_sos(
-    #        mock_state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, O)]
+    #        state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, O)]
     #)
     #print(mcd_tens1_sos2)
+    #np.testing.assert_allclose(mcd_tens1, mcd_tens1_sos, atol=1e-7)
     #np.testing.assert_allclose(mcd_tens1_sos, mcd_tens1_sos2, atol=1e-7)
     #mcd_term2 = (
     #        -1.0 * epsilon
