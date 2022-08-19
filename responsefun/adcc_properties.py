@@ -1,11 +1,12 @@
 import numpy as np
 from adcc.adc_pp import modified_transition_moments
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
+from adcc.adc_pp.transition_dm import transition_dm
 from adcc.OneParticleOperator import product_trace
 from responsefun.testdata.cache import MockExcitedStates
 from responsefun.magnetic_dipole_moments import modified_magnetic_transition_moments, gs_magnetic_dipole_moment
 from tqdm import tqdm
-
+from itertools import product
 
 # dict of operators available in responsefun so far
 # the first argument specifies the symbol that is to be used for printing
@@ -15,24 +16,115 @@ from tqdm import tqdm
 #   2: anti-hermitian
 available_operators = {
         "electric": ("\mu", 1),
-        "magnetic": ("m", 2)
+        "magnetic": ("m", 2),
+        "diag_mag": ("xi", 1),
+        "r_r": ("r_dot_r", 1),
+        "r_quadr": ("r^2", 1)
 }
 
 
 # TODO: make modified_transition_moments function also applicable for asymmetric operators
 dispatch_mtms = {
         "electric": modified_transition_moments,
-        "magnetic": modified_magnetic_transition_moments
+        "magnetic": modified_magnetic_transition_moments,
+        "diag_mag": modified_transition_moments,
+        "r_r": modified_transition_moments,
+        "r_quadr": modified_transition_moments
 }
 
+def ground_state_moments(state, op_type):
+    assert op_type in available_operators
+    if op_type == "diag_mag":
+        op_int = state.reference_state.operators.diag_mag
+        size = op_int.shape[0]
+    elif op_type == "r_r":
+        op_int = state.reference_state.operators.r_r
+        size = op_int.shape[0]
+    else:
+        op_int = state.reference_state.operators.r_quadr
+        size = op_int.size
+    pm_level = state.property_method.level
+    ref_state_density = state.reference_state.density
+    components = list(product(range(size), repeat = op_int.ndim))
+    for c in components:
+        if op_int.ndim == 1:
+            ref_state_moment = np.zeros((size))
+            ref_state_moment[c[0]] =  -np.array(product_trace(op_int[c[0]], ref_state_density))
+        else:
+            ref_state_moment = np.zeros((size, size))
+            ref_state_moment[c[0]][c[1]] = - np.array(product_trace(op_int[c[0]][c[1]], ref_state_density))
+    if pm_level ==1:
+        return  ref_state_moment
+    if pm_level ==2:
+        mp2_density = state.ground_state.density(2)
+        for c in components:
+            if op_int.ndim == 1:
+                mp2_corr = np.zeros((size))
+                mp2_corr[c[0]] = - np.array(product_trace(op_int[c[0]], mp2_density))
+            else:
+                mp2_corr = np.zeros((size, size))
+                mp2_corr[c[0]][c[1]] = - np.array(product_trace(op_int[c[0]][c[1]], mp2_density))
+        return ref_state_moment + mp2_corr
+    else:
+        raise NotImplementedError("Only dipole moments for level 1 and 2"
+                                      " are implemented.")
+
+def transition_moments(state, op_type):
+    assert op_type in available_operators
+    if isinstance(state, MockExcitedStates):
+        if op_type == "diag_mag":
+            tdms = state.transition_moments_diag_mag
+        elif op_type == "r_r":
+            tdms = state.transition_moments_r_r
+        else:
+            tdms = state.transition_moment_r_quadr
+    else:
+        if op_type == "diag_mag":
+            op_int= state.reference_state.operators.diag_mag
+            size = op_int.shape[0]
+        elif op_type == "r_r":
+            
+            op_int = state.reference_state.operators.r_r
+            size = op_int.shape[0]
+        else:
+            op_int = state.reference_state.operators.r_quadr
+            size = op_int.size
+        if op_int.ndim == 2:
+            tdms = np.zeros((state.size, size, size)
+                    )
+        else:
+            tdms = np.zeros((state.size, size)
+                    )
+        components = list(product(range(size), repeat = op_int.ndim))
+        print(components)
+        for ee in tqdm(state.excitations):
+            i = ee.index
+            tdm = transition_dm(
+                state.property_method,
+                state.ground_state,
+                ee.excitation_vector,
+                state.matrix.intermediates,
+                )
+            for c in components:
+                if op_int.ndim == 2:
+                    tdms[i][c[0]][c[1]] = np.array(product_trace(tdm, op_int[c[0]][c[1]]))
+                else:
+                    tdms[i][c[0]] = np.array(product_trace(tdm, op_int[c[0]]))
+        return np.squeeze(tdms)
 
 def state_to_state_transition_moments(state, op_type, initial_state=None, final_state=None):
     assert op_type in available_operators
     if isinstance(state, MockExcitedStates):
         if op_type == "magnetic":
             s2s_tdms = state.transition_magnetic_moment_s2s
-        else:
+        elif op_type == "electric":
             s2s_tdms = state.transition_dipole_moment_s2s
+        elif op_type == "diag_mag":
+            s2s_tdms = state.diag_mag_s2s
+        elif op_type == "r_r":
+            s2s_tdms = state.r_r_s2s
+        else:
+            s2s_tdms = state.r_quadr_s2s
         if initial_state is None and final_state is None:
             return s2s_tdms
         elif initial_state is None:
@@ -43,25 +135,49 @@ def state_to_state_transition_moments(state, op_type, initial_state=None, final_
             return s2s_tdms[initial_state, final_state]
     else:
         if op_type == "magnetic":
-            dips = state.reference_state.operators.magnetic_dipole
+            op_int = np.asarray(state.reference_state.operators.magnetic_dipole)
+            size = op_int.size
+        elif op_type == "electric":
+            op_int = np.asarray(state.reference_state.operators.electric_dipole)
+            size = op_int.size
+        elif op_type == "diag_mag":
+            op_int= state.reference_state.operators.diag_mag
+            size = op_int.shape[0]
+        elif op_type == "r_r":
+            op_int = state.reference_state.operators.r_r
+            size = op_int.shape[0]
         else:
-            dips = state.reference_state.operators.electric_dipole
+            op_int = state.reference_state.operators.r_quadr
+            size = op_int.size
         if initial_state is None and final_state is None:
-            s2s_tdms = np.zeros((state.size, state.size, 3))
+            if op_int.ndim ==2:
+                s2s_tdms = np.zeros((state.size, state.size, size, size))
+            else:
+                s2s_tdms = np.zeros((state.size, state.size, size))
             excitations1 = state.excitations
             excitations2 = state.excitations
         elif initial_state is None:
-            s2s_tdms = np.zeros((state.size, 1, 3))
+            if op_int.ndim ==2:
+                s2s_tdms = np.zeros((state.size, 1, size, size))
+            else:
+                s2s_tdms = np.zeros((state.size, 1, size))
             excitations1 = state.excitations
             excitations2 = [state.excitations[final_state]]
         elif final_state is None:
-            s2s_tdms = np.zeros((1, state.size, 3))
+            if op_int.ndim ==2:
+                s2s_tdms = np.zeros((1, state.size, size, size))
+            else:
+                s2s_tdms = np.zeros((1, state.size, size))
             excitations1 = [state.excitations[initial_state]]
             excitations2 = state.excitations
         else:
-            s2s_tdms = np.zeros((1, 1, 3))
+            if op_int.ndim ==2:
+                s2s_tdms = np.zeros((1, 1, size, size))
+            else:
+                s2s_tdms = np.zeros((1, 1, size))
             excitations1 = [state.excitations[initial_state]]
             excitations2 = [state.excitations[final_state]]
+        components = list(product(range(size), repeat = op_int.ndim))
         for i, ee1 in enumerate(tqdm(excitations1)):
             for j, ee2 in enumerate(excitations2):
                 tdm = state2state_transition_dm(
@@ -71,7 +187,11 @@ def state_to_state_transition_moments(state, op_type, initial_state=None, final_
                     ee2.excitation_vector,
                     state.matrix.intermediates,
                 )
-                s2s_tdms[i, j] = np.array([product_trace(tdm, dip) for dip in dips])
+                for c in components:
+                    if op_int.ndim ==2:
+                        s2s_tdms[i][j][c[0]][c[1]] = np.array(product_trace(tdm, op_int[c[0]][c[1]]))
+                    else:
+                        s2s_tdms[i][j][c[0]] = np.array(product_trace(tdm, op_int[c[0]]))
         return np.squeeze(s2s_tdms)
 
 class AdccProperties:
@@ -118,8 +238,14 @@ class AdccProperties:
         if self._dips is None:
             if self._op_type == "magnetic":
                 self._dips = self._state.reference_state.operators.magnetic_dipole
-            else:
+            elif self._op_type == "electric":
                 self._dips = self._state.reference_state.operators.electric_dipole
+            elif self._op_type == "diag_mag":
+                self._dips = self._state.reference_state.operators.diag_mag
+            elif self._op_type == "r_r":
+                self._dips = self._state.reference_state.operators.r_r
+            else:
+                self._dips = self._state.reference_state.operators.r_quadr
         return self._dips
 
     @property
@@ -143,8 +269,10 @@ class AdccProperties:
                 pm_level = self._state.property_method.level
                 if self._op_type == "magnetic":
                     self._gs_dip_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
-                else:
+                elif self._op_type == "electric":
                     self._gs_dip_moment = self._state.ground_state.dipole_moment(pm_level)
+                else:
+                    self._gs_dip_moment = ground_state_moments(self._state, self._op_type)
         return self._gs_dip_moment 
 
     @property
@@ -152,8 +280,10 @@ class AdccProperties:
         if self._transition_dipole_moment is None:
             if self._op_type == "magnetic":
                 self._transition_dipole_moment = self._state.transition_magnetic_dipole_moment
-            else:
+            elif self._op_type == "electric":
                 self._transition_dipole_moment = self._state.transition_dipole_moment
+            else:
+                self._transition_dipole_moment = transition_moments(self._state, self._op_type)
         return self._transition_dipole_moment
 
     @property
@@ -213,6 +343,8 @@ if __name__ == "__main__":
     state = adcc.adc2(scfres, n_singlets=5)
     mp = state.ground_state
     
-    adcc_prop = AdccProperties(state, "electric")
-    s2s_tdms = adcc_prop.state_to_state_transition_moment
-    print(s2s_tdms)
+    adcc_prop = AdccProperties(state, "r_quadr")
+    tdms = adcc_prop.gs_dip_moment
+    print(tdms)
+    #s2s_tdms = adcc_prop.state_to_state_transition_moment
+    #print(s2s_tdms)
