@@ -14,12 +14,13 @@ from itertools import product
 #   0: no symmetry assumed
 #   1: hermitian
 #   2: anti-hermitian
+# the third argument specifies the dimensionality
 available_operators = {
-        "electric": ("\mu", 1),
-        "magnetic": ("m", 2),
-        "diag_mag": ("xi", 1),
-        "r_r": ("r_dot_r", 1),
-        "r_quadr": ("r^2", 1)
+        "r_r": ("r_dot_r", 1, 1),
+        "r_quadr": ("r^2", 1, 2)
+        "electric": ("\\mu", 1, 1),
+        "magnetic": ("m", 2, 1),
+        "dia_magnet": ("\\xi", 1, 2)
 }
 
 
@@ -34,7 +35,7 @@ dispatch_mtms = {
 
 def ground_state_moments(state, op_type):
     assert op_type in available_operators
-    if op_type == "diag_mag":
+    if op_type == "diag_magnet":
         op_int = state.reference_state.operators.diag_mag
         size = op_int.shape[0]
     elif op_type == "r_r":
@@ -72,14 +73,14 @@ def ground_state_moments(state, op_type):
 def transition_moments(state, op_type):
     assert op_type in available_operators
     if isinstance(state, MockExcitedStates):
-        if op_type == "diag_mag":
+        if op_type == "diag_magnet":
             tdms = state.transition_moments_diag_mag
         elif op_type == "r_r":
             tdms = state.transition_moments_r_r
         else:
             tdms = state.transition_moment_r_quadr
     else:
-        if op_type == "diag_mag":
+        if op_type == "diag_magn":
             op_int= state.reference_state.operators.diag_mag
             size = op_int.shape[0]
         elif op_type == "r_r":
@@ -115,16 +116,20 @@ def transition_moments(state, op_type):
 def state_to_state_transition_moments(state, op_type, initial_state=None, final_state=None):
     assert op_type in available_operators
     if isinstance(state, MockExcitedStates):
-        if op_type == "magnetic":
+        if op_type == "electric":
+            s2s_tdms = state.transition_dipole_moment_s2s
+        elif op_type == "magnetic":
             s2s_tdms = state.transition_magnetic_moment_s2s
         elif op_type == "electric":
             s2s_tdms = state.transition_dipole_moment_s2s
-        elif op_type == "diag_mag":
+        elif op_type == "diag_magnet":
             s2s_tdms = state.diag_mag_s2s
         elif op_type == "r_r":
             s2s_tdms = state.r_r_s2s
-        else:
+        elif op_type == "r_quadr":
             s2s_tdms = state.r_quadr_s2s
+        else:
+            raise NotImplementedError()
         if initial_state is None and final_state is None:
             return s2s_tdms
         elif initial_state is None:
@@ -140,15 +145,17 @@ def state_to_state_transition_moments(state, op_type, initial_state=None, final_
         elif op_type == "electric":
             op_int = np.asarray(state.reference_state.operators.electric_dipole)
             size = op_int.size
-        elif op_type == "diag_mag":
+        elif op_type == "diag_magnet":
             op_int= state.reference_state.operators.diag_mag
             size = op_int.shape[0]
         elif op_type == "r_r":
             op_int = state.reference_state.operators.r_r
             size = op_int.shape[0]
-        else:
+        elif op_type == 'r_quadr':
             op_int = state.reference_state.operators.r_quadr
             size = op_int.size
+        else:
+            raise NotImplementedError()
         if initial_state is None and final_state is None:
             if op_int.ndim ==2:
                 s2s_tdms = np.zeros((state.size, state.size, size, size))
@@ -217,6 +224,7 @@ class AdccProperties:
             )
         self._state = state
         self._op_type = op_type
+        self._op_dim = available_operators[op_type][2]
         
         self._dips = None
         self._mtms = None
@@ -234,18 +242,26 @@ class AdccProperties:
         return self._op_type
 
     @property
+    def op_dim(self):
+        return self._op_dim
+
+    @property
     def dips(self):
         if self._dips is None:
-            if self._op_type == "magnetic":
+            if self._op_type == "electric":
+                self._dips = self._state.reference_state.operators.electric_dipole
+            elif self._op_type == "magnetic":
                 self._dips = self._state.reference_state.operators.magnetic_dipole
             elif self._op_type == "electric":
                 self._dips = self._state.reference_state.operators.electric_dipole
-            elif self._op_type == "diag_mag":
+            elif self._op_type == "diag_magnet":
                 self._dips = self._state.reference_state.operators.diag_mag
             elif self._op_type == "r_r":
                 self._dips = self._state.reference_state.operators.r_r
-            else:
+            elif self._op_type == 'r_quadr':
                 self._dips = self._state.reference_state.operators.r_quadr
+            else:
+                raise NotImplementedError()
         return self._dips
 
     @property
@@ -261,29 +277,35 @@ class AdccProperties:
         if self._gs_dip_moment is None:
             if isinstance(self._state, MockExcitedStates):
                 pm_level = self._state.property_method.replace("adc", "")
-                if self._op_type == "magnetic":
+                if self._op_type == "electric":
+                    self._gs_dip_moment = self._state.ground_state.dipole_moment[pm_level]
+                elif self._op_type == "magnetic":
                     self._gs_dip_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
                 else:
-                    self._gs_dip_moment = self._state.ground_state.dipole_moment[pm_level]
+                    raise NotImplementedError()
             else:
                 pm_level = self._state.property_method.level
-                if self._op_type == "magnetic":
-                    self._gs_dip_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
-                elif self._op_type == "electric":
+                if self._op_type == "electric":
                     self._gs_dip_moment = self._state.ground_state.dipole_moment(pm_level)
-                else:
+                elif self._op_type == "magnetic":
+                    self._gs_dip_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
+                elif self._op_type == "diag_magnet" or self._op_type == "r_r" or self._op_type == 'r_quadr':
                     self._gs_dip_moment = ground_state_moments(self._state, self._op_type)
+                else:
+                    raise NotImplementedError()
         return self._gs_dip_moment 
 
     @property
     def transition_dipole_moment(self):
         if self._transition_dipole_moment is None:
-            if self._op_type == "magnetic":
-                self._transition_dipole_moment = self._state.transition_magnetic_dipole_moment
-            elif self._op_type == "electric":
+            if self._op_type == "electric":
                 self._transition_dipole_moment = self._state.transition_dipole_moment
-            else:
+            elif self._op_type == "magnetic":
+                self._transition_dipole_moment = self._state.transition_magnetic_dipole_moment
+            elif self._op_type == "diag_magnet" or self._op_type == "r_r" or self._op_type == 'r_quadr':
                 self._transition_dipole_moment = transition_moments(self._state, self._op_type)
+            else:
+                raise NotImplementedError()
         return self._transition_dipole_moment
 
     @property

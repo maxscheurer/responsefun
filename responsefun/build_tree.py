@@ -247,6 +247,7 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
     if rvecs:
         rvecs_list.append((root.expr, rvecs))
         build_tree(root.expr, matrix, rvecs_list, no)
+        print(rvecs_list)
     return rvecs_list
 
 

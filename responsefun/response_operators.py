@@ -40,10 +40,19 @@ class MTM(ResponseOperator):
         assert op_type in available_operators or op_type in available_operators_symb
         self._op_type = op_type
         if isinstance(op_type, Symbol):
-            key = str(op_type)
+            op_type_str = str(op_type)
         else:
-            key = op_type
-        self._symmetry = available_operators[key][1]
+            op_type_str = op_type
+        self._symmetry = available_operators[op_type_str][1]
+        self._dim = available_operators[op_type_str][2]
+        if isinstance(comp, Symbol):
+            comp_str = str(comp)
+        else:
+            comp_str = comp
+        if len(comp_str) != self._dim:
+            raise ValueError(
+                    f"The operator is {self._dim}-dimensional, but {len(comp_str)} components were specified."
+            )
         
     @property
     def op_type(self):
@@ -52,6 +61,10 @@ class MTM(ResponseOperator):
     @property
     def symmetry(self):
         return self._symmetry
+
+    @property
+    def dim(self):
+        return self._dim
 
     def _print_contents(self, printer):
         if self._op_type == "electric":
@@ -72,10 +85,19 @@ class S2S_MTM(ResponseOperator):
         assert op_type in available_operators or op_type in available_operators_symb
         self._op_type = op_type
         if isinstance(op_type, Symbol):
-            key = str(op_type)
+            op_type_str = str(op_type)
         else:
-            key = op_type
-        self._symmetry = available_operators[key][1]
+            op_type_str = op_type
+        self._symmetry = available_operators[op_type_str][1]
+        self._dim = available_operators[op_type_str][2]
+        if isinstance(comp, Symbol):
+            comp_str = str(comp)
+        else:
+            comp_str = comp
+        if len(comp_str) != self._dim:
+            raise ValueError(
+                    f"The operator is {self._dim}-dimensional, but {len(comp_str)} components were specified."
+            )
 
     @property
     def op_type(self):
@@ -84,6 +106,10 @@ class S2S_MTM(ResponseOperator):
     @property
     def symmetry(self):
         return self._symmetry
+
+    @property
+    def dim(self):
+        return self._dim
 
     def _print_contents(self, printer):
         if self._op_type == "electric":
@@ -134,10 +160,19 @@ class DipoleOperator(ResponseOperator):
         assert op_type in available_operators or op_type in available_operators_symb
         self._op_type = op_type
         if isinstance(op_type, Symbol):
-            key = str(op_type)
+            op_type_str = str(op_type)
         else:
-            key = op_type
-        self._symmetry = available_operators[key][1]
+            op_type_str = op_type
+        self._symmetry = available_operators[op_type_str][1]
+        self._dim = available_operators[op_type_str][2]
+        if isinstance(comp, Symbol):
+            comp_str = str(comp)
+        else:
+            comp_str = comp
+        if len(comp_str) != self._dim:
+            raise ValueError(
+                    f"The operator is {self._dim}-dimensional, but {len(comp_str)} components were specified."
+            )
 
     @property
     def op_type(self):
@@ -146,6 +181,10 @@ class DipoleOperator(ResponseOperator):
     @property
     def symmetry(self):
         return self._symmetry
+
+    @property
+    def dim(self):
+        return self._dim
 
     def _print_contents(self, printer):
         return r"{}_{{{}}}".format(available_operators[self._op_type][0], self._comp)
@@ -167,6 +206,11 @@ class DipoleMoment(Symbol):
         obj._to_state = to_state
         obj._op_type = op_type
         obj._symmetry = available_operators[op_type][1]
+        obj._dim = available_operators[op_type][2]
+        if len(comp) != obj._dim:
+            raise ValueError(
+                    f"The operator is {obj._dim}-dimensional, but {len(comp)} components were specified."
+            )
         return obj
 
     @property
@@ -188,6 +232,10 @@ class DipoleMoment(Symbol):
     @property
     def symmetry(self):
         return self._symmetry
+
+    @property
+    def dim(self):
+        return self._dim
 
 
 class TransitionFrequency(Symbol):

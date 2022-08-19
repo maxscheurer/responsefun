@@ -31,12 +31,11 @@ def _build_sos_via_permutation(term, perm_pairs):
     ----------
     term: <class 'sympy.core.mul.Mul'>
         Single SOS term.
-
     perm_pairs: list of tuples
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
-    
+
     Returns
     ----------
     <class 'sympy.core.add.Add'>
@@ -46,7 +45,7 @@ def _build_sos_via_permutation(term, perm_pairs):
     """
     assert type(term) == Mul
     assert type(perm_pairs) == list
-    
+
     # extract operators from the entered SOS term
     operators = [
         op for op in term.args if isinstance(op, DipoleOperator)
@@ -117,7 +116,8 @@ class SumOverStates:
                 for a in arg.args:
                     if isinstance(a, DipoleOperator) and a not in self._operators:
                         self._operators.append(a)
-                        self._components.append(a.comp)
+                        for c in a.comp:
+                            self._components.append(c)
                     if isinstance(a, DipoleMoment):
                         raise TypeError(
                                 "SOS expression must not contain an instance of <class 'responsetree.response_operators.DipoleMoment'>. "
@@ -131,26 +131,25 @@ class SumOverStates:
                         raise ValueError("Given indices of summation are not correct.")
         elif isinstance(expr, Mul):
             self._operators = [a for a in expr.args if isinstance(a, DipoleOperator)]
-            self._components = [a.comp for a in expr.args if isinstance(a, DipoleOperator)]
-            self._components.sort()
+            self._components = []
             for a in expr.args:
-                if isinstance(a, DipoleMoment):
+                if isinstance(a, DipoleOperator):
+                    for c in a.comp:
+                        self._components.append(c)
+                elif isinstance(a, DipoleMoment):
                     raise TypeError(
                             "SOS expression must not contain an instance of <class 'responsetree.response_operators.DipoleMoment'>. "
                             "All transition moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for example by "
                             "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
                     )
+            self._components.sort()
             for index in summation_indices:
                 if Bra(index) not in expr.args or Ket(index) not in expr.args:
                     raise ValueError("Given indices of summation are not correct.")
         else:
             raise TypeError("SOS expression must be either of type Mul or Add.")
 
-        #for op in self._operators:
-        #    if op.op_type == "magnetic":
-        #        raise NotImplementedError("The evaluation of SOS expressions containing magnetic dipole operators is not yet implemented.")
-
-        self._order = len(self._operators)
+        self._order = len(self._components)
         if self._components != ABC[:self._order]:
             raise ValueError(
                     f"It is important that the Cartesian components of an order {self._order} tensor be specified as {ABC[:self._order]}."

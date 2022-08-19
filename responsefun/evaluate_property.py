@@ -229,25 +229,33 @@ def evaluate_property_isr(
         for k, v in rvecs_dict_mod.items():
             op_type = k[1]
             if k[0] == MTM:
-                rhss = adcc_prop_dict[op_type].mtms
+                rhss = np.array(adcc_prop_dict[op_type].mtms)
+                op_dim = adcc_prop_dict[op_type].op_dim
+                response_shape = (3,)*op_dim
+                iterables = [list(range(shape)) for shape in response_shape]
+                components = list(product(*iterables))
+                response = np.empty(response_shape, dtype=object)
                 if k[3] == 0.0:
-                    response = [solve_response(matrix, rhs, -k[2], gamma=0.0, **solver_args) for rhs in rhss]
+                    for c in components:
+                        response[c] = solve_response(matrix, rhss[c], -k[2], gamma=0.0, **solver_args)
                 else:
-                    response = [solve_response(matrix, RV(rhs), -k[2], gamma=-k[3], **solver_args) for rhs in rhss]
+                    for c in components:
+                        response[c] = solve_response(matrix, RV(rhss[c]), -k[2], gamma=-k[3], **solver_args)
                 for vv in v:
-                    response_dict[vv] = np.array(response, dtype=object)
+                    response_dict[vv] = response
             elif k[0] == S2S_MTM:
-                dips = adcc_prop_dict[op_type].dips
+                dips = np.array(adcc_prop_dict[op_type].dips)
+                op_dim = adcc_prop_dict[op_type].op_dim
                 if k[4] == ResponseVector:
                     no = k[5]
                     rvecs = response_dict[no]
                     if k[3] == 0.0:
-                        product_vecs_shape = (3, *rvecs.shape)
+                        product_vecs_shape = (3,)*op_dim + rvecs.shape
                         iterables = [list(range(shape)) for shape in product_vecs_shape]
                         components = list(product(*iterables))
                         response = np.empty(product_vecs_shape, dtype=object)
                         for c in components:
-                            rhs = bmatrix_vector_product(property_method, mp, dips[c[0]], rvecs[c[1:]])
+                            rhs = bmatrix_vector_product(property_method, mp, dips[c[:op_dim]], rvecs[c[op_dim:]])
                             response[c] = solve_response(matrix, rhs, -k[2], gamma=-k[3], **solver_args)
                     else:
                         # complex bmatrix vector product is implemented (but not tested),
@@ -257,18 +265,25 @@ def evaluate_property_isr(
                     for vv in v:
                         response_dict[vv] = response
                 elif k[4] == final_state[0]:
-                    product_vecs = bmatrix_vector_product(property_method, mp, dips, state.excitation_vector[final_state[1]])
+                    product_vecs_shape = (3,)*op_dim
+                    iterables = [list(range(shape)) for shape in product_vecs_shape]
+                    components = list(product(*iterables))
+                    response = np.empty(product_vecs_shape, dtype=object)
                     if k[3] == 0.0:
-                        response = [solve_response(matrix, rhs, -k[2], gamma=0.0, **solver_args) for rhs in product_vecs]
+                        for c in components:
+                            product_vec = bmatrix_vector_product(property_method, mp, dips[c], state.excitation_vector[final_state[1]])
+                            response[c] = solve_response(matrix, product_vec, -k[2], gamma=0.0, **solver_args)
                     else:
-                        response = [solve_response(matrix, RV(rhs), -k[2], gamma=-k[3], **solver_args) for rhs in product_vecs]
+                        for c in components:
+                            product_vec = bmatrix_vector_product(property_method, mp, dips[c], state.excitation_vector[final_state[1]])
+                            response[c] = solve_response(matrix, RV(product_vec), -k[2], gamma=-k[3], **solver_args)
                     for vv in v:
-                        response_dict[vv] = np.array(response, dtype=object)
+                        response_dict[vv] = response
                 else:
-                    raise ValueError()
+                    raise ValueError("Unkown response equation.")
 
             else:
-                raise ValueError()
+                raise ValueError("Unkown response equation.")
     
     if rvecs_dict_list:
         root_expr = rvecs_dict_list[-1][0]
@@ -278,22 +293,21 @@ def evaluate_property_isr(
     dtype = float
     if gamma_val != 0.0:
         dtype = complex
-    res_tens = np.zeros((3,)*len(sos.operators), dtype=dtype)
-    
+    res_tens = np.zeros((3,)*sos.order, dtype=dtype)
+
     if isinstance(root_expr, Add):
         term_list = [arg for arg in root_expr.args]
     else:
         term_list = [root_expr]
     
     if symmetric:
-        components = list(combinations_with_replacement([0, 1, 2], len(sos.operators))) # if tensor is symmetric
+        components = list(combinations_with_replacement([0, 1, 2], sos.order)) # if tensor is symmetric
     else:
-        components = list(product([0, 1, 2], repeat=len(sos.operators)))
+        components = list(product([0, 1, 2], repeat=sos.order))
     for c in components:
         comp_map = {
                 ABC[ic]: cc for ic, cc in enumerate(c)
         }
-        
         #subs_dict = {o[0]: o[1] for o in all_omegas}
         #subs_dict[gamma] = gamma_val
         
@@ -307,16 +321,16 @@ def evaluate_property_isr(
                 if isinstance(oper_a, ResponseVector) and oper_a == a: # vec * X
                     lhs = term.args[i-1]
                     if isinstance(lhs, S2S_MTM): # from_vec * B * X --> transition polarizability
-                        dips = adcc_prop_dict[lhs.op_type].dips
+                        dips = np.array(adcc_prop_dict[lhs.op_type].dips)
                         lhs2 = term.args[i-2]
                         key = lhs2*lhs*a
                         if isinstance(lhs2, adjoint) and isinstance(lhs2.args[0], ResponseVector): # Dagger(X) * B * X
-                            comp_list_int = [comp_map[char] for char in list(lhs2.args[0].comp)]
+                            comps_rvecl = tuple([comp_map[char] for char in list(lhs2.args[0].comp)])
                             # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
                             if lhs2.args[0].mtm_type == str(S2S_MTM) or lhs2.args[0].symmetry == 1: # Hermitian operators
-                                from_v = response_dict[lhs2.args[0].no][tuple(comp_list_int)]
+                                from_v = response_dict[lhs2.args[0].no][comps_rvecl]
                             elif lhs2.args[0].symmetry == 2: # anti-Hermitian operators
-                                from_v = -1.0 * response_dict[lhs2.args[0].no][tuple(comp_list_int)]
+                                from_v = -1.0 * response_dict[lhs2.args[0].no][comps_rvecl]
                             else:
                                 raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                         elif isinstance(lhs2, Bra): # <f| * B * X
@@ -324,45 +338,59 @@ def evaluate_property_isr(
                             from_v = state.excitation_vector[final_state[1]]
                         else:
                             raise ValueError("Expression cannot be evaluated.")
-                        comp_list_int = [comp_map[char] for char in list(oper_a.comp)]
-                        to_v = response_dict[oper_a.no][tuple(comp_list_int)]
+                        comps_rvecr = tuple([comp_map[char] for char in list(oper_a.comp)])
+                        to_v = response_dict[oper_a.no][comps_rvecr]
+                        comps_dip = tuple([comp_map[char] for char in list(lhs.comp)])
                         if isinstance(from_v, AmplitudeVector) and isinstance(to_v, AmplitudeVector):
                             subs_dict[key] = transition_polarizability(
-                                    property_method, mp, from_v, dips[comp_map[lhs.comp]], to_v
+                                    property_method, mp, from_v, dips[comps_dip], to_v
                             )
                         else:
                             if isinstance(from_v, AmplitudeVector):
                                 from_v = RV(from_v)
                             subs_dict[key] = transition_polarizability_complex(
-                                    property_method, mp, from_v, dips[comp_map[lhs.comp]], to_v
+                                    property_method, mp, from_v, dips[comps_dip], to_v
                             )
                     elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], MTM): # Dagger(F) * X
                         if lhs.args[0].symmetry == 1: # Hermitian operators
-                            mtms = adcc_prop_dict[lhs.args[0].op_type].mtms
+                            mtms = np.array(adcc_prop_dict[lhs.args[0].op_type].mtms)
                         elif lhs.args[0].symmetry == 2: # anti-Hermitian operators
-                            mtms = -1.0 * adcc_prop_dict[lhs.args[0].op_type].mtms
+                            mtms = -1.0 * np.array(adcc_prop_dict[lhs.args[0].op_type].mtms)
                         else:
                             raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
+                        comps_rvec = tuple([comp_map[char] for char in list(oper_a.comp)])
+                        comps_mtm = tuple([comp_map[char] for char in list(lhs.args[0].comp)])
                         subs_dict[lhs*a] = from_vec_to_vec(
-                                mtms[comp_map[lhs.args[0].comp]], response_dict[oper_a.no][comp_map[oper_a.comp]]
+                                mtms[comps_mtm], response_dict[oper_a.no][comps_rvec]
                         )
                     elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], ResponseVector): # Dagger(X) * X
                         # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
+                        comps_rvecl = tuple([comp_map[char] for char in list(lhs.args[0].comp)])
                         if lhs.args[0].mtm_type == str(S2S_MTM) or lhs.args[0].symmetry == 1: # Hermitian operators
-                            left_rvec = response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]]
+                            left_rvec = response_dict[lhs.args[0].no][comps_rvecl]
                         elif lhs.args[0].symmetry == 2: # anti-Hermitian operators
-                            left_rvec = -1.0 * response_dict[lhs.args[0].no][comp_map[lhs.args[0].comp]]
+                            left_rvec = -1.0 * response_dict[lhs.args[0].no][comps_rvecl]
                         else:
                              raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
+                        comps_rvecr = tuple([comp_map[char] for char in list(oper_a.comp)])
                         subs_dict[lhs*a] = from_vec_to_vec(
-                                left_rvec, response_dict[oper_a.no][comp_map[oper_a.comp]]
+                                left_rvec, response_dict[oper_a.no][comps_rvecr]
                         )
                     else:
                         raise ValueError("Expression cannot be evaluated.")
                 elif isinstance(oper_a, ResponseVector) and oper_a != a:
                     rhs = term.args[i+1]
+                    comps_rvec = tuple([comp_map[char] for char in list(oper_a.comp)])
+                    # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
+                    if oper_a.mtm_type == str(S2S_MTM) or oper_a.symmetry == 1: # Hermitian operators
+                        from_v = response_dict[oper_a.no][comps_rvec]
+                    elif oper_a.symmetry == 2: # anti-Hermitian operators
+                        from_v = -1.0 * response_dict[oper_a.no][comps_rvec]
+                    else:
+                         raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
+
                     if isinstance(rhs, S2S_MTM): # Dagger(X) * B * to_vec --> transition polarizability
-                        dips = adcc_prop_dict[rhs.op_type].dips
+                        dips = np.array(adcc_prop_dict[rhs.op_type].dips)
                         rhs2 = term.args[i+2]
                         key = a*rhs*rhs2
                         if isinstance(rhs2, ResponseVector): # Dagger(X) * B * X (taken care of above)
@@ -372,33 +400,21 @@ def evaluate_property_isr(
                             to_v = state.excitation_vector[final_state[1]]
                         else:
                             raise ValueError("Expression cannot be evaluated.")
-                        comp_list_int = [comp_map[char] for char in list(oper_a.comp)]
-                        # for response vectors that were computed from the B matrix, the symmetry has already been taken into account
-                        if oper_a.mtm_type == str(S2S_MTM) or oper_a.symmetry == 1: # Hermitian operators
-                            from_v = response_dict[oper_a.no][tuple(comp_list_int)]
-                        elif oper_a.symmetry == 2: # anti-Hermitian operators
-                            from_v = -1.0 * response_dict[oper_a.no][tuple(comp_list_int)]
-                        else:
-                             raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
+                        comps_dip = tuple([comp_map[char] for char in list(rhs.comp)])
                         if isinstance(from_v, AmplitudeVector) and isinstance(to_v, AmplitudeVector):
                             subs_dict[key] = transition_polarizability(
-                                    property_method, mp, from_v, dips[comp_map[rhs.comp]], to_v
+                                    property_method, mp, from_v, dips[comps_dip], to_v
                             )
                         else:
                             to_v = RV(to_v)
                             subs_dict[key] = transition_polarizability_complex(
-                                    property_method, mp, from_v, dips[comp_map[rhs.comp]], to_v
+                                    property_method, mp, from_v, dips[comps_dip], to_v
                             )
                     elif isinstance(rhs, MTM): # Dagger(X) * F
-                        if oper_a.mtm_type == S2S_MTM or oper_a.symmetry == 1: # Hermitian operators
-                            left_rvec = response_dict[oper_a.no][comp_map[oper_a.comp]]
-                        elif oper_a.symmetry == 2: # anti-Hermitian operators
-                            left_rvec = -1.0 * response_dict[oper_a.no][comp_map[oper_a.comp]]
-                        else:
-                             raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
-                        mtms = adcc_prop_dict[rhs.op_type].mtms
+                        mtms = np.array(adcc_prop_dict[rhs.op_type].mtms)
+                        comps_mtm = tuple([comp_map[char] for char in list(rhs.comp)])
                         subs_dict[a*rhs] = from_vec_to_vec(
-                                left_rvec, mtms[comp_map[rhs.comp]]
+                                from_v, mtms[comps_mtm]
                         )
                     elif isinstance(rhs, ResponseVector): # Dagger(X) * X (taken care of above)
                         continue
@@ -406,12 +422,13 @@ def evaluate_property_isr(
                         raise ValueError("Expression cannot be evaluated.")
 
                 elif isinstance(a, DipoleMoment):
+                    comps_dipmom = tuple([comp_map[char] for char in list(a.comp)])
                     if a.from_state == "0" and a.to_state == "0":
                         gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
-                        subs_dict[a] = gs_dip_moment[comp_map[a.comp]]
+                        subs_dict[a] = gs_dip_moment[comps_dipmom]
                     elif a.from_state == "0" and a.to_state == str(final_state[0]):
                         tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
-                        subs_dict[a] = tdms[final_state[1]][comp_map[a.comp]]
+                        subs_dict[a] = tdms[final_state[1]][comps_dipmom]
                     else:
                         raise ValueError("Unknown dipole moment.")
                 elif isinstance(a, LeviCivita):
@@ -487,6 +504,8 @@ def evaluate_property_sos(
         assert type(omegas) == list
     assert type(extra_terms) == bool
     assert type(symmetric) == bool
+    if excluded_cases is None:
+        excluded_cases = []
     
     correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
     all_omegas = omegas.copy()
@@ -537,12 +556,12 @@ def evaluate_property_sos(
     dtype = float
     if gamma_val != 0.0:
         dtype = complex
-    res_tens = np.zeros((3,)*len(sos.operators), dtype=dtype)
+    res_tens = np.zeros((3,)*sos.order, dtype=dtype)
     
     if symmetric:
-        components = list(combinations_with_replacement([0, 1, 2], len(sos.operators))) # if tensor is symmetric
+        components = list(combinations_with_replacement([0, 1, 2], sos.order)) # if tensor is symmetric
     else:
-        components = list(product([0, 1, 2], repeat=len(sos.operators)))
+        components = list(product([0, 1, 2], repeat=sos.order))
     
     modified_excluded_cases = [
             (str(tup[0]), final_state[1]) if tup[1] == final_state[0] else (str(tup[0]), tup[1]) for tup in excluded_cases
@@ -585,37 +604,35 @@ def evaluate_property_sos(
                     subs_dict[tf] = state.excitation_energy_uncorrected[state_map[si]]
 
                 for a in dip_mom_list:
+                    comps_dipmom = tuple([comp_map[char] for char in list(a.comp)])
                     if a.from_state == "0" and a.to_state == "0":
                         gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
-                        subs_dict[a] = gs_dip_moment[comp_map[a.comp]]
+                        subs_dict[a] = gs_dip_moment[comps_dipmom]
                     elif a.from_state == "0":
                         index = state_map[a.to_state]
-                        comp = comp_map[a.comp]
                         tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
-                        subs_dict[a] = tdms[index][comp]
+                        subs_dict[a] = tdms[index][comps_dipmom]
                     elif a.to_state == "0":
                         index = state_map[a.from_state]
-                        comp = comp_map[a.comp]
                         tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
                         if a.symmetry == 1: # Hermitian operators
-                            subs_dict[a] = tdms[index][comp]
+                            subs_dict[a] = tdms[index][comps_dipmom]
                         elif a.symmetry == 2: # anti-Hermitian operators
-                            subs_dict[a] = -1.0 * tdms[index][comp] # TODO: correct sign?
+                            subs_dict[a] = -1.0 * tdms[index][comps_dipmom] # TODO: correct sign?
                         else:
                             raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
                     else:
                         index1 = state_map[a.from_state]
                         index2 = state_map[a.to_state]
-                        comp = comp_map[a.comp]
                         if a.from_state in sum_ind_str and a.to_state in sum_ind_str: # e.g., <n|\mu|m>
                             s2s_tdms = adcc_prop_dict[a.op_type].state_to_state_transition_moment
-                            subs_dict[a] = s2s_tdms[index1, index2, comp]
+                            subs_dict[a] = s2s_tdms[index1, index2][comps_dipmom]
                         elif a.from_state in sum_ind_str: # e.g., <f|\mu|n>
                             s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(final_state=index2)
-                            subs_dict[a] = s2s_tdms_f[index1, comp]
+                            subs_dict[a] = s2s_tdms_f[index1][comps_dipmom]
                         elif a.to_state in sum_ind_str: # e.g., <n|\mu|f>
                             s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(initial_state=index1)
-                            subs_dict[a] = s2s_tdms_f[index2, comp]
+                            subs_dict[a] = s2s_tdms_f[index2][comps_dipmom]
                         else:
                             raise ValueError()
                 if lc_contained:
@@ -712,7 +729,7 @@ def evaluate_property_sos_fast(
     dtype = float
     if gamma_val != 0.0:
         dtype = complex
-    res_tens = np.zeros((3,)*len(sos.operators), dtype=dtype)
+    res_tens = np.zeros((3,)*sos.order, dtype=dtype)
 
     if isinstance(sos_expr_mod, Add):
         term_list = [replace_bra_op_ket(arg) for arg in sos_expr_mod.args]
@@ -873,9 +890,8 @@ if __name__ == "__main__":
 
     refstate = adcc.ReferenceState(scfres)
     matrix = adcc.AdcMatrix("adc2", refstate)
-    state = adcc.adc2(scfres, n_singlets=65)
+    state = adcc.adc2(scfres, n_singlets=5)
     mock_state = cache.data_fulldiag["h2o_sto3g_adc2"] 
-    
     
     alpha_term = SOS_expressions['alpha_complex'][0]
     omega_alpha = [(w, 0.5)]
@@ -1018,4 +1034,3 @@ if __name__ == "__main__":
     #        state, esp_extra_terms, [], omegas=[(w, 0.5)], gamma_val=0.01, final_state=(f, 2), extra_terms=False
     #)
     #print(esp_extra_tens)
-
