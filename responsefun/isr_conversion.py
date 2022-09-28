@@ -42,6 +42,7 @@ def insert_single_dipole_moments(expr, summation_indices):
     boks = extract_bra_op_ket(expr)
     subs_list = []
     for bok in boks:
+        # initial state on the ket side and final state on the bra side
         bra, ket = bok[0].label[0], bok[2].label[0]
         op = bok[1]
         if ket == O and bra not in summation_indices:
