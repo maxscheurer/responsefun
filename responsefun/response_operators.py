@@ -127,7 +127,7 @@ class S2S_MTM(ResponseOperator):
 class ResponseVector(ResponseOperator):
     def __init__(self, comp, no=None, mtm_type=None, symmetry=None):
         if mtm_type:
-            assert mtm_type in [str(MTM), str(S2S_MTM)]
+            assert mtm_type in ["MTM", "S2S_MTM"]
         if symmetry:
             assert symmetry in [0, 1, 2]
         super().__init__(comp)

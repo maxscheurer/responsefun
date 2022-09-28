@@ -185,13 +185,13 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
                 with_dagger = False
                 if isinstance(oper_rhs.args[1], ResponseVector):
                     key = (
-                            type(oper_rhs.args[0]), oper_rhs.args[0].op_type,
-                            leaf.w, leaf.gamma, type(oper_rhs.args[1]), oper_rhs.args[1].no
+                            oper_rhs.args[0].__class__.__name__, oper_rhs.args[0].op_type,
+                            leaf.w, leaf.gamma, oper_rhs.args[1].__class__.__name__, oper_rhs.args[1].no
                     )
                     comp = oper_rhs.args[0].comp + oper_rhs.args[1].comp
                 else:
                     key = (
-                            type(oper_rhs.args[0]), oper_rhs.args[0].op_type,
+                            oper_rhs.args[0].__class__.__name__, oper_rhs.args[0].op_type,
                             leaf.w, leaf.gamma, oper_rhs.args[1].label[0], None
                     )
                     comp = oper_rhs.args[0].comp
@@ -203,13 +203,13 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
                     oper_rhs2 = oper_rhs.args[0].args[0]
                 if isinstance(oper_rhs2, ResponseVector):
                     key = (
-                            type(oper_rhs.args[1]), oper_rhs.args[1].op_type,
-                            leaf.w, leaf.gamma, type(oper_rhs2), oper_rhs2.no
+                            oper_rhs.args[1].__class__.__name__, oper_rhs.args[1].op_type,
+                            leaf.w, leaf.gamma, oper_rhs2.__class__.__name__, oper_rhs2.no
                     )
                     comp = oper_rhs.args[1].comp + oper_rhs2.comp
                 else:
                     key = (
-                            type(oper_rhs.args[1]), oper_rhs.args[1].op_type,
+                            oper_rhs.args[1].__class__.__name__, oper_rhs.args[1].op_type,
                             leaf.w, leaf.gamma, oper_rhs2.label[0], None
                     )
                     comp = oper_rhs.args[1].comp
@@ -218,11 +218,11 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
                 raise ValueError()
 
         elif isinstance(oper_rhs, ResponseVector):
-            key = (type(oper_rhs), None, leaf.w, leaf.gamma, None, oper_rhs.no)
+            key = (oper_rhs.__class__.__name__, None, leaf.w, leaf.gamma, None, oper_rhs.no)
             comp = oper_rhs.comp
 
         else:
-            key = (type(oper_rhs), oper_rhs.op_type, leaf.w, leaf.gamma, None, None)
+            key = (oper_rhs.__class__.__name__, oper_rhs.op_type, leaf.w, leaf.gamma, None, None)
             comp = oper_rhs.comp
 
         # if the created tuple is not already among the keys of the rvecs dictionary, a new entry will be made 
@@ -239,9 +239,9 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
         op_type = key[1]
         symmetry = available_operators[op_type][1]
         if not with_dagger:
-            leaf.expr = ResponseVector(comp, rvecs[key], str(mtm_type), symmetry)
+            leaf.expr = ResponseVector(comp, rvecs[key], mtm_type, symmetry)
         else:
-            leaf.expr = adjoint(ResponseVector(comp, rvecs[key], str(mtm_type), symmetry))
+            leaf.expr = adjoint(ResponseVector(comp, rvecs[key], mtm_type, symmetry))
         traverse_branches(leaf.parent, old_expr, leaf.expr)
 
     if rvecs:
