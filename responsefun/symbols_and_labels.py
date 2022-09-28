@@ -40,3 +40,15 @@ X_C = ResponseVector("C")
 X_D = ResponseVector("D")
 
 M = Operator("M")
+
+xi_ab = DipoleOperator("AB", "dia_magnet")
+xi_bc = DipoleOperator("BC", "dia_magnet")
+xi_cd = DipoleOperator("CD", "dia_magnet")
+
+Q_ab = DipoleOperator("AB", "electric_quadrupole")
+Q_bc = DipoleOperator("BC", "electric_quadrupole")
+Q_cd = DipoleOperator("CD", "electric_quadrupole")
+
+theta_ab = DipoleOperator("AB", "electric_quadrupole_traceless")
+theta_bc = DipoleOperator("BC", "electric_quadrupole_traceless")
+theta_cd = DipoleOperator("CD", "electric_quadrupole_traceless")

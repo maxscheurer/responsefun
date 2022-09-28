@@ -79,13 +79,13 @@ def modified_magnetic_transition_moments(method, ground_state, dips_mag):
 #TODO: testing
 def gs_magnetic_dipole_moment(ground_state, level=2):
     magdips = ground_state.reference_state.operators.magnetic_dipole
-    ref_dipmom = np.array(
+    ref_dipmom = -1.0 * np.array(
             [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
     )
     if level == 1:
         return ref_dipmom
     elif level == 2:
-        mp2corr = np.array(
+        mp2corr = -1.0 * np.array(
                 [product_trace(dip, ground_state.mp2_diffdm) for dip in magdips]
         )
         return ref_dipmom + mp2corr
