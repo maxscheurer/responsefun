@@ -101,13 +101,17 @@ class SumOverStates:
             List of (summation_index, value) pairs with values that are excluded from the summation
             (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.symbol.Symbol'>).
         """
-        assert type(summation_indices) == list
+        assert isinstance(summation_indices, list)
         if correlation_btw_freq:
-            assert type(correlation_btw_freq) == list
-        if excluded_cases:
-            assert type(excluded_cases) == list
-            for case in excluded_cases:
-                assert type(case[0]) == Symbol and type(case[1]) == Symbol
+            assert isinstance(correlation_btw_freq, list)
+
+        if excluded_cases is None:
+            sos.excluded_cases = []
+        else:
+            sos.excluded_cases = excluded_cases
+        assert isinstance(sos.excluded_cases, list)
+        for case in sos.excluded_cases:
+            assert isinstance(case[0], Symbol) and isinstance(case[1], Symbol)
 
         if isinstance(expr, Add):
             self._operators = []
@@ -158,7 +162,6 @@ class SumOverStates:
         self._summation_indices = summation_indices
         self._transition_frequencies = [TransitionFrequency(str(index), real=True) for index in self._summation_indices]
         self.correlation_btw_freq = correlation_btw_freq
-        self.excluded_cases = excluded_cases
         
         if perm_pairs:
             self.expr = _build_sos_via_permutation(expr, perm_pairs)

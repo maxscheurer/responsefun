@@ -209,11 +209,11 @@ def evaluate_property_isr(
 
     if omegas is None:
         omegas = []
-    elif type(omegas) == tuple:
+    elif isinstance(omegas, tuple):
         omegas = [omegas]
     else:
-        assert type(omegas) == list
-    assert type(symmetric) == bool
+        assert isinstance(omegas, list)
+    assert isinstance(symmetric, bool)
 
     correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
     all_omegas = omegas.copy()
@@ -867,14 +867,13 @@ def evaluate_property_sos_fast(
             einsum_left += state_str + comp_str + ","
             einsum_right += comp_str
             # remove excluded cases from corresponding arrays
-            if excluded_cases and state_str:
-                for case in excluded_cases:
-                    if str(case[0]) in state_str and case[1] != O:
-                        assert case[1] == final_state[0]
-                        index_to_delete = final_state[1]
-                        axis = state_str.index(str(case[0]))
-                        array = np.delete(array, index_to_delete, axis=axis)
-                        removed_divergences.append((case[0], final_state[1]))
+            for case in sos.excluded_cases:
+                if str(case[0]) in state_str and case[1] != O:
+                    assert case[1] == final_state[0]
+                    index_to_delete = final_state[1]
+                    axis = state_str.index(str(case[0]))
+                    array = np.delete(array, index_to_delete, axis=axis)
+                    removed_divergences.append((case[0], final_state[1]))
             array_list.append(array)
         removed_divergences = list(set(removed_divergences))
         divergences_copied = divergences.copy()

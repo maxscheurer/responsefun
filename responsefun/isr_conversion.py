@@ -179,7 +179,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     
     excluded_cases: list of tuples, optional
         List of (summation_index, value) pairs with values that are excluded from the summation
-        (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, int).
+        (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.symbol.Symbol'>).
 
     Returns
     ----------
@@ -281,7 +281,7 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
 
     excluded_cases: list of tuples, optional
             List of (summation_index, value) pairs with values that are excluded from the summation
-            (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, int).
+            (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.symbol.Symbol'>).
             
     correlation_btw_freq: list of tuples, optional
             List that indicates the correlation between the frequencies;
