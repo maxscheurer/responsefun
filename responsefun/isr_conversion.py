@@ -166,7 +166,7 @@ def to_isr_single_term(expr, operators=None):
     return insert_matrix(i1, M)
 
 
-def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
+def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
     """Determine the additional terms that arise when converting a single SOS term to its ADC/ISR formulation.
     
     Parameters
@@ -177,16 +177,19 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
     summation_indices: list of <class 'sympy.core.symbol.Symbol'>
         List of indices of summation.
     
-    excluded_cases: list of tuples, optional
-        List of (summation_index, value) pairs with values that are excluded from the summation
-        (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.symbol.Symbol'>).
+    excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
+        List of states that are excluded from the summation.
+        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        represents the first excited state.
 
     Returns
     ----------
     dict
         Dictionary containing SymPy expressions of computed extra terms with the corresponding case as key, e.g., ((n, 0), (m, 0)).
     """
-    assert type(expr) == Mul        
+    assert type(expr) == Mul
+    if excluded_states is None:
+        excluded_states = []
     bok_list = extract_bra_op_ket(expr)
     special_cases = []
     # find special cases
@@ -199,9 +202,9 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
             elif ket == index and (ket, bra) not in special_cases and (bra, ket) not in special_cases:
                 special_cases.append((ket, bra))
     #remove excluded cases
-    if excluded_cases:
-        for case in excluded_cases:
-            special_cases.remove(case)
+    for state in excluded_states:
+        special_cases[:] = [case for case in special_cases if case[1] != state]
+    
     extra_terms = {}
     for tup in special_cases:
         index, case = tup[0], tup[1]
@@ -220,7 +223,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_cases=None):
         new_indices = summation_indices.copy()
         new_indices.remove(index)
         if new_indices:
-            new_et  = extra_terms_single_sos(term, new_indices, excluded_cases)
+            new_et  = extra_terms_single_sos(term, new_indices, excluded_states)
             for c, t in new_et.items():
                 if t not in extra_terms.values():
                     extra_terms[(tup,) + c] = t
@@ -268,7 +271,7 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
     return remaining_terms
 
 
-def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlation_btw_freq=None, print_extra_term_dict=False):
+def compute_extra_terms(expr, summation_indices, excluded_states=None, correlation_btw_freq=None, print_extra_term_dict=False):
     """Determine the additional terms that arise when converting an SOS expression to its ADC/ISR formulation.
 
     Parameters
@@ -279,9 +282,10 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
     summation_indices: list of <class 'sympy.core.symbol.Symbol'>
             List of indices of summation.
 
-    excluded_cases: list of tuples, optional
-            List of (summation_index, value) pairs with values that are excluded from the summation
-            (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.symbol.Symbol'>).
+    excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
+        List of states that are excluded from the summation.
+        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        represents the first excited state.
             
     correlation_btw_freq: list of tuples, optional
             List that indicates the correlation between the frequencies;
@@ -308,7 +312,7 @@ def compute_extra_terms(expr, summation_indices, excluded_cases=None, correlatio
     else:
         raise TypeError("SOS expression must be either of type Mul or Add.")
     for single_term in terms_list:
-        term_dict = extra_terms_single_sos(single_term, summation_indices, excluded_cases)
+        term_dict = extra_terms_single_sos(single_term, summation_indices, excluded_states)
         if print_extra_term_dict:
             print(term_dict)
         extra_terms_list.append(term_dict)
@@ -366,7 +370,7 @@ def to_isr(sos, extra_terms=True, print_extra_term_dict=False):
         mod_expr += insert_single_dipole_moments(term, sos.summation_indices)
 
     if extra_terms:
-        mod_expr += compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_cases, sos.correlation_btw_freq, print_extra_term_dict)
+        mod_expr += compute_extra_terms(sos.expr, sos.summation_indices, sos.excluded_states, sos.correlation_btw_freq, print_extra_term_dict)
 
     ret = 0
     if isinstance(mod_expr, Add):
@@ -534,7 +538,7 @@ if __name__ == "__main__":
             * TransitionMoment(O, opm_b, k) * TransitionMoment(k, op_c, f) * TransitionMoment(f, op_a, O)
             / w_k
     )
-    mcd_term1_sos = SumOverStates(mcd_term1, [k], excluded_cases=[(k, O)])
+    mcd_term1_sos = SumOverStates(mcd_term1, [k], excluded_states=[(k, O)])
     #mcd_term1_isr = to_isr(mcd_term1_sos)
     #print(mcd_term1_sos.expr)
     #print(mcd_term1_isr)

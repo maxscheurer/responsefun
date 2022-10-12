@@ -158,7 +158,7 @@ def sign_change(no, rvecs_dict, sign=1):
 
 def evaluate_property_isr(
         state, sos_expr, summation_indices, omegas=None, gamma_val=0.0,
-        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False, excluded_cases=None, **solver_args):
+        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False, excluded_states=None, **solver_args):
     """Compute a molecular property with the ADC/ISR approach from its SOS expression.
 
     Parameters
@@ -198,6 +198,11 @@ def evaluate_property_isr(
         Resulting tensor is symmetric;
         by default 'False'.
 
+    excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
+        List of states that are excluded from the summation.
+        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        represents the first excited state.
+
     Returns
     ----------
     <class 'numpy.ndarray'>
@@ -215,7 +220,17 @@ def evaluate_property_isr(
         assert isinstance(omegas, list)
     assert isinstance(symmetric, bool)
 
+    # create SumOverStates object from input
     correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
+    sos = SumOverStates(
+            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
+            perm_pairs=perm_pairs, excluded_states=excluded_states
+    )
+    # store adcc properties for the required operators in a dict
+    adcc_prop_dict = {}
+    for op_type in sos.operator_types:
+        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
+
     all_omegas = omegas.copy()
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
@@ -223,20 +238,45 @@ def evaluate_property_isr(
                 (TransitionFrequency(str(final_state[0]), real=True),
                  state.excitation_energy_uncorrected[final_state[1]])
         )
+        for ies, exstate in enumerate(sos.excluded_states):
+            if isinstance(exstate, int) and exstate == final_state[1]:
+                sos.excluded_states[ies] = final_state[0]
     else:
         assert final_state is None
-    sos = SumOverStates(
-            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
-            perm_pairs=perm_pairs, excluded_cases=excluded_cases
-    )
-    adcc_prop_dict = {}
-    for op_type in sos.operator_types:
-        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
 
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
+
     isr = to_isr(sos, extra_terms)
     mod_isr = isr.subs(correlation_btw_freq)
     rvecs_dict_list = build_tree(mod_isr)
+
+    # prepare the projection of the states excluded from the summation
+    to_be_projected_out = []
+    for exstate in sos.excluded_states:
+        if exstate == O:
+            continue  # the ADC quantities do not include the ground state anyway
+        elif isinstance(exstate, int):
+            to_be_projected_out.append(exstate)
+        else:
+            assert final_state is not None
+            assert exstate == final_state[0]
+            to_be_projected_out.append(final_state[1])
+    if to_be_projected_out:
+        if len(to_be_projected_out) != 1:
+            raise NotImplementedError(
+                "It is not yet possible to project out more than one state."
+            )
+        exstate = to_be_projected_out[0]
+        v_f = state.excitation_vector[exstate]
+
+        def projection(X, bl=None):
+            if bl:
+                vb = getattr(v_f, bl)
+                return vb * (vb.dot(X)) / (vb.dot(vb))
+            else:
+                return v_f * (v_f @ X) / (v_f @ v_f)
+    else:
+        projection = None
 
     rvecs_dict_tot = {}
     response_dict = {}
@@ -269,13 +309,19 @@ def evaluate_property_isr(
                 response = np.empty(response_shape, dtype=object)
                 if key[3] == 0.0:
                     for c in components:
-                        response[c] = solve_response(matrix, rhss[c], -key[2], gamma=0.0, **solver_args)
+                        response[c] = solve_response(
+                                matrix, rhss[c], -key[2], gamma=0.0, projection=projection, **solver_args
+                        )
                 else:
                     for c in components:
-                        response[c] = solve_response(matrix, RV(rhss[c]), -key[2], gamma=-key[3], **solver_args)
+                        response[c] = solve_response(
+                                matrix, RV(rhss[c]), -key[2], gamma=-key[3], projection=projection, **solver_args
+                        )
                 for vv in value:
                     response_dict[vv] = response
             elif key[0] == "S2S_MTM":
+                if projection is not None:
+                    raise NotImplementedError("It is not yet possible to project out states from the B matrix.")
                 dips = np.array(adcc_prop_dict[op_type].dips)
                 op_dim = adcc_prop_dict[op_type].op_dim
                 if key[4] == "ResponseVector":
@@ -481,7 +527,7 @@ def evaluate_property_isr(
 
 def evaluate_property_sos(
         state, sos_expr, summation_indices, omegas=None, gamma_val=0.0,
-        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False, excluded_cases=None):
+        final_state=None, perm_pairs=None, extra_terms=True, symmetric=False, excluded_states=None):
     """Compute a molecular property from its SOS expression.
 
     Parameters
@@ -521,6 +567,11 @@ def evaluate_property_sos(
         Resulting tensor is symmetric;
         by default 'False'.
 
+    excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
+        List of states that are excluded from the summation.
+        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        represents the first excited state.
+
     Returns
     ----------
     <class 'numpy.ndarray'>
@@ -534,10 +585,18 @@ def evaluate_property_sos(
         assert type(omegas) == list
     assert type(extra_terms) == bool
     assert type(symmetric) == bool
-    if excluded_cases is None:
-        excluded_cases = []
 
+    # create SumOverStates object from input
     correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
+    sos = SumOverStates(
+            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
+            perm_pairs=perm_pairs, excluded_states=excluded_states
+    )
+    # store adcc properties for the required operators in a dict
+    adcc_prop_dict = {}
+    for op_type in sos.operator_types:
+        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
+
     all_omegas = omegas.copy()
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
@@ -545,15 +604,11 @@ def evaluate_property_sos(
                 (TransitionFrequency(str(final_state[0]), real=True),
                  state.excitation_energy_uncorrected[final_state[1]])
         )
+        for ies, exstate in enumerate(sos.excluded_states):
+            if isinstance(exstate, int) and exstate == final_state[1]:
+                sos.excluded_states[ies] = final_state[0]
     else:
         assert final_state is None
-    sos = SumOverStates(
-            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
-            perm_pairs=perm_pairs, excluded_cases=excluded_cases
-    )
-    adcc_prop_dict = {}
-    for op_type in sos.operator_types:
-        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
 
     _check_omegas_and_final_state(sos.expr, omegas, sos.correlation_btw_freq, gamma_val, final_state)
 
@@ -571,7 +626,7 @@ def evaluate_property_sos(
         ]
     if extra_terms:
         ets = compute_extra_terms(
-                sos.expr, sos.summation_indices, excluded_cases=sos.excluded_cases,
+                sos.expr, sos.summation_indices, excluded_states=sos.excluded_states,
                 correlation_btw_freq=sos.correlation_btw_freq
         )
         if isinstance(ets, Add):
@@ -588,6 +643,11 @@ def evaluate_property_sos(
                     {"expr": et, "summation_indices": sum_ind, "transition_frequencies": trans_freq}
             )
 
+    if final_state:
+        for ies, exstate in enumerate(sos.excluded_states):
+            if exstate == final_state[0]:
+                sos.excluded_states[ies] = final_state[1]
+
     dtype = float
     if gamma_val != 0.0:
         dtype = complex
@@ -597,11 +657,6 @@ def evaluate_property_sos(
         components = list(combinations_with_replacement([0, 1, 2], sos.order))  # if tensor is symmetric
     else:
         components = list(product([0, 1, 2], repeat=sos.order))
-
-    modified_excluded_cases = [
-            (str(tup[0]), final_state[1]) if tup[1] == final_state[0]
-            else (str(tup[0]), tup[1]) for tup in excluded_cases
-    ]
 
     for term_dict in tqdm(term_list):
         mod_expr = replace_bra_op_ket(
@@ -623,8 +678,8 @@ def evaluate_property_sos(
                     sum_ind_str[ii]: ind for ii, ind in enumerate(i)
                 }
 
-            # skip the rest of the loop for this iteration if it corresponds to one of the excluded cases
-            if set(modified_excluded_cases).intersection(set(state_map.items())):
+            # skip the rest of the loop for this iteration if it corresponds to one of the excluded states
+            if set(sos.excluded_states).intersection(set(state_map.values())):
                 continue
 
             if final_state:
@@ -686,7 +741,7 @@ def evaluate_property_sos(
 
 def evaluate_property_sos_fast(
         state, sos_expr, summation_indices, omegas=None, gamma_val=0.0,
-        final_state=None, perm_pairs=None, extra_terms=True, excluded_cases=None):
+        final_state=None, perm_pairs=None, extra_terms=True, excluded_states=None):
     """Compute a molecular property from its SOS expression using the Einstein summation convention.
 
     Parameters
@@ -722,6 +777,11 @@ def evaluate_property_sos_fast(
         Compute the additional terms that arise when converting the SOS expression to its ADC/ISR formulation;
         by default 'True'.
 
+    excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
+        List of states that are excluded from the summation.
+        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        represents the first excited state.
+
     Returns
     ----------
     <class 'numpy.ndarray'>
@@ -735,29 +795,35 @@ def evaluate_property_sos_fast(
         assert type(omegas) == list
     assert type(extra_terms) == bool
 
+    # create SumOverStates object from input
     correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
+    sos = SumOverStates(
+            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
+            perm_pairs=perm_pairs, excluded_states=excluded_states
+    )
+    # store adcc properties for the required operators in a dict
+    adcc_prop_dict = {}
+    for op_type in sos.operator_types:
+        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
+
     subs_dict = {om_tup[0]: om_tup[1] for om_tup in omegas}
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
         subs_dict[TransitionFrequency(str(final_state[0]), real=True)] = (
             state.excitation_energy_uncorrected[final_state[1]]
         )
+        for ies, exstate in enumerate(sos.excluded_states):
+            if isinstance(exstate, int) and exstate == final_state[1]:
+                sos.excluded_states[ies] = final_state[0]
     else:
         assert final_state is None
     subs_dict[gamma] = gamma_val
-    sos = SumOverStates(
-            sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
-            perm_pairs=perm_pairs, excluded_cases=excluded_cases
-    )
-    adcc_prop_dict = {}
-    for op_type in sos.operator_types:
-        adcc_prop_dict[op_type] = AdccProperties(state, op_type)
 
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
 
     if extra_terms:
         sos_with_et = sos.expr + compute_extra_terms(
-                sos.expr, sos.summation_indices, excluded_cases=sos.excluded_cases,
+                sos.expr, sos.summation_indices, excluded_states=sos.excluded_states,
                 correlation_btw_freq=sos.correlation_btw_freq
         )
         sos_expr_mod = sos_with_et.subs(correlation_btw_freq)
@@ -866,24 +932,26 @@ def evaluate_property_sos_fast(
             state_str, comp_str, array = tup
             einsum_left += state_str + comp_str + ","
             einsum_right += comp_str
-            # remove excluded cases from corresponding arrays
-            for case in sos.excluded_cases:
-                if str(case[0]) in state_str and case[1] != O:
-                    assert case[1] == final_state[0]
-                    index_to_delete = final_state[1]
-                    axis = state_str.index(str(case[0]))
-                    array = np.delete(array, index_to_delete, axis=axis)
-                    removed_divergences.append((case[0], final_state[1]))
+            # remove excluded states from corresponding arrays
+            if state_str:
+                for exstate in sos.excluded_states:
+                    if exstate == O:
+                        continue
+                    if isinstance(exstate, int):
+                        index_to_delete = exstate
+                    else:
+                        assert final_state is not None
+                        assert exstate == final_state[0]
+                        index_to_delete = final_state[1]
+                    for axis in range(len(state_str)):
+                        array = np.delete(array, index_to_delete, axis=axis)
+                        removed_divergences.append((Symbol(state_str[axis], real=True), index_to_delete))
             array_list.append(array)
         removed_divergences = list(set(removed_divergences))
         divergences_copied = divergences.copy()
         for rd in removed_divergences:
-            if rd not in divergences:
-                raise ValueError(
-                        "A case that did not cause any divergences was excluded from the summation.\n"
-                        "Please check the excluded_cases list that was passed to the function."
-                )
-            divergences_copied.remove(rd)
+            if rd in divergences:
+                divergences_copied.remove(rd)
         if len(divergences) != 0:
             if len(divergences_copied) != 0:
                 raise ZeroDivisionError("Not all divergences that occured could be eliminated."
@@ -945,10 +1013,10 @@ if __name__ == "__main__":
             / ((w_n - w_o) * (w_k - w_2))
     )
     # beta_mag_isr = evaluate_property_isr(
-    #         state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)], extra_terms=False
+    #         state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)], extra_terms=False, excluded_states=[O]
     # )
     # beta_mag_sos = evaluate_property_sos_fast(
-    #         state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)], extra_terms=False
+    #         state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)], extra_terms=False, excluded_states=[O]
     # )
     # print(beta_mag_isr)
     # print(beta_mag_sos)
@@ -960,10 +1028,10 @@ if __name__ == "__main__":
             / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     )
     gamma_omegas = [(w_1, 0.5), (w_2, 0.55), (w_3, 0.6), (w_o, w_1+w_2+w_3)]
-    gamma_tens1 = evaluate_property_isr(
-            state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False
-    )
-    print(gamma_tens1)
+    # gamma_tens1 = evaluate_property_isr(
+    #         state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False
+    # )
+    # print(gamma_tens1)
     # gamma_tens1_sos = (
     #         evaluate_property_sos_fast(mock_state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False)
     # )
@@ -1009,17 +1077,17 @@ if __name__ == "__main__":
     # np.testing.assert_allclose(threepa_tens, threepa_tens_sos, atol=1e-6)
 
     # TODO: make it work for esp also in the static case --> projecting the fth eigenstate out of the matrix
-    omega_alpha = [(w, 0.5)]
+    omega_alpha = [(w, 0)]
     esp_terms = (
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)
         + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
     )
     # esp_tens = evaluate_property_isr(
-    #         state, esp_terms, [n], omega_alpha, 0.0/Hartree, final_state=(f, 0)#, excluded_cases=[(n, f)]
+    #         state, esp_terms, [n], omega_alpha, 0.0/Hartree, final_state=(f, 0), excluded_states=f
     # )
     # print(esp_tens)
     # esp_tens_sos = evaluate_property_sos_fast(
-    #         mock_state, esp_terms, [n], omega_alpha, 0.0/Hartree, final_state=(f, 0)#, excluded_cases=[(n, f)]
+    #         mock_state, esp_terms, [n], omega_alpha, 0.0/Hartree, final_state=(f, 0), excluded_states=f
     # )
     # print(esp_tens_sos)
     # np.testing.assert_allclose(esp_tens, esp_tens_sos, atol=1e-7)
@@ -1031,11 +1099,11 @@ if __name__ == "__main__":
             / w_k
     )
     # mcd_tens1 = evaluate_property_isr(
-    #         state, mcd_term1, [k], final_state=(f, 0), extra_terms=False
+    #         state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_states=[O]
     # )
     # print(mcd_tens1)
     # mcd_tens1_sos = evaluate_property_sos_fast(
-    #         mock_state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, O)]
+    #         mock_state, mcd_term1, [k], final_state=(f, 0), extra_terms=False, excluded_states=[O]
     # )
     # print(mcd_tens1_sos)
     # np.testing.assert_allclose(mcd_tens1, mcd_tens1_sos, atol=1e-12)
@@ -1051,22 +1119,22 @@ if __name__ == "__main__":
             / (w_k - w_f)
     )
     # mcd_tens2 = evaluate_property_isr(
-    #         state, mcd_term2, [k], final_state=(f, 0), extra_terms=False
+    #         state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_states=[O, f]
     # )
     # print(mcd_tens2)
     # mcd_tens2_sos = evaluate_property_sos_fast(
-    #         mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, f)]
+    #         mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_states=[O, f]
     # )
     # print(mcd_tens2_sos)
     # mcd_tens2_sos2 = evaluate_property_sos(
-    #         mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, f)]
+    #         mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_states=[O, 0]
     # )
     # print(mcd_tens2_sos2)
-    # np.testing.assert_allclose(mcd_tens2_sos, mcd_tens2_sos2, atol=1e-7)
-    # mcd_tens = mcd_tens1_sos+mcd_tens2_sos
-    # mcd_tens2 = mcd_tens1_sos2+mcd_tens2_sos2
+    # np.testing.assert_allclose(mcd_tens2, mcd_tens2_sos, atol=1e-7)
+    # mcd_tens = mcd_tens1+mcd_tens2
+    # mcd_tens2 = mcd_tens1_sos+mcd_tens2_sos
     # print(mcd_tens)
-    # np.testing.assert_allclose(mcd_tens, mcd_tens2)
+    # np.testing.assert_allclose(mcd_tens, mcd_tens2, atol=1e-7)
 
     # excited_state = Excitation(state, 0, "adc2")
     # mcd_ref = mcd_bterm(excited_state)

@@ -76,7 +76,7 @@ class SumOverStates:
     Class representing a sum-over-states (SOS) expression. 
     """
     
-    def __init__(self, expr, summation_indices, *, correlation_btw_freq=None, perm_pairs=None, excluded_cases=None):
+    def __init__(self, expr, summation_indices, *, correlation_btw_freq=None, perm_pairs=None, excluded_states=None):
         """
         Parameters
         ----------
@@ -97,21 +97,28 @@ class SumOverStates:
             (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
             e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
-        excluded_cases: list of tuples, optional
-            List of (summation_index, value) pairs with values that are excluded from the summation
-            (summation_index, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.symbol.Symbol'>).
+        excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
+            List of states that are excluded from the summation.
+            It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+            represents the first excited state.
         """
-        assert isinstance(summation_indices, list)
+        if not isinstance(summation_indices, list):
+            self._summation_indices = [summation_indices]
+        else:
+            self._summation_indices = summation_indices.copy()
+        assert all(isinstance(index, Symbol) for index in self._summation_indices)
+        
         if correlation_btw_freq:
             assert isinstance(correlation_btw_freq, list)
 
-        if excluded_cases is None:
-            sos.excluded_cases = []
+        if excluded_states is None:
+            self.excluded_states = []
+        elif not isinstance(excluded_states, list):
+            self.excluded_states = [excluded_states]
         else:
-            sos.excluded_cases = excluded_cases
-        assert isinstance(sos.excluded_cases, list)
-        for case in sos.excluded_cases:
-            assert isinstance(case[0], Symbol) and isinstance(case[1], Symbol)
+            self.excluded_states = excluded_states.copy()
+        assert isinstance(self.excluded_states, list)
+        assert all(isinstance(state, Symbol) or isinstance(state, int) for state in self.excluded_states)
 
         if isinstance(expr, Add):
             self._operators = []
@@ -129,7 +136,7 @@ class SumOverStates:
                                 "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
                         )
             self._components.sort()
-            for index in summation_indices:
+            for index in self._summation_indices:
                 for arg in expr.args:
                     if Bra(index) not in arg.args or Ket(index) not in arg.args:
                         raise ValueError("Given indices of summation are not correct.")
@@ -147,7 +154,7 @@ class SumOverStates:
                             "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
                     )
             self._components.sort()
-            for index in summation_indices:
+            for index in self._summation_indices:
                 if Bra(index) not in expr.args or Ket(index) not in expr.args:
                     raise ValueError("Given indices of summation are not correct.")
         else:
@@ -159,7 +166,6 @@ class SumOverStates:
                     f"It is important that the Cartesian components of an order {self._order} tensor be specified as {ABC[:self._order]}."
             )
 
-        self._summation_indices = summation_indices
         self._transition_frequencies = [TransitionFrequency(str(index), real=True) for index in self._summation_indices]
         self.correlation_btw_freq = correlation_btw_freq
         
