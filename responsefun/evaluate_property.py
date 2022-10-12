@@ -102,7 +102,7 @@ def replace_bra_op_ket(expr):
             from_state = expr.args[ia+1]
             to_state = expr.args[ia-1]
             key = to_state*a*from_state
-            subs_dict[key] = DipoleMoment(a.comp, str(from_state.label[0]), str(to_state.label[0]), a.op_type)
+            subs_dict[key] = DipoleMoment(a.comp, from_state.label[0], to_state.label[0], a.op_type)
     return expr.subs(subs_dict)
 
 
@@ -235,7 +235,7 @@ def evaluate_property_isr(
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
         all_omegas.append(
-                (TransitionFrequency(str(final_state[0]), real=True),
+                (TransitionFrequency(final_state[0], real=True),
                  state.excitation_energy_uncorrected[final_state[1]])
         )
         for ies, exstate in enumerate(sos.excluded_states):
@@ -498,10 +498,10 @@ def evaluate_property_isr(
 
                 elif isinstance(a, DipoleMoment):
                     comps_dipmom = tuple([comp_map[char] for char in list(a.comp)])
-                    if a.from_state == "0" and a.to_state == "0":
+                    if a.from_state == O and a.to_state == O:
                         gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
                         subs_dict[a] = gs_dip_moment[comps_dipmom]
-                    elif a.from_state == "0" and a.to_state == str(final_state[0]):
+                    elif a.from_state == O and a.to_state == final_state[0]:
                         tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
                         subs_dict[a] = tdms[final_state[1]][comps_dipmom]
                     else:
@@ -601,7 +601,7 @@ def evaluate_property_sos(
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
         all_omegas.append(
-                (TransitionFrequency(str(final_state[0]), real=True),
+                (TransitionFrequency(final_state[0], real=True),
                  state.excitation_energy_uncorrected[final_state[1]])
         )
         for ies, exstate in enumerate(sos.excluded_states):
@@ -638,7 +638,7 @@ def evaluate_property_sos(
         for et in et_list:
             # the extra terms contain less indices of summation
             sum_ind = find_remaining_indices(et, sos.summation_indices)
-            trans_freq = [TransitionFrequency(str(index), real=True) for index in sum_ind]
+            trans_freq = [TransitionFrequency(index, real=True) for index in sum_ind]
             term_list.append(
                     {"expr": et, "summation_indices": sum_ind, "transition_frequencies": trans_freq}
             )
@@ -662,11 +662,11 @@ def evaluate_property_sos(
         mod_expr = replace_bra_op_ket(
                 term_dict["expr"].subs(sos.correlation_btw_freq)
         )
-        sum_ind_str = [str(si) for si in term_dict["summation_indices"]]
+        sum_ind = term_dict["summation_indices"]
 
         # values that the indices of summation can take on
         indices = list(
-                product(range(len(state.excitation_energy_uncorrected)), repeat=len(term_dict["summation_indices"]))
+                product(range(len(state.excitation_energy_uncorrected)), repeat=len(sum_ind))
         )
         dip_mom_list = [a for a in mod_expr.args if isinstance(a, DipoleMoment)]
         lc_contained = False
@@ -675,7 +675,7 @@ def evaluate_property_sos(
                 lc_contained = True
         for i in indices:
             state_map = {
-                    sum_ind_str[ii]: ind for ii, ind in enumerate(i)
+                    sum_ind[ii]: ind for ii, ind in enumerate(i)
                 }
 
             # skip the rest of the loop for this iteration if it corresponds to one of the excluded states
@@ -683,7 +683,7 @@ def evaluate_property_sos(
                 continue
 
             if final_state:
-                state_map[str(final_state[0])] = final_state[1]
+                state_map[final_state[0]] = final_state[1]
             for c in components:
                 comp_map = {
                         ABC[ic]: cc for ic, cc in enumerate(c)
@@ -691,19 +691,19 @@ def evaluate_property_sos(
                 subs_dict = {o[0]: o[1] for o in all_omegas}
                 subs_dict[gamma] = gamma_val
 
-                for si, tf in zip(sum_ind_str, term_dict["transition_frequencies"]):
+                for si, tf in zip(sum_ind, term_dict["transition_frequencies"]):
                     subs_dict[tf] = state.excitation_energy_uncorrected[state_map[si]]
 
                 for a in dip_mom_list:
                     comps_dipmom = tuple([comp_map[char] for char in list(a.comp)])
-                    if a.from_state == "0" and a.to_state == "0":
+                    if a.from_state == O and a.to_state == O:
                         gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
                         subs_dict[a] = gs_dip_moment[comps_dipmom]
-                    elif a.from_state == "0":
+                    elif a.from_state == O:
                         index = state_map[a.to_state]
                         tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
                         subs_dict[a] = tdms[index][comps_dipmom]
-                    elif a.to_state == "0":
+                    elif a.to_state == O:
                         index = state_map[a.from_state]
                         tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
                         if a.symmetry == 1:  # Hermitian operators
@@ -715,13 +715,13 @@ def evaluate_property_sos(
                     else:
                         index1 = state_map[a.from_state]
                         index2 = state_map[a.to_state]
-                        if a.from_state in sum_ind_str and a.to_state in sum_ind_str:  # e.g., <n|\mu|m>
+                        if a.from_state in sum_ind and a.to_state in sum_ind:  # e.g., <n|op|m>
                             s2s_tdms = adcc_prop_dict[a.op_type].state_to_state_transition_moment
                             subs_dict[a] = s2s_tdms[index1, index2][comps_dipmom]
-                        elif a.from_state in sum_ind_str:  # e.g., <f|\mu|n>
+                        elif a.from_state in sum_ind:  # e.g., <f|op|n>
                             s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(final_state=index2)
                             subs_dict[a] = s2s_tdms_f[index1][comps_dipmom]
-                        elif a.to_state in sum_ind_str:  # e.g., <n|\mu|f>
+                        elif a.to_state in sum_ind:  # e.g., <n|op|f>
                             s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(initial_state=index1)
                             subs_dict[a] = s2s_tdms_f[index2][comps_dipmom]
                         else:
@@ -809,7 +809,7 @@ def evaluate_property_sos_fast(
     subs_dict = {om_tup[0]: om_tup[1] for om_tup in omegas}
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
-        subs_dict[TransitionFrequency(str(final_state[0]), real=True)] = (
+        subs_dict[TransitionFrequency(final_state[0], real=True)] = (
             state.excitation_energy_uncorrected[final_state[1]]
         )
         for ies, exstate in enumerate(sos.excluded_states):
@@ -845,36 +845,36 @@ def evaluate_property_sos_fast(
         divergences = []
         for a in term.args:
             if isinstance(a, DipoleMoment):
-                if a.from_state == "0" and a.to_state == "0":  # <0|\mu|0>
+                if a.from_state == O and a.to_state == O:  # <0|op|0>
                     gs_dip_moment = adcc_prop_dict[a.op_type].gs_dip_moment
                     einsum_list.append(("", a.comp, gs_dip_moment))
-                elif a.from_state == "0":
+                elif a.from_state == O:
                     tdms = adcc_prop_dict[a.op_type].transition_dipole_moment  # TODO: correct sign?
-                    if a.to_state in sos.summation_indices_str:  # e.g., <n|\mu|0>
-                        einsum_list.append((a.to_state, a.comp, tdms))
-                    else:  # e.g., <f|\mu|0>
+                    if a.to_state in sos.summation_indices:  # e.g., <n|op|0>
+                        einsum_list.append((str(a.to_state), a.comp, tdms))
+                    else:  # e.g., <f|op|0>
                         einsum_list.append(("", a.comp, tdms[final_state[1]]))
-                elif a.to_state == "0":
+                elif a.to_state == O:
                     if a.symmetry == 1:  # Hermitian operators
                         tdms = adcc_prop_dict[a.op_type].transition_dipole_moment
                     elif a.symmetry == 2:  # anti-Hermitian operators
                         tdms = -1.0 * adcc_prop_dict[a.op_type].transition_dipole_moment  # TODO: correct sign?
                     else:
                         raise NotImplementedError("Only Hermitian and anti-Hermitian operators are implemented.")
-                    if a.from_state in sos.summation_indices_str:  # e.g., <0|\mu|n>
-                        einsum_list.append((a.from_state, a.comp, tdms))
-                    else:  # e.g., <0|\mu|f>
+                    if a.from_state in sos.summation_indices:  # e.g., <0|op|n>
+                        einsum_list.append((str(a.from_state), a.comp, tdms))
+                    else:  # e.g., <0|op|f>
                         einsum_list.append(("", a.comp, tdms[final_state[1]]))
                 else:
-                    if a.from_state in sos.summation_indices_str and a.to_state in sos.summation_indices_str:  # e.g., <n|\mu|m>
+                    if a.from_state in sos.summation_indices and a.to_state in sos.summation_indices:  # e.g., <n|op|m>
                         s2s_tdms = adcc_prop_dict[a.op_type].state_to_state_transition_moment
-                        einsum_list.append((a.from_state+a.to_state, a.comp, s2s_tdms))
-                    elif a.from_state in sos.summation_indices_str and a.to_state == str(final_state[0]):  # e.g., <f|\mu|n>
+                        einsum_list.append((str(a.from_state)+str(a.to_state), a.comp, s2s_tdms))
+                    elif a.from_state in sos.summation_indices and a.to_state == final_state[0]:  # e.g., <f|op|n>
                         s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(final_state=final_state[1])
-                        einsum_list.append((a.from_state, a.comp, s2s_tdms_f))
-                    elif a.to_state in sos.summation_indices_str and a.from_state == str(final_state[0]):  # e.g., <n|\mu|f>
+                        einsum_list.append((str(a.from_state), a.comp, s2s_tdms_f))
+                    elif a.to_state in sos.summation_indices and a.from_state == final_state[0]:  # e.g., <n|op|f>
                         s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(initial_state=final_state[1])
-                        einsum_list.append((a.to_state, a.comp, s2s_tdms_f))
+                        einsum_list.append((str(a.to_state), a.comp, s2s_tdms_f))
                     else:
                         raise ValueError()
 
@@ -909,8 +909,8 @@ def evaluate_property_sos_fast(
                         index_with_inf = np.where(array == np.inf)
                         assert len(index_with_inf) == 1
                         assert len(index_with_inf[0]) == 1
-                        divergences.append((Symbol(index, real=True), index_with_inf[0][0]))
-                    einsum_list.append((index, "", array))
+                        divergences.append((index, index_with_inf[0][0]))
+                    einsum_list.append((str(index), "", array))
 
             elif isinstance(a, LeviCivita):
                 einsum_list.append(("", "ABC", lc_tensor))

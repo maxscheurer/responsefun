@@ -3,7 +3,6 @@ import sympy.physics.quantum.operator as qmoperator
 from responsefun.adcc_properties import available_operators
 
 
-available_operators_symb = [Symbol(op) for op in available_operators]
 for op_type, tup in available_operators.items():
     if tup[1] not in [0, 1, 2]:
         raise ValueError(
@@ -24,7 +23,11 @@ class ResponseOperator(qmoperator.Operator):
         comp: str
             Cartesian component.
         """
-        self._comp = comp
+        if isinstance(comp, Symbol):
+            self._comp = str(comp)
+        else:
+            assert isinstance(comp, str)
+            self._comp = comp
 
     @property
     def comp(self):
@@ -37,23 +40,19 @@ class ResponseOperator(qmoperator.Operator):
 class MTM(ResponseOperator):
     def __init__(self, comp, op_type):
         super().__init__(comp)
-        assert op_type in available_operators or op_type in available_operators_symb
-        self._op_type = op_type
         if isinstance(op_type, Symbol):
-            op_type_str = str(op_type)
+            self._op_type = str(op_type)
         else:
-            op_type_str = op_type
-        self._symmetry = available_operators[op_type_str][1]
-        self._dim = available_operators[op_type_str][2]
-        if isinstance(comp, Symbol):
-            comp_str = str(comp)
-        else:
-            comp_str = comp
-        if len(comp_str) != self._dim:
+            assert isinstance(op_type, str)
+            self._op_type = op_type
+        assert self._op_type in available_operators
+        self._symmetry = available_operators[self._op_type][1]
+        self._dim = available_operators[self._op_type][2]
+        if len(self._comp) != self._dim:
             raise ValueError(
-                    f"The operator is {self._dim}-dimensional, but {len(comp_str)} components were specified."
+                    f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
             )
-        
+
     @property
     def op_type(self):
         return self._op_type
@@ -82,21 +81,18 @@ class MTM(ResponseOperator):
 class S2S_MTM(ResponseOperator):
     def __init__(self, comp, op_type):
         super().__init__(comp)
-        assert op_type in available_operators or op_type in available_operators_symb
-        self._op_type = op_type
         if isinstance(op_type, Symbol):
-            op_type_str = str(op_type)
+            self._op_type = str(op_type)
         else:
-            op_type_str = op_type
-        self._symmetry = available_operators[op_type_str][1]
-        self._dim = available_operators[op_type_str][2]
-        if isinstance(comp, Symbol):
-            comp_str = str(comp)
-        else:
-            comp_str = comp
-        if len(comp_str) != self._dim:
+            assert isinstance(op_type, str)
+            self._op_type = op_type
+        assert self._op_type in available_operators
+
+        self._symmetry = available_operators[self._op_type][1]
+        self._dim = available_operators[self._op_type][2]
+        if len(self._comp) != self._dim:
             raise ValueError(
-                    f"The operator is {self._dim}-dimensional, but {len(comp_str)} components were specified."
+                    f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
             )
 
     @property
@@ -157,21 +153,18 @@ class ResponseVector(ResponseOperator):
 class DipoleOperator(ResponseOperator):
     def __init__(self, comp, op_type):
         super().__init__(comp)
-        assert op_type in available_operators or op_type in available_operators_symb
-        self._op_type = op_type
         if isinstance(op_type, Symbol):
-            op_type_str = str(op_type)
+            self._op_type = str(op_type)
         else:
-            op_type_str = op_type
-        self._symmetry = available_operators[op_type_str][1]
-        self._dim = available_operators[op_type_str][2]
-        if isinstance(comp, Symbol):
-            comp_str = str(comp)
-        else:
-            comp_str = comp
-        if len(comp_str) != self._dim:
+            assert isinstance(op_type, str)
+            self._op_type = op_type
+        assert self._op_type in available_operators
+
+        self._symmetry = available_operators[self._op_type][1]
+        self._dim = available_operators[self._op_type][2]
+        if len(self._comp) != self._dim:
             raise ValueError(
-                    f"The operator is {self._dim}-dimensional, but {len(comp_str)} components were specified."
+                    f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
             )
 
     @property
@@ -195,11 +188,11 @@ class DipoleOperator(ResponseOperator):
 
 class DipoleMoment(Symbol):
     def __new__(self, comp, from_state, to_state, op_type, **assumptions):
-        assert type(comp) == str
-        assert type(from_state) == str
-        assert type(to_state) == str
+        assert isinstance(comp, str)
+        assert isinstance(from_state, Symbol)
+        assert isinstance(to_state, Symbol)
         assert op_type in available_operators
-        name = r"{}_{{{}}}^{{{}}}".format(available_operators[op_type][0], comp, from_state+to_state)
+        name = r"{}_{{{}}}^{{{}}}".format(available_operators[op_type][0], comp, str(from_state)+str(to_state))
         obj = Symbol.__new__(self, name, **assumptions)
         obj._comp = comp
         obj._from_state = from_state
@@ -220,7 +213,7 @@ class DipoleMoment(Symbol):
     @property
     def from_state(self):
         return self._from_state
-    
+
     @property
     def to_state(self):
         return self._to_state
@@ -240,8 +233,8 @@ class DipoleMoment(Symbol):
 
 class TransitionFrequency(Symbol):
     def __new__(self, state, **assumptions):
-        assert type(state) == str
-        name = r"w_{{{}}}".format(state)
+        assert isinstance(state, Symbol)
+        name = r"w_{{{}}}".format(str(state))
         obj = Symbol.__new__(self, name, **assumptions)
         obj._state = state
         return obj

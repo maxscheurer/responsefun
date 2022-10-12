@@ -46,17 +46,17 @@ def insert_single_dipole_moments(expr, summation_indices):
         bra, ket = bok[0].label[0], bok[2].label[0]
         op = bok[1]
         if ket == O and bra not in summation_indices:
-            from_state = str(ket)
-            to_state = str(bra)
+            from_state = ket
+            to_state = bra
             sign = 1.0
         elif bra == O and ket not in summation_indices:
             if op.symmetry == 0:
-                from_state = str(ket)
-                to_state = str(bra)
+                from_state = ket
+                to_state = bra
                 sign = 1.0
             else:
-                from_state = str(bra)
-                to_state = str(ket)
+                from_state = bra
+                to_state = ket
                 if op.symmetry == 1:
                     sign = 1.0
                 else:
@@ -74,7 +74,7 @@ def insert_matrix(expr, matrix=Operator("M")):
     assert type(expr) == Mul
     kb = [Ket, Bra]
     expr_types = [type(term) for term in expr.args]
-    ketbra_match = {str(expr.args[i].label[0]) : expr.args[i:i+2] for i, k in enumerate(expr_types)
+    ketbra_match = {expr.args[i].label[0] : expr.args[i:i+2] for i, k in enumerate(expr_types)
                     if expr_types[i:i+2] == kb  # find Ket-Bra sequence
                     and expr.args[i].label[0] == expr.args[i+1].label[0] # make sure they have the same state
     }
@@ -87,7 +87,7 @@ def insert_matrix(expr, matrix=Operator("M")):
     denominator_matches = {}
     for state_label in ketbra_match:
         denominator_match = {}
-        if state_label == "0":
+        if state_label == O:
             print("Ground state RI.")
             continue
         for d in denominators:
@@ -209,9 +209,9 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
     for tup in special_cases:
         index, case = tup[0], tup[1]
         if case == O:
-            term = expr.subs([tup, (TransitionFrequency(str(index), real=True), 0)])
+            term = expr.subs([tup, (TransitionFrequency(index, real=True), 0)])
         else:
-            term = expr.subs([tup, (TransitionFrequency(str(index), real=True), TransitionFrequency(str(case), real=True))])
+            term = expr.subs([tup, (TransitionFrequency(index, real=True), TransitionFrequency(case, real=True))])
             boks = extract_bra_op_ket(term)
             for bok in boks:
                 if bok[0].label[0] == case and bok[2].label[0] == case:
@@ -328,7 +328,7 @@ def compute_extra_terms(expr, summation_indices, excluded_states=None, correlati
                     new_indices.remove(tup[0])
                 subs_list_1 = list(zip(new_indices, summation_indices[:len(new_indices)]))
                 freq_list = [
-                    (TransitionFrequency(str(ni), real=True), TransitionFrequency(str(nsi), real=True)) for ni, nsi in subs_list_1
+                    (TransitionFrequency(ni, real=True), TransitionFrequency(nsi, real=True)) for ni, nsi in subs_list_1
                 ]
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
@@ -538,7 +538,7 @@ if __name__ == "__main__":
             * TransitionMoment(O, opm_b, k) * TransitionMoment(k, op_c, f) * TransitionMoment(f, op_a, O)
             / w_k
     )
-    mcd_term1_sos = SumOverStates(mcd_term1, [k], excluded_states=[(k, O)])
+    mcd_term1_sos = SumOverStates(mcd_term1, [k], excluded_states=[O])
     #mcd_term1_isr = to_isr(mcd_term1_sos)
     #print(mcd_term1_sos.expr)
     #print(mcd_term1_isr)

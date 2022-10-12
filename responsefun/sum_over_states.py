@@ -1,12 +1,12 @@
-from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
-from sympy.physics.quantum.state import Bra, Ket, StateBase
-from responsefun.response_operators import DipoleOperator, DipoleMoment, LeviCivita
+from sympy import Symbol, Mul, Add, latex
+from sympy.physics.quantum.state import Bra, Ket
+from responsefun.response_operators import DipoleOperator, DipoleMoment, TransitionFrequency
 from itertools import permutations
 import string
 
-from responsefun.symbols_and_labels import *
 
 ABC = list(string.ascii_uppercase)
+
 
 class TransitionMoment:
     """
@@ -73,24 +73,25 @@ def _build_sos_via_permutation(term, perm_pairs):
 
 class SumOverStates:
     """
-    Class representing a sum-over-states (SOS) expression. 
+    Class representing a sum-over-states (SOS) expression.
     """
-    
+
     def __init__(self, expr, summation_indices, *, correlation_btw_freq=None, perm_pairs=None, excluded_states=None):
         """
         Parameters
         ----------
         expr: <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'>
-            SymPy expression of the SOS;
-            it can be either the full expression or a single term from which the full expression can be generated via permutation.
+            SymPy expression of the SOS; it can be either the full expression or
+            a single term from which the full expression can be generated via permutation.
 
         summation_indices: list of <class 'sympy.core.symbol.Symbol'>
             List of indices of summation.
 
         correlation_btw_freq: list of tuples, optional
             List that indicates the correlation between the frequencies;
-            the tuple entries are either instances of <class 'sympy.core.add.Add'> or <class 'sympy.core.symbol.Symbol'>;
-            the first entry is the frequency that can be replaced by the second entry, e.g., (w_o, w_1+w_2).
+            the tuple entries are either instances of <class 'sympy.core.add.Add'> or
+            <class 'sympy.core.symbol.Symbol'>; the first entry is the frequency that can
+            be replaced by the second entry, e.g., (w_o, w_1+w_2).
 
         perm_pairs: list of tuples, optional
             List of (op, freq) pairs whose permutation yields the full SOS expression;
@@ -107,7 +108,7 @@ class SumOverStates:
         else:
             self._summation_indices = summation_indices.copy()
         assert all(isinstance(index, Symbol) for index in self._summation_indices)
-        
+
         if correlation_btw_freq:
             assert isinstance(correlation_btw_freq, list)
 
@@ -131,9 +132,10 @@ class SumOverStates:
                             self._components.append(c)
                     if isinstance(a, DipoleMoment):
                         raise TypeError(
-                                "SOS expression must not contain an instance of <class 'responsetree.response_operators.DipoleMoment'>. "
-                                "All transition moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for example by "
-                                "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
+                            "SOS expression must not contain an instance of "
+                            "<class 'responsetree.response_operators.DipoleMoment'>. All transition "
+                            "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for "
+                            "example by means of <class 'responsetree.sum_over_states.TransitionMoment'>."
                         )
             self._components.sort()
             for index in self._summation_indices:
@@ -149,9 +151,10 @@ class SumOverStates:
                         self._components.append(c)
                 elif isinstance(a, DipoleMoment):
                     raise TypeError(
-                            "SOS expression must not contain an instance of <class 'responsetree.response_operators.DipoleMoment'>. "
-                            "All transition moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for example by "
-                            "means of <class 'responsetree.sum_over_states.TransitionMoment'>."
+                            "SOS expression must not contain an instance of "
+                            "<class 'responsetree.response_operators.DipoleMoment'>. All transition "
+                            "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for "
+                            "example by means of <class 'responsetree.sum_over_states.TransitionMoment'>."
                     )
             self._components.sort()
             for index in self._summation_indices:
@@ -163,12 +166,13 @@ class SumOverStates:
         self._order = len(self._components)
         if self._components != ABC[:self._order]:
             raise ValueError(
-                    f"It is important that the Cartesian components of an order {self._order} tensor be specified as {ABC[:self._order]}."
+                    f"It is important that the Cartesian components of an order {self._order} tensor "
+                    f"be specified as {ABC[:self._order]}."
             )
 
-        self._transition_frequencies = [TransitionFrequency(str(index), real=True) for index in self._summation_indices]
+        self._transition_frequencies = [TransitionFrequency(index, real=True) for index in self._summation_indices]
         self.correlation_btw_freq = correlation_btw_freq
-        
+
         if perm_pairs:
             self.expr = _build_sos_via_permutation(expr, perm_pairs)
         else:
@@ -194,7 +198,7 @@ class SumOverStates:
     @property
     def components(self):
         return self._components
-    
+
     @property
     def transition_frequencies(self):
         return self._transition_frequencies
@@ -213,21 +217,34 @@ class SumOverStates:
 
 
 if __name__ == "__main__":
+    from responsefun.symbols_and_labels import (
+        O, n, k, m,
+        w_n, w_k, w_m,
+        w, w_1, w_2, w_3, w_o, gamma,
+        op_a, op_b, op_c, op_d
+    )
     alpha_sos_expr = (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
             + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
         )
     alpha_sos = SumOverStates(alpha_sos_expr, [n])
-    #print(alpha_sos.expr, alpha_sos.summation_indices, alpha_sos.transition_frequencies, alpha_sos.order, alpha_sos.operators, alpha_sos.correlation_btw_freq)
-    
-    beta_sos_term = TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O) / ((w_n - w_o) * (w_k - w_2))
+    # print(
+    #     alpha_sos.expr, alpha_sos.summation_indices, alpha_sos.transition_frequencies,
+    #     alpha_sos.order, alpha_sos.operators, alpha_sos.correlation_btw_freq
+    # )
+
+    beta_sos_term = (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O)
+        / ((w_n - w_o) * (w_k - w_2))
+    )
     beta_sos = SumOverStates(beta_sos_term, [n, k], perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)])
-    #print(beta_sos.expr.args)
-    #print(beta_sos.summation_indices)
-    #print(beta_sos.transition_frequencies, beta_sos.order, beta_sos.operators, beta_sos.number_of_terms)
-    #print(beta_sos.latex)
+    # print(beta_sos.expr.args)
+    # print(beta_sos.summation_indices)
+    # print(beta_sos.transition_frequencies, beta_sos.order, beta_sos.operators, beta_sos.number_of_terms)
+    # print(beta_sos.latex)
 
     gamma_extra_terms = (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O)
+        * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
         / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
     )
