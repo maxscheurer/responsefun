@@ -12,7 +12,7 @@ from responsefun.response_operators import (
         DipoleMoment, TransitionFrequency, LeviCivita
 )
 from responsefun.sum_over_states import TransitionMoment, SumOverStates
-from responsefun.isr_conversion import to_isr, compute_extra_terms
+from responsefun.isr_conversion import IsrFormulation, compute_extra_terms
 from responsefun.build_tree import build_tree
 from responsefun.bmatrix_vector_product import bmatrix_vector_product
 from responsefun.adcc_properties import AdccProperties, available_operators
@@ -226,6 +226,10 @@ def evaluate_property_isr(
             sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
             perm_pairs=perm_pairs, excluded_states=excluded_states
     )
+    print(
+        f"\nThe following SOS expression was entered/generated. It consists of {sos.number_of_terms} term(s):\n{sos}\n"
+    )
+
     # store adcc properties for the required operators in a dict
     adcc_prop_dict = {}
     for op_type in sos.operator_types:
@@ -246,9 +250,15 @@ def evaluate_property_isr(
 
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
 
-    isr = to_isr(sos, extra_terms)
-    mod_isr = isr.subs(correlation_btw_freq)
-    rvecs_dict_list = build_tree(mod_isr)
+    isr = IsrFormulation(sos, extra_terms, print_extra_term_dict=True)
+    print(
+        f"The SOS expression was transformed into the following ADC/ISR formulation:\n{isr}\nThus, "
+        f"{isr.number_of_extra_terms} non-vanishing terms were identified that must be additionally "
+        "considered due to the definition of the ADC matrices.\n")
+    print(
+        "Building tree to determine suitable response vectors ..."
+    )
+    rvecs_dict_list = build_tree(isr.mod_expr)
 
     # prepare the projection of the states excluded from the summation
     to_be_projected_out = []
@@ -262,6 +272,7 @@ def evaluate_property_isr(
             assert exstate == final_state[0]
             to_be_projected_out.append(final_state[1])
     if to_be_projected_out:
+        print(f"The following states are projected out from the ADC matrices: {to_be_projected_out}")
         if len(to_be_projected_out) != 1:
             raise NotImplementedError(
                 "It is not yet possible to project out more than one state."
@@ -280,6 +291,8 @@ def evaluate_property_isr(
 
     rvecs_dict_tot = {}
     response_dict = {}
+    number_of_unique_rvecs = 0
+    print("Solving response equations ...")
     for tup in rvecs_dict_list:
         root_expr, rvecs_dict = tup
         # check if response equations become equal after inserting values for omegas and gamma
@@ -296,7 +309,7 @@ def evaluate_property_isr(
                 rvecs_dict_mod[new_key] = [value]
             else:
                 rvecs_dict_mod[new_key].append(value)
-
+        number_of_unique_rvecs += len(rvecs_dict_mod)
         # solve response equations
         for key, value in rvecs_dict_mod.items():
             op_type = key[1]
@@ -366,15 +379,27 @@ def evaluate_property_isr(
                         response_dict[vv] = response
                 else:
                     raise ValueError("Unkown response equation.")
-
             else:
                 raise ValueError("Unkown response equation.")
         rvecs_dict_tot.update(dict((value, key) for key, value in rvecs_dict.items()))
 
+    print(f"In total, {len(rvecs_dict_tot)} response vectors (with 3 components each) were defined:")
+    for key, value in rvecs_dict_tot.items():
+        print(key, ": ", value)
+    if len(rvecs_dict_tot) == number_of_unique_rvecs:
+        print(f"Thus, {3*number_of_unique_rvecs} response equations had to be solved.\n")
+    elif len(rvecs_dict_tot) > number_of_unique_rvecs:
+        print(
+            "However, inserting the specified frequency values caused response vectors to become equal, "
+            f"so that in the end only 3x{number_of_unique_rvecs} response equations had to be solved.\n"
+        )
+    else:
+        raise ValueError()
+
     if rvecs_dict_list:
         root_expr = rvecs_dict_list[-1][0]
     else:
-        root_expr = mod_isr
+        root_expr = isr.mod_expr
 
     dtype = float
     if gamma_val != 0.0:
@@ -522,6 +547,7 @@ def evaluate_property_isr(
             perms = list(permutations(c))  # if tensor is symmetric
             for pe in perms:
                 res_tens[pe] = res_tens[c]
+    print("========== The requested tensor was formed. ==========")
     return res_tens
 
 
@@ -592,6 +618,9 @@ def evaluate_property_sos(
             sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
             perm_pairs=perm_pairs, excluded_states=excluded_states
     )
+    print(
+        f"\nThe following SOS expression was entered/generated. It consists of {sos.number_of_terms} term(s):\n{sos}\n"
+    )
     # store adcc properties for the required operators in a dict
     adcc_prop_dict = {}
     for op_type in sos.operator_types:
@@ -625,9 +654,10 @@ def evaluate_property_sos(
                  "transition_frequencies": sos.transition_frequencies}
         ]
     if extra_terms:
+        print("Determining extra terms ...")
         ets = compute_extra_terms(
                 sos.expr, sos.summation_indices, excluded_states=sos.excluded_states,
-                correlation_btw_freq=sos.correlation_btw_freq
+                correlation_btw_freq=sos.correlation_btw_freq, print_extra_term_dict=True
         )
         if isinstance(ets, Add):
             et_list = list(ets.args)
@@ -635,6 +665,10 @@ def evaluate_property_sos(
             et_list = [ets]
         else:
             et_list = []
+        print(
+            f"{len(et_list)} non-vanishing terms were identified that must be additionally considered "
+            "due to the definition of the adcc properties.\n"
+        )
         for et in et_list:
             # the extra terms contain less indices of summation
             sum_ind = find_remaining_indices(et, sos.summation_indices)
@@ -658,6 +692,7 @@ def evaluate_property_sos(
     else:
         components = list(product([0, 1, 2], repeat=sos.order))
 
+    print(f"Summing over {len(state.excitation_energy_uncorrected)} excited states ...")
     for term_dict in tqdm(term_list):
         mod_expr = replace_bra_op_ket(
                 term_dict["expr"].subs(sos.correlation_btw_freq)
@@ -736,6 +771,7 @@ def evaluate_property_sos(
                     perms = list(permutations(c))  # if tensor is symmetric
                     for pe in perms:
                         res_tens[pe] = res_tens[c]
+    print("========== The requested tensor was formed. ==========")
     return res_tens
 
 
@@ -801,6 +837,9 @@ def evaluate_property_sos_fast(
             sos_expr, summation_indices, correlation_btw_freq=correlation_btw_freq,
             perm_pairs=perm_pairs, excluded_states=excluded_states
     )
+    print(
+        f"\nThe following SOS expression was entered/generated. It consists of {sos.number_of_terms} term(s):\n{sos}\n"
+    )
     # store adcc properties for the required operators in a dict
     adcc_prop_dict = {}
     for op_type in sos.operator_types:
@@ -822,10 +861,22 @@ def evaluate_property_sos_fast(
     _check_omegas_and_final_state(sos.expr, omegas, correlation_btw_freq, gamma_val, final_state)
 
     if extra_terms:
-        sos_with_et = sos.expr + compute_extra_terms(
+        print("Determining extra terms ...")
+        computed_terms = compute_extra_terms(
                 sos.expr, sos.summation_indices, excluded_states=sos.excluded_states,
-                correlation_btw_freq=sos.correlation_btw_freq
+                correlation_btw_freq=sos.correlation_btw_freq, print_extra_term_dict=True
         )
+        if computed_terms == 0:
+            number_of_extra_terms = 0
+        elif isinstance(computed_terms, Add):
+            number_of_extra_terms = len(computed_terms.args)
+        else:
+            number_of_extra_terms = 1
+        print(
+            f"{number_of_extra_terms} non-vanishing terms were identified that must be additionally "
+            "considered due to the definition of the adcc properties.\n"
+        )
+        sos_with_et = sos.expr + computed_terms
         sos_expr_mod = sos_with_et.subs(correlation_btw_freq)
     else:
         sos_expr_mod = sos.expr.subs(correlation_btw_freq)
@@ -839,7 +890,11 @@ def evaluate_property_sos_fast(
         term_list = [replace_bra_op_ket(arg) for arg in sos_expr_mod.args]
     else:
         term_list = [replace_bra_op_ket(sos_expr_mod)]
-    for term in term_list:
+    print(
+        f"Summing over {len(state.excitation_energy_uncorrected)} excited states using the Einstein "
+        "summation convention ..."
+    )
+    for it, term in enumerate(term_list):
         einsum_list = []
         factor = 1
         divergences = []
@@ -963,9 +1018,10 @@ def evaluate_property_sos_fast(
         einsum_right_list.sort()
         einsum_right_mod = ''.join(einsum_right_list)
         einsum_string = einsum_left_mod + " -> " + einsum_right_mod
-        print("Created string of subscript labels that is used by np.einsum:\n", einsum_string)
+        print(f"Created string of subscript labels that is used by np.einsum for term {it+1}:\n", einsum_string)
         res_tens += (factor * np.einsum(einsum_string, *array_list))
 
+    print("========== The requested tensor was formed. ==========")
     return res_tens
 
 
@@ -1003,7 +1059,7 @@ if __name__ == "__main__":
     alpha_term = SOS_expressions['alpha_complex'][0]
     omega_alpha = [(w, 0.5)]
     gamma_val = 0.01
-    # alpha_tens = evaluate_property_isr(state, alpha_term, [n], omega_alpha, gamma_val=gamma_val)
+    alpha_tens = evaluate_property_isr(state, alpha_term, [n], omega_alpha, gamma_val=gamma_val)
     # print(alpha_tens)
     # alpha_tens_ref = complex_polarizability(refstate, "adc2", 0.5, gamma_val)
     # print(alpha_tens_ref)
@@ -1013,10 +1069,12 @@ if __name__ == "__main__":
             / ((w_n - w_o) * (w_k - w_2))
     )
     # beta_mag_isr = evaluate_property_isr(
-    #         state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)], extra_terms=False, excluded_states=[O]
+    #     state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)],
+    #     perm_pairs=[(op_a, -w_o), (opm_b, w_1), (op_c, w_2)]
     # )
     # beta_mag_sos = evaluate_property_sos_fast(
-    #         state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)], extra_terms=False, excluded_states=[O]
+    #     state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)],
+    #     perm_pairs=[(op_a, -w_o), (opm_b, w_1), (op_c, w_2)]
     # )
     # print(beta_mag_isr)
     # print(beta_mag_sos)

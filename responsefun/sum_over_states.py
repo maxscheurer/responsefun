@@ -179,6 +179,21 @@ class SumOverStates:
             self.expr = expr
         self.expr = self.expr.doit()
 
+    def __repr__(self):
+        ret = f"Sum over {self._summation_indices}"
+        if self.excluded_states:
+            ret += f" (excluded: {self.excluded_states}):\n"
+        else:
+            ret += ":\n"
+        if isinstance(self.expr, Add):
+            ret += str(self.expr.args[0]) + "\n"
+            for term in self.expr.args[1:]:
+                ret += "+ " + str(term) + "\n"
+            ret = ret[:-1]
+        else:
+            ret += str(self.expr)
+        return ret
+
     @property
     def summation_indices(self):
         return self._summation_indices
@@ -209,11 +224,19 @@ class SumOverStates:
 
     @property
     def number_of_terms(self):
-        return len(self.expr.args)
+        if isinstance(self.expr, Add):
+            return len(self.expr.args)
+        else:
+            return 1
 
     @property
     def latex(self):
-        return latex(self.expr)
+        ret = "\\sum_{"
+        for index in self._summation_indices:
+            ret += str(index) + ","
+        ret = ret[:-1]
+        ret += "} " + latex(self.expr)
+        return ret
 
 
 if __name__ == "__main__":
@@ -227,7 +250,8 @@ if __name__ == "__main__":
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
             + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
         )
-    alpha_sos = SumOverStates(alpha_sos_expr, [n])
+    alpha_sos = SumOverStates(alpha_sos_expr, [n], excluded_states=O)
+    print(type(alpha_sos))
     # print(
     #     alpha_sos.expr, alpha_sos.summation_indices, alpha_sos.transition_frequencies,
     #     alpha_sos.order, alpha_sos.operators, alpha_sos.correlation_btw_freq
