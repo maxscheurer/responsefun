@@ -257,3 +257,5 @@ class LeviCivita(qmoperator.Operator):
 
     def _print_contents_latex(self, printer):
         return r"\epsilon_{ABC}"
+
+

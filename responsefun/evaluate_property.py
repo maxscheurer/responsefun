@@ -205,8 +205,10 @@ def evaluate_property_isr(
         Resulting tensor.
     """
     matrix = construct_adcmatrix(state.matrix)
-    property_method = select_property_method(matrix)
-    mp = matrix.ground_state
+    #property_method = select_property_method(matrix)
+    property_method = state.property_method
+    mp = state.ground_state
+    #mp = matrix.ground_state
 
     if omegas is None:
         omegas = []
@@ -791,7 +793,7 @@ def evaluate_property_sos_fast(
                         s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(final_state=final_state[1])
                         einsum_list.append((a.from_state, a.comp, s2s_tdms_f))
                     elif a.to_state in sos.summation_indices_str and a.from_state == str(final_state[0]): # e.g., <n|\mu|f>
-                        s2s_tdms_f = adcc_prop_dict[a.op_type].s2s_tm(initial_state=final_state[1])
+                        s2s_tdms_f =  adcc_prop_dict[a.op_type].s2s_tm(initial_state=final_state[1])
                         einsum_list.append((a.to_state, a.comp, s2s_tdms_f))
                     else:
                         raise ValueError()
@@ -935,15 +937,15 @@ if __name__ == "__main__":
     #print(beta_mag_sos)
     #np.testing.assert_allclose(beta_mag_isr, beta_mag_sos, atol=1e-8)
     
-    gamma_term = (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O)
-            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
-    )
-    gamma_omegas = [(w_1, 0.5), (w_2, 0.55), (w_3, 0.6), (w_o, w_1+w_2+w_3)]
-    gamma_tens1 = (
-            evaluate_property_isr(state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False)
-    )
-    print(gamma_tens1)
+    #gamma_term = (
+    #        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O)
+    #        / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+    #)
+    #gamma_omegas = [(w_1, 0.5), (w_2, 0.55), (w_3, 0.6), (w_o, w_1+w_2+w_3)]
+    #gamma_tens1 = (
+    #        evaluate_property_isr(state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False)
+    #)
+    #print(gamma_tens1)
     #gamma_tens1_sos = (
     #        evaluate_property_sos_fast(mock_state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False)
     #)
@@ -1028,14 +1030,14 @@ if __name__ == "__main__":
             * TransitionMoment(O, op_c, k) * TransitionMoment(k, opm_b, f) * TransitionMoment(f, op_a, O)
             / (w_k - w_f)
     )
-    #mcd_tens2 = evaluate_property_isr(
-    #        state, mcd_term2, [k], final_state=(f, 0), extra_terms=False
-    #)
-    #print(mcd_tens2)
-    #mcd_tens2_sos = evaluate_property_sos_fast(
-    #        mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, f)]
-    #)
-    #print(mcd_tens2_sos)
+    mcd_tens2 = evaluate_property_isr(
+            state, mcd_term2, [k], final_state=(f, 0), extra_terms=False
+    )
+    print(mcd_tens2)
+    mcd_tens2_sos = evaluate_property_sos_fast(
+            mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, f)]
+    )
+    print(mcd_tens2_sos)
     #mcd_tens2_sos2 = evaluate_property_sos(
     #        mock_state, mcd_term2, [k], final_state=(f, 0), extra_terms=False, excluded_cases=[(k, f)]
     #)

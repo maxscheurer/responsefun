@@ -54,3 +54,9 @@ Q_cd = DipoleOperator("CD", "electric_quadrupole")
 theta_ab = DipoleOperator("AB", "electric_quadrupole_traceless")
 theta_bc = DipoleOperator("BC", "electric_quadrupole_traceless")
 theta_cd = DipoleOperator("CD", "electric_quadrupole_traceless")
+
+nabla_a = DipoleOperator("A", "nabla")
+nabla_b = DipoleOperator("B", "nabla")
+nabla_c = DipoleOperator("C", "nabla")
+nabla_d = DipoleOperator("D", "nabla")
+
