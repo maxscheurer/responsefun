@@ -1,18 +1,20 @@
-from sympy import Symbol, Mul, Add, Pow, symbols, adjoint, latex, simplify, fraction
+from sympy import symbols
 from sympy.physics.quantum.operator import Operator
-from responsefun.response_operators import MTM, S2S_MTM, ResponseVector, DipoleOperator, TransitionFrequency
+from responsefun.response_operators import (
+    MTM, S2S_MTM, ResponseVector, DipoleOperator, TransitionFrequency
+)
 
 
-O, f = symbols(r"0, f", real=True)
+O, f = symbols(r"O, f", real=True)
 gamma = symbols(r"\gamma", real=True)
 n, m, p, k = symbols(r"n, m, p, k", real=True)
 w, w_o, w_1, w_2, w_3 = symbols(r"w, w_{\sigma}, w_{1}, w_{2}, w_{3}", real=True)
 
-w_f = TransitionFrequency("f", real=True)
-w_n = TransitionFrequency("n", real=True)
-w_m = TransitionFrequency("m", real=True)
-w_p = TransitionFrequency("p", real=True)
-w_k = TransitionFrequency("k", real=True)
+w_f = TransitionFrequency(f, real=True)
+w_n = TransitionFrequency(n, real=True)
+w_m = TransitionFrequency(m, real=True)
+w_p = TransitionFrequency(p, real=True)
+w_k = TransitionFrequency(k, real=True)
 
 op_a = DipoleOperator("A", "electric")
 op_b = DipoleOperator("B", "electric")

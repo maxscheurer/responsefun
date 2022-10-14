@@ -167,7 +167,6 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
         rvecs_list = []
     root = IsrTreeNode(isr_expression)
     build_branches(root, matrix)
-    show_tree(root)
     rvecs = {}
 
     for leaf in root.leaves:
@@ -245,9 +244,9 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
         traverse_branches(leaf.parent, old_expr, leaf.expr)
 
     if rvecs:
+        show_tree(root)
         rvecs_list.append((root.expr, rvecs))
         build_tree(root.expr, matrix, rvecs_list, no)
-        print(rvecs_list)
     return rvecs_list
 
 

@@ -7,7 +7,7 @@ from responsefun.testdata.static_data import xyz
 from responsefun.testdata import cache
 from responsefun.misc import expand_test_templates, assert_allclose_signfix
 from responsefun.symbols_and_labels import *
-from responsefun.sum_over_states import TransitionMoment
+from responsefun.sum_over_states import TransitionMoment, SumOverStates
 from responsefun.evaluate_property import evaluate_property_isr, evaluate_property_sos, evaluate_property_sos_fast
 
 
@@ -230,3 +230,27 @@ class TestDeltaLike(unittest.TestCase):
         delta_sos = evaluate_property_sos_fast(mock_state, expr, [n, m, p, k], omegas, extra_terms=False)
         delta_isr = evaluate_property_isr(state, expr, [n, m, p, k], omegas, extra_terms=False)
         np.testing.assert_allclose(delta_isr, delta_sos, atol=1e-8)
+
+
+class TestCmPara(unittest.TestCase):
+    def test_h2o_sto3g_adc2(self):
+        case = "h2o_sto3g_adc2"
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        term = (
+            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
+            * TransitionMoment(m, opm_c, p) * TransitionMoment(p, opm_d, O)
+            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+        )
+        sos = SumOverStates(
+                term, [n, m, p], perm_pairs=[(op_a, -w_o), (op_b, w_1), (opm_c, w_2), (opm_d, w_3)]
+        )
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+
+        omegas = [(w_o, 0.5), (w_1, 0.5), (w_2, 0.0), (w_3, 0.0)]
+        for t in sos.expr.args:
+            cm_para_sos = evaluate_property_sos_fast(mock_state, t, [n, m, p], omegas, extra_terms=False)
+            cm_para_isr = evaluate_property_isr(state, t, [n, m, p], omegas, extra_terms=False)
+            np.testing.assert_allclose(cm_para_isr, cm_para_sos, atol=1e-8, err_msg=f"{t}")
