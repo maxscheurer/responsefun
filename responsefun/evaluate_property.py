@@ -14,7 +14,7 @@ from responsefun.response_operators import (
 from responsefun.sum_over_states import TransitionMoment, SumOverStates
 from responsefun.isr_conversion import IsrFormulation, compute_extra_terms
 from responsefun.build_tree import build_tree
-from responsefun.bmatrix_vector_product import bmatrix_vector_product
+from responsefun.bmatrix_vector_product import bmatrix_vector_product, bmatrix_vector_product_complex
 from responsefun.adcc_properties import AdccProperties, available_operators
 
 from adcc import AmplitudeVector
@@ -64,10 +64,16 @@ def _check_omegas_and_final_state(sos_expr, omegas, correlation_btw_freq, gamma_
             #         "the entered SOS expression.\nomegas: {}".format(check_dict)
             # )
 
-    if gamma_val:
-        for denom in denom_list:
-            if 1.0*gamma*I not in denom.args and -1.0*gamma*I not in denom.args:
-                raise ValueError("Although the entered SOS expression is real, a value for gamma was specified.")
+    # if gamma_val:
+    #     for denom in denom_list:
+    #         if 1.0*gamma*I not in denom.args and -1.0*gamma*I not in denom.args:
+    #             for arg in denom.args:
+    #                 contains_gamma = False
+    #                 if gamma in arg.args:
+    #                     contains_gamma = True
+    #                     break
+    #             if not contains_gamma:
+    #                 raise ValueError("Although the entered SOS expression is real, a value for gamma was specified.")
 
     if final_state:
         check_f = False
@@ -312,6 +318,7 @@ def evaluate_property_isr(
         number_of_unique_rvecs += len(rvecs_dict_mod)
         # solve response equations
         for key, value in rvecs_dict_mod.items():
+            print(key)
             op_type = key[1]
             if key[0] == "MTM":
                 rhss = np.array(adcc_prop_dict[op_type].mtms)
@@ -340,20 +347,27 @@ def evaluate_property_isr(
                 if key[4] == "ResponseVector":
                     no = key[5]
                     rvecs = response_dict[no]
-                    if key[3] == 0.0:
-                        product_vecs_shape = (3,)*op_dim + rvecs.shape
-                        iterables = [list(range(shape)) for shape in product_vecs_shape]
-                        components = list(product(*iterables))
-                        response = np.empty(product_vecs_shape, dtype=object)
-                        for c in components:
-                            rhs = bmatrix_vector_product(property_method, mp, dips[c[:op_dim]], rvecs[c[op_dim:]])
+                    product_vecs_shape = (3,)*op_dim + rvecs.shape
+                    iterables = [list(range(shape)) for shape in product_vecs_shape]
+                    components = list(product(*iterables))
+                    response = np.empty(product_vecs_shape, dtype=object)
+                    for c in components:
+                        rvec = rvecs[c[op_dim:]]
+                        if isinstance(rvec, AmplitudeVector):
+                            rhs = bmatrix_vector_product(property_method, mp, dips[c[:op_dim]], rvec)
+                            if key[3] == 0.0:
+                                response[c] = solve_response(matrix, rhs, -key[2], gamma=0.0, **solver_args)
+                            else:
+                                response[c] = solve_response(matrix, RV(rhs), -key[2], gamma=-key[3], **solver_args)
+                        elif isinstance(rvec, RV):
+                            rhs = bmatrix_vector_product_complex(property_method, mp, dips[c[:op_dim]], rvec)
+                            if ("solver", "cpp") in list(solver_args.items()):
+                                raise NotImplementedError("CPP solver only works correctly for purely real rhs.")
+                            # TODO: temporary hack --> modify solve_response accordingly
+                            rhs = RV(real=rhs.real, imag=-1.0*rhs.imag)
                             response[c] = solve_response(matrix, rhs, -key[2], gamma=-key[3], **solver_args)
-                    else:
-                        # complex bmatrix vector product is implemented (but not tested),
-                        # but solving response equations with complex right-hand sides is not yet possible
-                        raise NotImplementedError("The case of complex response vectors (leading to complex"
-                                                  "right-hand sides when solving the response equations)"
-                                                  "has not yet been implemented.")
+                        else:
+                            raise ValueError()
                     for vv in value:
                         response_dict[vv] = response
                 elif key[4] == final_state[0]:
@@ -383,18 +397,14 @@ def evaluate_property_isr(
                 raise ValueError("Unkown response equation.")
         rvecs_dict_tot.update(dict((value, key) for key, value in rvecs_dict.items()))
 
-    print(f"In total, {len(rvecs_dict_tot)} response vectors (with 3 components each) were defined:")
+    print(f"In total, {len(rvecs_dict_tot)} response vectors (with multiple components each) were defined:")
     for key, value in rvecs_dict_tot.items():
         print(key, ": ", value)
-    if len(rvecs_dict_tot) == number_of_unique_rvecs:
-        print(f"Thus, {3*number_of_unique_rvecs} response equations had to be solved.\n")
-    elif len(rvecs_dict_tot) > number_of_unique_rvecs:
+    if len(rvecs_dict_tot) > number_of_unique_rvecs:
         print(
             "However, inserting the specified frequency values caused response vectors to become equal, "
-            f"so that in the end only 3x{number_of_unique_rvecs} response equations had to be solved.\n"
+            f"so that in the end only {number_of_unique_rvecs} response vectors had to be determined.\n"
         )
-    else:
-        raise ValueError()
 
     if rvecs_dict_list:
         root_expr = rvecs_dict_list[-1][0]
@@ -1037,6 +1047,7 @@ if __name__ == "__main__":
     )
     from responsefun.testdata import cache
     from responsefun.test_property import SOS_expressions
+    from sympy import UnevaluatedExpr
 
     mol = gto.M(
         atom="""
@@ -1059,7 +1070,7 @@ if __name__ == "__main__":
     alpha_term = SOS_expressions['alpha_complex'][0]
     omega_alpha = [(w, 0.5)]
     gamma_val = 0.01
-    alpha_tens = evaluate_property_isr(state, alpha_term, [n], omega_alpha, gamma_val=gamma_val)
+    # alpha_tens = evaluate_property_isr(state, alpha_term, [n], omega_alpha, gamma_val=gamma_val)
     # print(alpha_tens)
     # alpha_tens_ref = complex_polarizability(refstate, "adc2", 0.5, gamma_val)
     # print(alpha_tens_ref)
@@ -1083,18 +1094,19 @@ if __name__ == "__main__":
     gamma_term = (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
             * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O)
-            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+            / ((w_n + UnevaluatedExpr(-w_o - 1j*gamma)) * (w_m - UnevaluatedExpr(w_2 + 1j*gamma) - UnevaluatedExpr(w_3 + 1j*gamma)) * (w_p - UnevaluatedExpr(w_3 + 1j*gamma)))
     )
-    gamma_omegas = [(w_1, 0.5), (w_2, 0.55), (w_3, 0.6), (w_o, w_1+w_2+w_3)]
+    # gamma_omegas = [(w_1, 0.5), (w_2, 0.5), (w_3, 0.5), (w_o, w_1+w_2+w_3+2j*gamma)]
+    # gamma_perm_pairs = [(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma), (op_d, w_3+1j*gamma)]
     # gamma_tens1 = evaluate_property_isr(
-    #         state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False
+    #         state, gamma_term, [m, n, p], gamma_omegas, gamma_val=0.01, extra_terms=False
     # )
     # print(gamma_tens1)
     # gamma_tens1_sos = (
-    #         evaluate_property_sos_fast(mock_state, gamma_term, [m, n, p], gamma_omegas, extra_terms=False)
+    #         evaluate_property_sos_fast(state, gamma_term, [m, n, p], gamma_omegas, gamma_val=0.01, extra_terms=False)
     # )
     # print(gamma_tens1_sos)
-    # np.testing.assert_allclose(gamma_tens1, gamma_tens1_sos, atol=1e-6)
+    # np.testing.assert_allclose(gamma_tens1, gamma_tens1_sos, atol=1e-7)
 
     threepa_term = (
             TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f)

@@ -154,7 +154,7 @@ def bmatrix_vector_product(method, ground_state, dips, vec):
     return ret
 
 
-#TODO: testing (however, since solve_response can only handle real right-hand sides, it is difficult) 
+#TODO: testing 
 def bmatrix_vector_product_complex(method, ground_state, dips, vec):
     unpack = False
     if not isinstance(dips, list):
@@ -168,7 +168,7 @@ def bmatrix_vector_product_complex(method, ground_state, dips, vec):
         product_imag = bmatrix_vector_product(method, ground_state, dip, vec.imag)
         ret.append(RV(product_real, product_imag))
     if unpack:
-        assert len(1) == 1
+        assert len(ret) == 1
         ret = ret[0]
     return ret
 
