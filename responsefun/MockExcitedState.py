@@ -43,6 +43,8 @@ class MockExcitedState:
 
         elif method == 'dalton_cis':
             zarr_storage = read_dalton_cis(args[0],args[1])
+        elif method == 'dalton_cc2':
+            zarr_storage = read_dalton_cc2(args[0])
         else:
             return NotImplementedError()
 
@@ -52,7 +54,14 @@ class MockExcitedState:
             zr = zarr.open(zarr_storage, mode = 'r')
             self.zr = zr
             exci = self.zr.excited_state
-            gs = self.zr.ground_state
+            try:
+                gs = self.zr.ground_state
+                for k in gs.attrs:
+                    setattr(self, k , gs.attrs[k])
+                for k in gs:
+                    setattr(self, k, np.asarray(gs[k]))
+            except AttributeError:
+                pass
             for k in exci.attrs:
                 setattr(self, k , exci.attrs[k])
             for k in exci:
@@ -65,12 +74,10 @@ class MockExcitedState:
                 self.s2s_transition_magnetic_dipole_moment = np.asarray(self.zr.s2s_transition_magnetic_dipole_moment)
             except AttributeError:
                 pass
-            for k in gs.attrs:
-                setattr(self, k , gs.attrs[k])
-            for k in gs:
-                setattr(self, k, np.asarray(gs[k]))
-
-            setattr(self, 'excitation_energy_uncorrected', np.asarray(self.zr.excitation_energy_uncorrected))
+            try:
+                setattr(self, 'excitation_energy_uncorrected', np.asarray(self.zr.excitation_energy_uncorrected))
+            except AttributeError:
+                pass
             #self.excitation_energy_uncorrected = self.zr.excitation_energy_uncorrected
             #self.ground_state = self.zr.ground_state
 

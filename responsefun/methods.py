@@ -2,10 +2,103 @@ import numpy as np
 import zarr
 import re
 from scipy.constants import physical_constants
+from scipy.special import binom
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
 dip_au = physical_constants["atomic unit of electric dipole mom."][0]
 debye_in_au = 1/(2.9979e29)*1/(dip_au)
+
+def read_dalton_cc2(outfile):
+    with open(f'{outfile}') as file_1:
+        lines = file_1.readlines()
+        file_1.close()
+
+    for i, line in enumerate(lines):
+        if ".NCCEXC" in line:
+            n_ex = lines[i +1].split()
+            n_ex = int(n_ex[0])
+    excitation_energies = np.zeros((n_ex))
+    trans_dip = np.zeros((n_ex,3))
+    trans_dip_mag = np.zeros((n_ex, 3))
+    s2s = np.zeros((n_ex,n_ex, 3))
+    s2s_mag = np.zeros((n_ex,n_ex, 3))
+
+    for i, line in enumerate(lines):
+        if 'CC2        Excitation energies' in line:
+            a = i + 4 
+            for i, val in enumerate(lines[a:a+n_ex]):
+                val = val.split()
+                excitation_energies[i] = float(val[5])
+        if 'CC2   Right transition moments in atomic units' in line:
+            a = i+ 3
+            x = lines[a:a + 3 * n_ex]
+            for f in x:
+                bla = f.split()
+                if 'X' in bla[2]:
+                    trans_dip[int(bla[0])-1][0] = float(bla[-1])
+                if 'Y' in bla[2]:
+                    trans_dip[int(bla[0])-1][1] = float(bla[-1])
+                if 'Z' in bla[2]:
+                    trans_dip[int(bla[0])-1][2] = float(bla[-1])
+            b = a + 3 *n_ex
+            x = lines[b:b + 3 * n_ex]
+            for f in x:
+                bla = f.split()
+                if 'X' in bla[2]:
+                    trans_dip_mag[int(bla[0])-1][0] = float(bla[-1])
+                if 'Y' in bla[2]:
+                    trans_dip_mag[int(bla[0])-1][1] = float(bla[-1])
+                if 'Z' in bla[2]:
+                    trans_dip_mag[int(bla[0])-1][2] = float(bla[-1])
+
+        if 'Transition moments between excited states in atomic units(R):' in line:
+            a = i + 3
+            end =  2*6 *binom(n_ex,2)
+            x = lines[a: a + int(end)]
+            for f in x:
+                bla = f.split()
+                if 'XDIPLEN' in bla[6]:
+                    s2s[int(bla[4])-1][int(bla[2])-1][0] = float(bla[-1])
+                if 'YDIPLEN' in bla[6]:
+                    s2s[int(bla[4])-1][int(bla[2])-1][1] = float(bla[-1])
+                if 'ZDIPLEN' in bla[6]:
+                    s2s[int(bla[4])-1][int(bla[2])-1][2] = float(bla[-1])
+                if 'XA' in bla[6]:
+                    s2s_mag[int(bla[4])-1][int(bla[2])-1][0] = float(bla[-1])
+                if 'YA' in bla[6]:
+                    s2s_mag[int(bla[4])-1][int(bla[2])-1][1] = float(bla[-1])
+                if 'ZA' in bla[6]:
+                    s2s_mag[int(bla[4])-1][int(bla[2])-1][2] = float(bla[-1])
+
+    trans_dip_mag = 0.5 * trans_dip_mag
+    s2s_mag = 0.5 * s2s_mag
+    state_dips = np.zeros((n_ex,3))
+    for i in range(n_ex):
+        state_dips[i] = s2s[i][i]
+    state_mag_dips = np.zeros((n_ex, 3))
+    for i in range(n_ex):
+        state_mag_dips[i] = s2s_mag[i][i]
+
+    for i in range(n_ex):
+        for j in range(n_ex):
+            s2s[j,i] =  s2s[i,j]
+            s2s_mag[j,i ] = - s2s_mag[i,j]
+    print(s2s_mag)
+    zarr_storage = f'{outfile}.zarr'
+    z = zarr.open(f'{outfile}.zarr', mode = 'w')
+    #z['ground_state/dipole_moment'] = gs_dipole_moment
+    #z['ground_state/energy'] = gs_energy
+    z['excitation_energy_uncorrected'] = excitation_energies
+    z['excited_state/state_dipole_moment'] = state_dips
+    z['excited_state/state_magnetic_dipole_moment'] = state_mag_dips
+    z['excited_state/transition_dipole_moment'] = trans_dip
+    z['excited_state/transition_magnetic_dipole_moment'] = trans_dip_mag
+    z['s2s_transition_dipole_moment'] = s2s
+    z['s2s_transition_magnetic_dipole_moment'] = s2s_mag
+
+    return zarr_storage
+
+
 def read_dalton_cis(outfile, outfile_s2s=None):
     with open(f'{outfile}') as file_1:
         lines_1 = file_1.readlines()
@@ -505,7 +598,7 @@ def qchem_read_tddft(outdatei):
 
 if __name__ == "__main__":
 
-    out_datei = '/export/home/fschneid/Masterarbeit/Dalton/CO2_CIS/cis_molecule.out'
-    out_datei_2 = '/export/home/fschneid/Masterarbeit/Dalton/CO2_S2S/cis_molecule.out'
-    x = read_dalton_cis(out_datei, out_datei_2)
+    out_datei = '/export/home/fschneid/Masterarbeit/Dalton/cotton_mouton/cc2_transition_moments_molecule.out'
+    #out_datei_2 = '/export/home/fschneid/Masterarbeit/Dalton/CO2_S2S/cis_molecule.out'
+    x = read_dalton_cc2(out_datei)
 
