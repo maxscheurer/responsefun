@@ -318,7 +318,6 @@ def evaluate_property_isr(
         number_of_unique_rvecs += len(rvecs_dict_mod)
         # solve response equations
         for key, value in rvecs_dict_mod.items():
-            print(key)
             op_type = key[1]
             if key[0] == "MTM":
                 rhss = np.array(adcc_prop_dict[op_type].mtms)
@@ -340,8 +339,6 @@ def evaluate_property_isr(
                 for vv in value:
                     response_dict[vv] = response
             elif key[0] == "S2S_MTM":
-                if projection is not None:
-                    raise NotImplementedError("It is not yet possible to project out states from the B matrix.")
                 dips = np.array(adcc_prop_dict[op_type].dips)
                 op_dim = adcc_prop_dict[op_type].op_dim
                 if key[4] == "ResponseVector":
@@ -355,17 +352,25 @@ def evaluate_property_isr(
                         rvec = rvecs[c[op_dim:]]
                         if isinstance(rvec, AmplitudeVector):
                             rhs = bmatrix_vector_product(property_method, mp, dips[c[:op_dim]], rvec)
+                            if projection is not None:
+                                rhs -= projection(rhs)
                             if key[3] == 0.0:
-                                response[c] = solve_response(matrix, rhs, -key[2], gamma=0.0, **solver_args)
+                                response[c] = solve_response(matrix, rhs, -key[2], gamma=0.0, projection=projection, **solver_args)
                             else:
-                                response[c] = solve_response(matrix, RV(rhs), -key[2], gamma=-key[3], **solver_args)
+                                response[c] = solve_response(matrix, RV(rhs), -key[2], gamma=-key[3], projection=projection, **solver_args)
                         elif isinstance(rvec, RV):
                             rhs = bmatrix_vector_product_complex(property_method, mp, dips[c[:op_dim]], rvec)
+                            if projection is not None:
+                                raise NotImplementedError(
+                                    "Projecting out states from a response equation with a complex right-hand side"
+                                    "has not yet been implemented.")
+                                # rhs.real -= projection(rhs.real)
+                                # rhs.imag -= projection(rhs.imag)
                             if ("solver", "cpp") in list(solver_args.items()):
                                 raise NotImplementedError("CPP solver only works correctly for purely real rhs.")
                             # TODO: temporary hack --> modify solve_response accordingly
                             rhs = RV(real=rhs.real, imag=-1.0*rhs.imag)
-                            response[c] = solve_response(matrix, rhs, -key[2], gamma=-key[3], **solver_args)
+                            response[c] = solve_response(matrix, rhs, -key[2], gamma=-key[3], projection=projection, **solver_args)
                         else:
                             raise ValueError()
                     for vv in value:
@@ -380,14 +385,18 @@ def evaluate_property_isr(
                             product_vec = bmatrix_vector_product(
                                     property_method, mp, dips[c], state.excitation_vector[final_state[1]]
                             )
-                            response[c] = solve_response(matrix, product_vec, -key[2], gamma=0.0, **solver_args)
+                            if projection is not None:
+                                product_vec -= projection(product_vec)
+                            response[c] = solve_response(matrix, product_vec, -key[2], gamma=0.0, projection=projection, **solver_args)
                     else:
                         for c in components:
                             product_vec = bmatrix_vector_product(
                                     property_method, mp, dips[c], state.excitation_vector[final_state[1]]
                             )
+                            if projection is not None:
+                                product_vec -= projection(product_vec)
                             response[c] = solve_response(
-                                    matrix, RV(product_vec), -key[2], gamma=-key[3], **solver_args
+                                    matrix, RV(product_vec), -key[2], gamma=-key[3], projection=projection, **solver_args
                             )
                     for vv in value:
                         response_dict[vv] = response
@@ -1146,21 +1155,20 @@ if __name__ == "__main__":
     # print(threepa_tens_sos)
     # np.testing.assert_allclose(threepa_tens, threepa_tens_sos, atol=1e-6)
 
-    # TODO: make it work for esp also in the static case --> projecting the fth eigenstate out of the matrix
-    omega_alpha = [(w, 0)]
+    omega_alpha = [(w, 0.2)]
     esp_terms = (
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)
         + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
     )
-    # esp_tens = evaluate_property_isr(
-    #         state, esp_terms, [n], omega_alpha, 0.0/Hartree, final_state=(f, 0), excluded_states=f
-    # )
-    # print(esp_tens)
-    # esp_tens_sos = evaluate_property_sos_fast(
-    #         mock_state, esp_terms, [n], omega_alpha, 0.0/Hartree, final_state=(f, 0), excluded_states=f
-    # )
-    # print(esp_tens_sos)
-    # np.testing.assert_allclose(esp_tens, esp_tens_sos, atol=1e-7)
+    esp_tens = evaluate_property_isr(
+            state, esp_terms, [n], omega_alpha, 0.01/Hartree, final_state=(f, 0), excluded_states=f
+    )
+    print(esp_tens)
+    esp_tens_sos = evaluate_property_sos_fast(
+            state, esp_terms, [n], omega_alpha, 0.01/Hartree, final_state=(f, 0), excluded_states=f
+    )
+    print(esp_tens_sos)
+    np.testing.assert_allclose(esp_tens, esp_tens_sos, atol=1e-7)
 
     epsilon = LeviCivita()
     mcd_term1 = (
