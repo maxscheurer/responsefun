@@ -22,6 +22,7 @@ def read_dalton_cc2(outfile):
     trans_dip_mag = np.zeros((n_ex, 3))
     s2s = np.zeros((n_ex,n_ex, 3))
     s2s_mag = np.zeros((n_ex,n_ex, 3))
+    gs_mag_dipole_moment = np.zeros((3))
 
     for i, line in enumerate(lines):
         if 'CC2        Excitation energies' in line:
@@ -70,6 +71,16 @@ def read_dalton_cc2(outfile):
                 if 'ZA' in bla[6]:
                     s2s_mag[int(bla[4])-1][int(bla[2])-1][2] = float(bla[-1])
 
+        if 'Electronic contribution to operator' in line:
+            a = i + 4
+            if 'XANGMOM' in lines[a]:
+                gs_mag_dipole_moment[0] = float(lines[a].split()[-1])
+            if 'YANGMOM' in lines[a+4]:
+                gs_mag_dipole_moment[1] = float(lines[a].split()[-1])
+            if 'ZANGMOM' in lines[a+8]:
+                gs_mag_dipole_moment[2] = float(lines[a].split()[-1])
+
+
     trans_dip_mag = 0.5 * trans_dip_mag
     s2s_mag = 0.5 * s2s_mag
     state_dips = np.zeros((n_ex,3))
@@ -83,9 +94,11 @@ def read_dalton_cc2(outfile):
         for j in range(n_ex):
             s2s[j,i] =  s2s[i,j]
             s2s_mag[j,i ] = - s2s_mag[i,j]
-    print(s2s_mag)
+
+
     zarr_storage = f'{outfile}.zarr'
     z = zarr.open(f'{outfile}.zarr', mode = 'w')
+    z['ground_state/magnetic_dipole_moment'] = gs_mag_dipole_moment
     #z['ground_state/dipole_moment'] = gs_dipole_moment
     #z['ground_state/energy'] = gs_energy
     z['excitation_energy_uncorrected'] = excitation_energies
@@ -107,11 +120,6 @@ def read_dalton_cis(outfile, outfile_s2s=None):
     for i, line_1 in enumerate(lines_1):
         if '@ Excitation energy ' in line_1:
             excitation_energies.append(line_1.split())
-        if 'SCF energy ' in line_1:
-            gs_energy = line_1.split()
-            gs_energy = np.asarray(gs_energy)
-            gs_energy = np.delete(gs_energy, [0,1, 2])
-            gs_energy = gs_energy.astype(float)
     excitation_energies = np.asarray(excitation_energies)
     excitation_energies = np.delete(excitation_energies, [0,1,2,3,5], axis =1)
     excitation_energies = excitation_energies.astype(float)
@@ -119,6 +127,7 @@ def read_dalton_cis(outfile, outfile_s2s=None):
     excitation_energies = np.reshape(excitation_energies, (n_ex))
     trans_dip = np.zeros((n_ex, 3))
     trans_mag_dip = np.zeros((n_ex, 3))
+    trans_nabla = np.zeros((n_ex, 3))
     for i, line_1 in enumerate(lines_1):
         if  '@ Excited state no:' in line_1:
             x = line_1.split()
@@ -141,8 +150,36 @@ def read_dalton_cis(outfile, outfile_s2s=None):
             if 'ZANGMOM' in lines_1[i+23]:
                 line = lines_1[i+24].split()
                 trans_mag_dip[excited_state][2] = float(line[-1])
+            if 'XDIPVEL' in lines_1[i+8]:
+                line = lines_1[i+9].split()
+                trans_nabla[excited_state][0] = float(line[-2])
+            if 'YDIPVEL' in lines_1[i+11]:
+                line = lines_1[i+12].split()
+                trans_nabla[excited_state][1] = float(line[-2])
+            if 'ZDIPVEL' in lines_1[i+14]:
+                line = lines_1[i+15].split()
+                trans_nabla[excited_state][2] = float(line[-2])
+            if 'XDIPVEL' in lines_1[i+17]:
+                line = lines_1[i+18].split()
+                trans_nabla[excited_state][0] = float(line[-2])
+            if 'YDIPVEL' in lines_1[i+20]:
+                line = lines_1[i+21].split()
+                trans_nabla[excited_state][1] = float(line[-2])
+            if 'ZDIPVEL' in lines_1[i+23]:
+                line = lines_1[i+24].split()
+                trans_nabla[excited_state][2] = float(line[-2])
+            if 'XDIPLEN' in lines_1[i+17]:
+                line = lines_1[i+18].split()
+                trans_dip[excited_state][0] = float(line[-2])
+            if 'YDIPLEN' in lines_1[i+20]:
+                line = lines_1[i+21].split()
+                trans_dip[excited_state][1] = float(line[-2])
+            if 'ZDIPLEN' in lines_1[i+23]:
+                line = lines_1[i+24].split()
+                trans_dip[excited_state][2] = float(line[-2])
     s2s_dips = np.zeros((n_ex, n_ex, 3))
     s2s_mag_dips = np.zeros((n_ex, n_ex, 3))
+    s2s_nabla = np.zeros((n_ex, n_ex, 3))
     if not outfile_s2s == None:
         with open(f'{outfile_s2s}') as file_s2s:
             lines_s2s = file_s2s.readlines()
@@ -196,6 +233,30 @@ def read_dalton_cis(outfile, outfile_s2s=None):
                 moment = lines_s2s[i+4].split()
                 moment = float(moment[-1])
                 s2s_mag_dips[from_state][to_state][2] = moment
+            if '@ A operator label,    symmetry, spin:      XDIPVEL' in line_s2s:
+                from_state = lines_s2s[i+2].split()
+                from_state = int(from_state[7])-1
+                to_state = lines_s2s[i+1].split()
+                to_state = int(to_state[7])-1
+                moment = lines_s2s[i+4].split()
+                moment = float(moment[-1])
+                s2s_nabla[to_state][from_state][0] = moment
+            if '@ A operator label,    symmetry, spin:      YDIPVEL' in line_s2s:
+                from_state = lines_s2s[i+2].split()
+                from_state = int(from_state[7])-1
+                to_state = lines_s2s[i+1].split()
+                to_state = int(to_state[7])-1
+                moment = lines_s2s[i+4].split()
+                moment = float(moment[-1])
+                s2s_nabla[to_state][from_state][1] = moment
+            if '@ A operator label,    symmetry, spin:      ZDIPVEL' in line_s2s:
+                from_state = lines_s2s[i+2].split()
+                from_state = int(from_state[7])-1
+                to_state = lines_s2s[i+1].split()
+                to_state = int(to_state[7])-1
+                moment = lines_s2s[i+4].split()
+                moment = float(moment[-1])
+                s2s_nabla[to_state][from_state][2] = moment
     state_dips = np.zeros((n_ex,3))
     for i in range(n_ex):
         state_dips[i] = s2s_dips[i][i]
@@ -207,21 +268,25 @@ def read_dalton_cis(outfile, outfile_s2s=None):
         for j in range(n_ex):
             s2s_dips[i, j] =  s2s_dips[j , i]
             s2s_mag_dips[i,j ] = - s2s_mag_dips[j,i]
+            s2s_nabla[j,i ] = - s2s_nabla[i,j]
     state_mag_dips = 0.5 * state_mag_dips
     trans_mag_dip = 0.5 * trans_mag_dip
     s2s_mag_dips = 0.5 * s2s_mag_dips
     zarr_storage = f'{outfile}.zarr'
     z = zarr.open(f'{outfile}.zarr', mode = 'w')
     #z['ground_state/dipole_moment'] = gs_dipole_moment
-    z['ground_state/energy'] = gs_energy
+    #z['ground_state/energy'] = gs_energy
     z['excitation_energy_uncorrected'] = excitation_energies
     z['excited_state/state_dipole_moment'] = state_dips
     z['excited_state/state_magnetic_dipole_moment'] = state_mag_dips
     z['excited_state/transition_dipole_moment'] = trans_dip
     z['excited_state/transition_magnetic_dipole_moment'] = trans_mag_dip
+    z['excited_state/transition_nabla'] = trans_nabla
     z['s2s_transition_dipole_moment'] = s2s_dips
     z['s2s_transition_magnetic_dipole_moment'] = s2s_mag_dips
+    z['s2s_nabla'] = s2s_nabla
 
+    print(type(z))
     return zarr_storage
 
 
@@ -298,7 +363,7 @@ def qchem_read_ccsd(outdatei, out_datei_2):
 
     for count, line in enumerate(lines):
         #groundstate
-        if 'Dipole Moment (Debye)' in line: # müsste passe, durch ccsd wird nur E_corr draufgerechnet also eigentlich kein Unterschied bei dipole moment
+        if 'Dipole Moment (Debye)' in line: 
             a = count + 1
             gs_dipole = lines[a].split()
             gs_dipole = np.asarray(gs_dipole)
@@ -598,7 +663,7 @@ def qchem_read_tddft(outdatei):
 
 if __name__ == "__main__":
 
-    out_datei = '/export/home/fschneid/Masterarbeit/Dalton/cotton_mouton/cc2_transition_moments_molecule.out'
+    out_datei = '/export/home/fschneid/Masterarbeit/Dalton/nabla/cis_molecule.out'
     #out_datei_2 = '/export/home/fschneid/Masterarbeit/Dalton/CO2_S2S/cis_molecule.out'
-    x = read_dalton_cc2(out_datei)
+    x = read_dalton_cis(out_datei, None)
 

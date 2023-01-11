@@ -1,11 +1,10 @@
-import pandas as pd
 import numpy as np
 import re
 import zarr
 from responsefun.methods import *
 
 
-class MockExcitedState:
+class MockExcitedStates:
 
     def __init__(self, method, *args):
 
@@ -17,12 +16,13 @@ class MockExcitedState:
             qchem_adc
             qchem_ccsd
             dalton_cis
+            dalton_cc2
 
         *args: str
             outfile 1 und ggf outfile 2 als string geben
 
         returns:
-        MockExcitedState
+        MockExcitedStates object
         """
 
         if  method =='read_only':
@@ -43,8 +43,10 @@ class MockExcitedState:
 
         elif method == 'dalton_cis':
             zarr_storage = read_dalton_cis(args[0],args[1])
+
         elif method == 'dalton_cc2':
             zarr_storage = read_dalton_cc2(args[0])
+
         else:
             return NotImplementedError()
 
@@ -75,6 +77,10 @@ class MockExcitedState:
             except AttributeError:
                 pass
             try:
+                self.s2s_nabla = np.asarray(self.zr.s2s_nabla)
+            except AttributeError:
+                pass
+            try:
                 setattr(self, 'excitation_energy_uncorrected', np.asarray(self.zr.excitation_energy_uncorrected))
             except AttributeError:
                 pass
@@ -91,7 +97,7 @@ if __name__ == "__main__":
     #zarr_storage = qchem_read_ccsd(out_datei,out_datei_2, 10 )
     #print(zarr_storage)
     #y = groundstate(ground_state)
-    x = MockExcitedState('dalton_cis', out_datei, None)
+    x = MockExcitedStates('dalton_cis', out_datei, None)
     #print(x.gs.energy)
     #print(x.s2s_transition_magnetic_dipole_moment)
     print(x.excitation_energy_uncorrected)
