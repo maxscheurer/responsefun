@@ -13,7 +13,7 @@ cases = {
 }
 
 
-class MockExcitedStates:
+class MockExcitedStatesTestData:
     def __init__(self, zr):
         self.zr = zr
         exci = self.zr.excitation
@@ -33,7 +33,7 @@ def read_full_diagonalization():
         if not os.path.isdir(zarr_file):
             continue
         z = zarr.open(zarr_file, mode='r')
-        ret[case] = MockExcitedStates(z)
+        ret[case] = MockExcitedStatesTestData(z)
     return ret
 
 
