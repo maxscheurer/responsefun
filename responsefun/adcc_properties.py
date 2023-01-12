@@ -1,10 +1,11 @@
 import numpy as np
-from adcc.adc_pp import modified_transition_moments
+#from adcc.adc_pp import modified_transition_moments
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.OneParticleOperator import product_trace
 from responsefun.testdata.cache import MockExcitedStates
-from responsefun.magnetic_dipole_moments import modified_magnetic_transition_moments, gs_magnetic_dipole_moment
+from responsefun.magnetic_dipole_moments import gs_magnetic_dipole_moment
 from tqdm import tqdm
+from cached_property import cached_property
 
 
 # dict of operators available in responsefun so far
@@ -21,70 +22,35 @@ available_operators = {
 }
 
 
-# TODO: make modified_transition_moments function also applicable for asymmetric operators
-dispatch_mtms = {
-        "electric": modified_transition_moments,
-        "magnetic": modified_magnetic_transition_moments
-}
+def state_to_state_transition_moments(state, operator, initial_state=None, final_state=None):
+    istates = state.size
+    excitations1 = state.excitations
+    if initial_state is not None:
+        istates = 1
+        excitations1 = [state.excitations[initial_state]]
+    fstates = state.size
+    excitations2 = state.excitations
+    if final_state is not None:
+        fstates = 1
+        excitations2 = [state.excitations[final_state]]
 
+    s2s_tm = np.zeros((istates, fstates, 3))
+    for i, ee1 in enumerate(tqdm(excitations1)):
+        for j, ee2 in enumerate(excitations2):
+            tdm = state2state_transition_dm(
+                state.property_method,
+                state.ground_state,
+                ee1.excitation_vector,
+                ee2.excitation_vector,
+                state.matrix.intermediates,
+            )
+            s2s_tm[i, j] = np.array([product_trace(tdm, op) for op in operator])
+    return np.squeeze(s2s_tm)
 
-def state_to_state_transition_moments(state, op_type, initial_state=None, final_state=None):
-    assert op_type in available_operators
-    if isinstance(state, MockExcitedStates):
-        if op_type == "electric":
-            s2s_tdms = state.transition_dipole_moment_s2s
-        elif op_type == "magnetic":
-            s2s_tdms = state.transition_magnetic_moment_s2s
-        else:
-            raise NotImplementedError()
-        if initial_state is None and final_state is None:
-            return s2s_tdms
-        elif initial_state is None:
-            return s2s_tdms[:, final_state]
-        elif final_state is None:
-            return s2s_tdms[initial_state, :]
-        else:
-            return s2s_tdms[initial_state, final_state]
-    else:
-        if op_type == "electric":
-            dips = state.reference_state.operators.electric_dipole
-        elif op_type == "magnetic":
-            dips = state.reference_state.operators.magnetic_dipole
-        else:
-            raise NotImplementedError()
-        if initial_state is None and final_state is None:
-            s2s_tdms = np.zeros((state.size, state.size, 3))
-            excitations1 = state.excitations
-            excitations2 = state.excitations
-        elif initial_state is None:
-            s2s_tdms = np.zeros((state.size, 1, 3))
-            excitations1 = state.excitations
-            excitations2 = [state.excitations[final_state]]
-        elif final_state is None:
-            s2s_tdms = np.zeros((1, state.size, 3))
-            excitations1 = [state.excitations[initial_state]]
-            excitations2 = state.excitations
-        else:
-            s2s_tdms = np.zeros((1, 1, 3))
-            excitations1 = [state.excitations[initial_state]]
-            excitations2 = [state.excitations[final_state]]
-        for i, ee1 in enumerate(tqdm(excitations1)):
-            for j, ee2 in enumerate(excitations2):
-                tdm = state2state_transition_dm(
-                    state.property_method,
-                    state.ground_state,
-                    ee1.excitation_vector,
-                    ee2.excitation_vector,
-                    state.matrix.intermediates,
-                )
-                s2s_tdms[i, j] = np.array([product_trace(tdm, dip) for dip in dips])
-        return np.squeeze(s2s_tdms)
 
 class AdccProperties:
     """
     Class encompassing all properties that can be obtained from adcc for a given operator.
-    When instantiated, the object is "empty" because the corresponding properties are not computed
-    until they are needed for the first time.
     """
     def __init__(self, state, op_type):
         """
@@ -102,16 +68,12 @@ class AdccProperties:
                     f"Only the following operators are available so far: {available_operators}."
             )
         self._state = state
+        self._state_size = len(state.excitation_energy_uncorrected)
+
         self._op_type = op_type
         self._op_dim = available_operators[op_type][2]
-        
-        self._dips = None
-        self._mtms = None
-        self._gs_dip_moment = None
-        self._transition_dipole_moment = None
-        self._state_size = len(state.excitation_energy_uncorrected)
-        self._state_to_state_transition_moment = None
-        # to make things faster if not all state-to-state transition moments are needed,
+
+        # to make things faster if not all state-to-state transition moments are needed
         # but only from or to a specific state
         self._s2s_tm_i = np.empty((self._state_size), dtype=object)
         self._s2s_tm_f = np.empty((self._state_size), dtype=object)
@@ -124,88 +86,82 @@ class AdccProperties:
     def op_dim(self):
         return self._op_dim
 
-    @property
-    def dips(self):
-        if self._dips is None:
+    @cached_property
+    def operator(self):
+        if self._op_type == "electric":
+            return self._state.reference_state.operators.electric_dipole
+        elif self._op_type == "magnetic":
+            return self._state.reference_state.operators.magnetic_dipole
+        else:
+            raise NotImplementedError()
+
+    @cached_property
+    def gs_moment(self):
+        if isinstance(self._state, MockExcitedStates):
+            pm_level = self._state.property_method.replace("adc", "")
             if self._op_type == "electric":
-                self._dips = self._state.reference_state.operators.electric_dipole
+                gs_moment = self._state.ground_state.dipole_moment[pm_level]
             elif self._op_type == "magnetic":
-                self._dips = self._state.reference_state.operators.magnetic_dipole
+                gs_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
             else:
                 raise NotImplementedError()
-        return self._dips
-
-    @property
-    def mtms(self):
-        if self._mtms is None:
-            self._mtms = dispatch_mtms[self._op_type](
-                    self._state.property_method, self._state.ground_state, self.dips
-            )
-        return self._mtms
-
-    @property
-    def gs_dip_moment(self):
-        if self._gs_dip_moment is None:
-            if isinstance(self._state, MockExcitedStates):
-                pm_level = self._state.property_method.replace("adc", "")
-                if self._op_type == "electric":
-                    self._gs_dip_moment = self._state.ground_state.dipole_moment[pm_level]
-                elif self._op_type == "magnetic":
-                    self._gs_dip_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
-                else:
-                    raise NotImplementedError()
-            else:
-                pm_level = self._state.property_method.level
-                if self._op_type == "electric":
-                    self._gs_dip_moment = self._state.ground_state.dipole_moment(pm_level)
-                elif self._op_type == "magnetic":
-                    self._gs_dip_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
-                else:
-                    raise NotImplementedError()
-        return self._gs_dip_moment 
-
-    @property
-    def transition_dipole_moment(self):
-        if self._transition_dipole_moment is None:
+        else:
+            pm_level = self._state.property_method.level
             if self._op_type == "electric":
-                self._transition_dipole_moment = self._state.transition_dipole_moment
+                gs_moment = self._state.ground_state.dipole_moment(pm_level)
             elif self._op_type == "magnetic":
-                self._transition_dipole_moment = self._state.transition_magnetic_dipole_moment
+                gs_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
             else:
                 raise NotImplementedError()
-        return self._transition_dipole_moment
+        return gs_moment 
 
-    @property
+    @cached_property
+    def transition_moment(self):
+        if self.op_type == "electric":
+            transition_moment = self._state.transition_dipole_moment
+        elif self.op_type == "magnetic":
+            transition_moment = self._state.transition_magnetic_dipole_moment
+        else:
+            raise NotImplementedError()
+        return transition_moment
+
+    @cached_property
     def state_to_state_transition_moment(self):
-        if self._state_to_state_transition_moment is None:
-            self._state_to_state_transition_moment = (
-                    state_to_state_transition_moments(self._state, self._op_type)
-            )
-        return self._state_to_state_transition_moment
+        if isinstance(self._state, MockExcitedStates):
+            if self.op_type == "electric":
+                return self._state.transition_dipole_moment_s2s
+            elif self.op_type == "magnetic":
+                return self._state.transition_magnetic_moment_s2s
+            else:
+                raise NotImplementedError()
+        return state_to_state_transition_moments(self._state, self.operator)
 
     def s2s_tm(self, initial_state=None, final_state=None):
         if initial_state is None and final_state is None:
             return self.state_to_state_transition_moment
         elif initial_state is None:
+            if isinstance(self._state, MockExcitedStates):
+                return self.state_to_state_transition_moment[:, final_state]
             if self._s2s_tm_f[final_state] is None:
-                if self._state_to_state_transition_moment is None:
-                    self._s2s_tm_f[final_state] = (
-                            state_to_state_transition_moments(self._state, self._op_type, final_state=final_state)
-                    )
-                else:
-                    self._s2s_tm_f[final_state] = self._state_to_state_transition_moment[:, final_state]
+                self._s2s_tm_f[final_state] = state_to_state_transition_moments(
+                    self._state, self.operator, final_state=final_state
+                )
             return self._s2s_tm_f[final_state]
         elif final_state is None:
+            if isinstance(self._state, MockExcitedStates):
+                return self.state_to_state_transition_moment[initial_state, :]
             if self._s2s_tm_i[initial_state] is None:
-                if self._state_to_state_transition_moment is None:
-                    self._s2s_tm_i[initial_state] = (
-                            state_to_state_transition_moments(self._state, self._op_type, initial_state=initial_state)
-                    )
-                else:
-                    self._s2s_tm_i[initial_state] =  self._state_to_state_transition_moment[initial_state, :]
+                self._s2s_tm_i[initial_state] = state_to_state_transition_moments(
+                    self._state, self.operator, initial_state=initial_state
+                )
             return self._s2s_tm_i[initial_state]
         else:
-            return state_to_state_transition_moments(self._state, self._op_type, initial_state, final_state)
+            if isinstance(self._state, MockExcitedStates):
+                return self.state_to_state_transition_moment[initial_state, final_state]
+            s2s_tm = state_to_state_transition_moments(
+                self._state, self.operator, initial_state, final_state
+            )
+            return s2s_tm
 
 
 if __name__ == "__main__":
@@ -231,7 +187,7 @@ if __name__ == "__main__":
     matrix = adcc.AdcMatrix("adc2", refstate)
     state = adcc.adc2(scfres, n_singlets=5)
     mp = state.ground_state
-    
+
     adcc_prop = AdccProperties(state, "electric")
     s2s_tdms = adcc_prop.state_to_state_transition_moment
     print(s2s_tdms)

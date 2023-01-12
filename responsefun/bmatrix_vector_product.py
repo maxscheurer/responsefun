@@ -111,6 +111,7 @@ DISPATCH = {
     "adc0": bmvp_adc0,
     "adc1": bmvp_adc0, # identical to ADC(0)
     "adc2": bmvp_adc2,
+    "adc2x": bmvp_adc2,
 }
 
     
