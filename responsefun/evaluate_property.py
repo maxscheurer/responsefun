@@ -298,6 +298,7 @@ def evaluate_property_isr(
 
     rvecs_dict_tot = {}
     response_dict = {}
+    equal_rvecs = {}
     number_of_unique_rvecs = 0
     print("Solving response equations ...")
     for tup in rvecs_dict_list:
@@ -309,13 +310,19 @@ def evaluate_property_isr(
             gam = float(im(key[3].subs(gamma, gamma_val)))
             if gam == 0 and gamma_val != 0:
                 raise ValueError(
-                        "Although the entered SOS expression is real, a value for gamma was specified."
+                    "Although the entered SOS expression is real, a value for gamma was specified."
                 )
-            new_key = (*key[:2], om, gam, *key[4:])
-            if new_key not in rvecs_dict_mod.keys():
-                rvecs_dict_mod[new_key] = [value]
+            if key[5] is None:
+                new_key = (*key[:2], om, gam, *key[4:])
             else:
-                rvecs_dict_mod[new_key].append(value)
+                # in case response vectors from the previous iteration have become equal
+                new_no = equal_rvecs[key[5]]
+                new_key = (*key[:2], om, gam, key[4], new_no)
+            if new_key not in rvecs_dict_mod.keys():
+                equal_rvecs[value] = value
+                rvecs_dict_mod[new_key] = value
+            else:
+                equal_rvecs[value] = rvecs_dict_mod[new_key]
         number_of_unique_rvecs += len(rvecs_dict_mod)
         # solve response equations
         for key, value in rvecs_dict_mod.items():
@@ -338,14 +345,13 @@ def evaluate_property_isr(
                         response[c] = solve_response(
                                 matrix, RV(rhss[c]), -key[2], gamma=-key[3], projection=projection, **solver_args
                         )
-                for vv in value:
-                    response_dict[vv] = response
+                response_dict[value] = response
             elif key[0] == "S2S_MTM":
                 ops = np.array(adcc_prop_dict[op_type].operator)
                 op_dim = adcc_prop_dict[op_type].op_dim
                 if key[4] == "ResponseVector":
                     no = key[5]
-                    rvecs = response_dict[no]
+                    rvecs = response_dict[equal_rvecs[no]]
                     product_vecs_shape = (3,)*op_dim + rvecs.shape
                     iterables = [list(range(shape)) for shape in product_vecs_shape]
                     components = list(product(*iterables))
@@ -375,8 +381,7 @@ def evaluate_property_isr(
                             response[c] = solve_response(matrix, rhs, -key[2], gamma=-key[3], projection=projection, **solver_args)
                         else:
                             raise ValueError()
-                    for vv in value:
-                        response_dict[vv] = response
+                    response_dict[value] = response
                 elif key[4] == final_state[0]:
                     product_vecs_shape = (3,)*op_dim
                     iterables = [list(range(shape)) for shape in product_vecs_shape]
@@ -400,8 +405,7 @@ def evaluate_property_isr(
                             response[c] = solve_response(
                                     matrix, RV(product_vec), -key[2], gamma=-key[3], projection=projection, **solver_args
                             )
-                    for vv in value:
-                        response_dict[vv] = response
+                    response_dict[value] = response
                 else:
                     raise ValueError("Unkown response equation.")
             else:
@@ -410,12 +414,14 @@ def evaluate_property_isr(
 
     print(f"In total, {len(rvecs_dict_tot)} response vectors (with multiple components each) were defined:")
     for key, value in rvecs_dict_tot.items():
-        print(key, ": ", value)
+        print(f"X_{{{key}}}: {value}")
     if len(rvecs_dict_tot) > number_of_unique_rvecs:
         print(
             "However, inserting the specified frequency values caused response vectors to become equal, "
-            f"so that in the end only {number_of_unique_rvecs} response vectors had to be determined.\n"
+            f"so that in the end only {number_of_unique_rvecs} response vectors had to be determined."
         )
+        for lv, rv in equal_rvecs.items():
+            print(f"X_{{{lv}}} = X_{{{rv}}}") if lv != rv else print(f"X_{{{lv}}}")
 
     if rvecs_dict_list:
         root_expr = rvecs_dict_list[-1][0]
@@ -451,7 +457,7 @@ def evaluate_property_isr(
                     oper_a = a.args[0]
                 if isinstance(oper_a, ResponseVector) and oper_a == a:  # vec * X
                     comps_right_v = tuple([comp_map[char] for char in list(oper_a.comp)])
-                    right_v = response_dict[oper_a.no][comps_right_v]
+                    right_v = response_dict[equal_rvecs[oper_a.no]][comps_right_v]
 
                     lhs = term.args[i-1]
                     if isinstance(lhs, S2S_MTM):  # vec * B * X --> transition polarizability
@@ -461,9 +467,9 @@ def evaluate_property_isr(
                         if isinstance(lhs2, adjoint) and isinstance(lhs2.args[0], ResponseVector):  # Dagger(X) * B * X
                             comps_left_v = tuple([comp_map[char] for char in list(lhs2.args[0].comp)])
                             if sign_change(lhs2.args[0].no, rvecs_dict_tot):
-                                left_v = -1.0 * response_dict[lhs2.args[0].no][comps_left_v]
+                                left_v = -1.0 * response_dict[equal_rvecs[lhs2.args[0].no]][comps_left_v]
                             else:
-                                left_v = response_dict[lhs2.args[0].no][comps_left_v]
+                                left_v = response_dict[equal_rvecs[lhs2.args[0].no]][comps_left_v]
                         elif isinstance(lhs2, Bra):  # <f| * B * X
                             assert lhs2.label[0] == final_state[0]
                             left_v = state.excitation_vector[final_state[1]]
@@ -496,9 +502,9 @@ def evaluate_property_isr(
                     elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], ResponseVector):  # Dagger(X) * X
                         comps_left_v = tuple([comp_map[char] for char in list(lhs.args[0].comp)])
                         if sign_change(lhs.args[0].no, rvecs_dict_tot):
-                            left_v = -1.0 * response_dict[lhs.args[0].no][comps_left_v]
+                            left_v = -1.0 * response_dict[equal_rvecs[lhs.args[0].no]][comps_left_v]
                         else:
-                            left_v = response_dict[lhs.args[0].no][comps_left_v]
+                            left_v = response_dict[equal_rvecs[lhs.args[0].no]][comps_left_v]
                         subs_dict[lhs*a] = scalar_product(
                                 left_v, right_v
                         )
@@ -508,9 +514,9 @@ def evaluate_property_isr(
                     rhs = term.args[i+1]
                     comps_left_v = tuple([comp_map[char] for char in list(oper_a.comp)])
                     if sign_change(oper_a.no, rvecs_dict_tot):
-                        left_v = -1.0 * response_dict[oper_a.no][comps_left_v]
+                        left_v = -1.0 * response_dict[equal_rvecs[oper_a.no]][comps_left_v]
                     else:
-                        left_v = response_dict[oper_a.no][comps_left_v]
+                        left_v = response_dict[equal_rvecs[oper_a.no]][comps_left_v]
 
                     if isinstance(rhs, S2S_MTM):  # Dagger(X) * B * vec --> transition polarizability
                         ops = np.array(adcc_prop_dict[rhs.op_type].operator)
@@ -1090,12 +1096,12 @@ if __name__ == "__main__":
     # print(alpha_tens_ref)
 
     beta_term = (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, opm_b, k) * TransitionMoment(k, op_c, O)
+            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O)
             / ((w_n - w_o) * (w_k - w_2))
     )
     # beta_mag_isr = evaluate_property_isr(
-    #     state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)],
-    #     perm_pairs=[(op_a, -w_o), (opm_b, w_1), (op_c, w_2)]
+    #    state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)],
+    #     perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)]
     # )
     # beta_mag_sos = evaluate_property_sos_fast(
     #     state, beta_term, [n,k], [(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)],
@@ -1104,6 +1110,23 @@ if __name__ == "__main__":
     # print(beta_mag_isr)
     # print(beta_mag_sos)
     # np.testing.assert_allclose(beta_mag_isr, beta_mag_sos, atol=1e-8)
+
+    gamma_term = (
+            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
+            * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O)
+            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+    )
+    gamma_omegas = [(w_1, 0.0), (w_2, 0.0), (w_3, 0.0), (w_o, w_1+w_2+w_3)]
+    gamma_perm_pairs = [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
+    gamma_tens1 = evaluate_property_isr(
+            state, gamma_term, [n, m, p], gamma_omegas, perm_pairs=gamma_perm_pairs, extra_terms=False
+    )
+    print(gamma_tens1)
+    # gamma_tens1_sos = (
+    #         evaluate_property_sos_fast(state, gamma_term, [m, n, p], gamma_omegas, gamma_val=0.01, extra_terms=False)
+    # )
+    # print(gamma_tens1_sos)
+    # np.testing.assert_allclose(gamma_tens1, gamma_tens1_sos, atol=1e-7)
 
     gamma_term = (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
@@ -1165,15 +1188,15 @@ if __name__ == "__main__":
         TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)
         + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
     )
-    esp_tens = evaluate_property_isr(
-            state, esp_terms, [n], omega_alpha, 0.01/Hartree, final_state=(f, 0), excluded_states=f
-    )
-    print(esp_tens)
-    esp_tens_sos = evaluate_property_sos_fast(
-            state, esp_terms, [n], omega_alpha, 0.01/Hartree, final_state=(f, 0), excluded_states=f
-    )
-    print(esp_tens_sos)
-    np.testing.assert_allclose(esp_tens, esp_tens_sos, atol=1e-7)
+    # esp_tens = evaluate_property_isr(
+    #         state, esp_terms, [n], omega_alpha, 0.01/Hartree, final_state=(f, 0), excluded_states=f
+    # )
+    # print(esp_tens)
+    # esp_tens_sos = evaluate_property_sos_fast(
+    #         state, esp_terms, [n], omega_alpha, 0.01/Hartree, final_state=(f, 0), excluded_states=f
+    # )
+    # print(esp_tens_sos)
+    # np.testing.assert_allclose(esp_tens, esp_tens_sos, atol=1e-7)
 
     epsilon = LeviCivita()
     mcd_term1 = (
