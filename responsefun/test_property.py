@@ -57,6 +57,11 @@ SOS_expressions = {
             / ((w_n - w_o - 1j*gamma) * (w_k - w_2 - 1j*gamma))),
             [(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)]
         ),
+        "gamma": (
+            (TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m) * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O)
+            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))),
+            [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]           
+        ),
         "gamma_extra_terms_1": (
             (TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
             / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))),
@@ -426,6 +431,30 @@ class TestIsrAgainstSosFast(unittest.TestCase):
             beta_sos = evaluate_property_sos_fast(mock_state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs)
             beta_isr = evaluate_property_isr(state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs)
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)#, err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
+
+
+    def template_second_hyperpolarizability(self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        gamma_expr, perm_pairs = SOS_expressions["gamma"]
+        gamma_expr_extra, perm_pairs_extra = SOS_expressions["gamma_extra_terms_1"]
+        omega_list = [
+                [(w_o, w_1+w_2+w_3), (w_1, 0.0), (w_2, 0.0), (w_3, 0.0)],
+                [(w_o, w_1+w_2+w_3), (w_1, 0.0), (w_2, 0.0), (w_3, 0.05)],
+                [(w_o, w_1+w_2+w_3), (w_1, 0.04), (w_2, 0.05), (w_3, 0.06)]
+        ]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        for omegas in omega_list:
+            gamma_sos = evaluate_property_sos_fast(mock_state, gamma_expr, [n, m, p], omegas, perm_pairs=perm_pairs, extra_terms=False)
+            gamma_isr = evaluate_property_isr(state, gamma_expr, [n, m, p], omegas, perm_pairs=perm_pairs, extra_terms=False)
+            gamma_sos_extra = evaluate_property_sos_fast(mock_state, gamma_expr_extra, [n, m], omegas, perm_pairs=perm_pairs_extra, extra_terms=False)
+            gamma_isr_extra = evaluate_property_isr(state, gamma_expr_extra, [n, m], omegas, perm_pairs=perm_pairs_extra, extra_terms=False)
+            gamma_isr_tot = gamma_isr - gamma_isr_extra
+            gamma_sos_tot = gamma_sos - gamma_sos_extra
+            np.testing.assert_allclose(gamma_isr_tot, gamma_sos_tot, atol=1e-7)
+
 
     def template_extra_terms_second_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
