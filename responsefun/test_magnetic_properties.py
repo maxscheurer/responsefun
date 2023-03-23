@@ -5,10 +5,10 @@ from scipy.constants import physical_constants
 
 from responsefun.testdata.static_data import xyz
 from responsefun.testdata import cache
-from responsefun.misc import expand_test_templates, assert_allclose_signfix
 from responsefun.symbols_and_labels import *
-from responsefun.sum_over_states import TransitionMoment, SumOverStates
+from responsefun.SumOverStates import TransitionMoment, SumOverStates
 from responsefun.evaluate_property import evaluate_property_isr, evaluate_property_sos, evaluate_property_sos_fast
+from adcc.misc import expand_test_templates, assert_allclose_signfix
 
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]

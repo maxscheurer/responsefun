@@ -1,7 +1,7 @@
 from sympy import symbols
 from sympy.physics.quantum.operator import Operator
-from responsefun.response_operators import (
-    MTM, S2S_MTM, ResponseVector, DipoleOperator, TransitionFrequency
+from responsefun.ResponseOperator import (
+    MTM, S2S_MTM, ResponseVector, OneParticleOperator, TransitionFrequency
 )
 
 
@@ -16,17 +16,17 @@ w_m = TransitionFrequency(m, real=True)
 w_p = TransitionFrequency(p, real=True)
 w_k = TransitionFrequency(k, real=True)
 
-op_a = DipoleOperator("A", "electric")
-op_b = DipoleOperator("B", "electric")
-op_c = DipoleOperator("C", "electric")
-op_d = DipoleOperator("D", "electric")
-op_e = DipoleOperator("E", "electric")
+op_a = OneParticleOperator("A", "electric")
+op_b = OneParticleOperator("B", "electric")
+op_c = OneParticleOperator("C", "electric")
+op_d = OneParticleOperator("D", "electric")
+op_e = OneParticleOperator("E", "electric")
 
-opm_a = DipoleOperator("A", "magnetic")
-opm_b = DipoleOperator("B", "magnetic")
-opm_c = DipoleOperator("C", "magnetic")
-opm_d = DipoleOperator("D", "magnetic")
-opm_e = DipoleOperator("E", "magnetic")
+opm_a = OneParticleOperator("A", "magnetic")
+opm_b = OneParticleOperator("B", "magnetic")
+opm_c = OneParticleOperator("C", "magnetic")
+opm_d = OneParticleOperator("D", "magnetic")
+opm_e = OneParticleOperator("E", "magnetic")
 
 F_A = MTM("A", "electric")
 F_B = MTM("B", "electric")

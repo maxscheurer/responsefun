@@ -1,3 +1,21 @@
+#  Copyright (C) 2023 by the responsefun authors
+#
+#  This file is part of responsefun.
+#
+#  responsefun is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as published
+#  by the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  responsefun is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
+#
+
 import numpy as np
 import string
 from scipy.constants import physical_constants
@@ -7,16 +25,16 @@ from sympy import Symbol, Mul, Add, Pow, adjoint, im, Float, Integer, zoo, I
 from itertools import permutations, product, combinations_with_replacement
 
 from responsefun.symbols_and_labels import gamma, O
-from responsefun.response_operators import (
-        MTM, S2S_MTM, ResponseVector, DipoleOperator,
-        DipoleMoment, TransitionFrequency, LeviCivita
+from responsefun.ResponseOperator import (
+        MTM, S2S_MTM, ResponseVector, OneParticleOperator,
+        Moment, TransitionFrequency
 )
-from responsefun.sum_over_states import TransitionMoment, SumOverStates
-from responsefun.isr_conversion import IsrFormulation, compute_extra_terms
+from responsefun.SumOverStates import TransitionMoment, SumOverStates
+from responsefun.IsrFormulation import IsrFormulation, compute_extra_terms
 from responsefun.build_tree import build_tree
 from responsefun.modified_transition_moments import modified_transition_moments
 from responsefun.bmatrix_vector_product import bmatrix_vector_product, bmatrix_vector_product_complex
-from responsefun.adcc_properties import AdccProperties, available_operators
+from responsefun.AdccProperties import AdccProperties, available_operators
 
 from adcc import AmplitudeVector
 from adcc.workflow import construct_adcmatrix
@@ -100,16 +118,16 @@ def find_remaining_indices(sos_expr, summation_indices):
 
 def replace_bra_op_ket(expr):
     """Replace Bra(to_state)*op*Ket(from_state) sequence in a SymPy term
-    by an instance of <class 'responsetree.response_operators.DipoleMoment'>.
+    by an instance of <class 'responsefun.ResponseOperator.Moment'>.
     """
     assert type(expr) == Mul
     subs_dict = {}
     for ia, a in enumerate(expr.args):
-        if isinstance(a, DipoleOperator):
+        if isinstance(a, OneParticleOperator):
             from_state = expr.args[ia+1]
             to_state = expr.args[ia-1]
             key = to_state*a*from_state
-            subs_dict[key] = DipoleMoment(a.comp, from_state.label[0], to_state.label[0], a.op_type)
+            subs_dict[key] = Moment(a.comp, from_state.label[0], to_state.label[0], a.op_type)
     return expr.subs(subs_dict)
 
 
@@ -194,7 +212,7 @@ def evaluate_property_isr(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     extra_terms: bool, optional
@@ -551,7 +569,7 @@ def evaluate_property_isr(
                     else:
                         raise ValueError("Expression cannot be evaluated.")
 
-                elif isinstance(a, DipoleMoment):
+                elif isinstance(a, Moment):
                     comps_dipmom = tuple([comp_map[char] for char in list(a.comp)])
                     if a.from_state == O and a.to_state == O:
                         gs_moment = adcc_prop_dict[a.op_type].gs_moment
@@ -560,9 +578,7 @@ def evaluate_property_isr(
                         tdms = adcc_prop_dict[a.op_type].transition_moment
                         subs_dict[a] = tdms[final_state[1]][comps_dipmom]
                     else:
-                        raise ValueError("Unknown dipole moment.")
-                elif isinstance(a, LeviCivita):
-                    subs_dict[a] = lc_tensor[c]
+                        raise ValueError("Unknown transition moment.")
             res = term.subs(subs_dict)
             if res == zoo:
                 raise ZeroDivisionError()
@@ -612,7 +628,7 @@ def evaluate_property_sos(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     extra_terms: bool, optional
@@ -733,11 +749,7 @@ def evaluate_property_sos(
         indices = list(
                 product(range(len(state.excitation_energy_uncorrected)), repeat=len(sum_ind))
         )
-        dip_mom_list = [a for a in mod_expr.args if isinstance(a, DipoleMoment)]
-        lc_contained = False
-        for a in mod_expr.args:
-            if isinstance(a, LeviCivita):
-                lc_contained = True
+        dip_mom_list = [a for a in mod_expr.args if isinstance(a, Moment)]
         for i in indices:
             state_map = {
                     sum_ind[ii]: ind for ii, ind in enumerate(i)
@@ -791,8 +803,6 @@ def evaluate_property_sos(
                             subs_dict[a] = s2s_tdms_f[index2][comps_dipmom]
                         else:
                             raise ValueError()
-                if lc_contained:
-                    subs_dict[LeviCivita()] = lc_tensor[c]
                 res = mod_expr.xreplace(subs_dict)
                 if res == zoo:
                     raise ZeroDivisionError()
@@ -836,7 +846,7 @@ def evaluate_property_sos_fast(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     extra_terms: bool, optional
@@ -929,7 +939,7 @@ def evaluate_property_sos_fast(
         factor = 1
         divergences = []
         for a in term.args:
-            if isinstance(a, DipoleMoment):
+            if isinstance(a, Moment):
                 if a.from_state == O and a.to_state == O:  # <0|op|0>
                     gs_moment = adcc_prop_dict[a.op_type].gs_moment
                     einsum_list.append(("", a.comp, gs_moment))
@@ -996,9 +1006,6 @@ def evaluate_property_sos_fast(
                         assert len(index_with_inf[0]) == 1
                         divergences.append((index, index_with_inf[0][0]))
                     einsum_list.append((str(index), "", array))
-
-            elif isinstance(a, LeviCivita):
-                einsum_list.append(("", "ABC", lc_tensor))
 
             elif isinstance(a, Integer) or isinstance(a, Float):
                 factor *= float(a)
@@ -1116,12 +1123,12 @@ if __name__ == "__main__":
             * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O)
             / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     )
-    gamma_omegas = [(w_1, 0.0), (w_2, 0.0), (w_3, 0.0), (w_o, w_1+w_2+w_3)]
-    gamma_perm_pairs = [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
-    gamma_tens1 = evaluate_property_isr(
-            state, gamma_term, [n, m, p], gamma_omegas, perm_pairs=gamma_perm_pairs, extra_terms=False
-    )
-    print(gamma_tens1)
+    # gamma_omegas = [(w_1, 0.0), (w_2, 0.0), (w_3, 0.0), (w_o, w_1+w_2+w_3)]
+    # gamma_perm_pairs = [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
+    # gamma_tens1 = evaluate_property_isr(
+    #         state, gamma_term, [n, m, p], gamma_omegas, perm_pairs=gamma_perm_pairs, extra_terms=False
+    # )
+    # print(gamma_tens1)
     # gamma_tens1_sos = (
     #         evaluate_property_sos_fast(state, gamma_term, [m, n, p], gamma_omegas, gamma_val=0.01, extra_terms=False)
     # )
@@ -1147,20 +1154,18 @@ if __name__ == "__main__":
 
     threepa_term = (
             TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f)
-            / ((w_n - w_1 - w_2) * (w_m - w_1))
+            / ((w_m - w_1 - w_2) * (w_n - w_1))
     )
-    # threepa_perm_pairs = [(op_a, w_1), (op_b, w_2), (op_c, w_3)]
-    # threepa_omegas = [
-    #         (w_1, state.excitation_energy[0]/3),
-    #         (w_2, state.excitation_energy[0]/3),
-    #         (w_3, state.excitation_energy[0]/3),
-    #         (w_1, w_f-w_2-w_3)
-    # ]
-    # threepa_tens = (
-    #         evaluate_property_isr(state, threepa_term, [m, n], threepa_omegas,
-    #         perm_pairs=threepa_perm_pairs, final_state=(f, 0))
-    # )
-    # print(threepa_tens)
+    threepa_perm_pairs = [(op_a, w_1), (op_b, w_2), (op_c, w_3)]
+    threepa_omegas = [
+            (w_1, state.excitation_energy_uncorrected[0]/3),
+            (w_2, state.excitation_energy_uncorrected[0]/3),
+            (w_3, state.excitation_energy_uncorrected[0]/3),
+            (w_1, w_f-w_2-w_3)
+    ]
+    threepa_tens = (evaluate_property_isr(state, threepa_term, [m, n], threepa_omegas,
+                                          perm_pairs=threepa_perm_pairs, final_state=(f, 0)))
+    print(threepa_tens)
     # threepa_term = (
     #         TransitionMoment(O, op_a, m) * TransitionMoment(m, op_b, n) * TransitionMoment(n, op_c, f)
     #         / ((w_n - 2*(w_f/3)) * (w_m - (w_f/3)))
@@ -1198,10 +1203,8 @@ if __name__ == "__main__":
     # print(esp_tens_sos)
     # np.testing.assert_allclose(esp_tens, esp_tens_sos, atol=1e-7)
 
-    epsilon = LeviCivita()
     mcd_term1 = (
-            -1.0 * epsilon
-            * TransitionMoment(O, opm_b, k) * TransitionMoment(k, op_c, f) * TransitionMoment(f, op_a, O)
+            TransitionMoment(O, opm_b, k) * TransitionMoment(k, op_c, f) * TransitionMoment(f, op_a, O)
             / w_k
     )
     # mcd_tens1 = evaluate_property_isr(
@@ -1220,8 +1223,7 @@ if __name__ == "__main__":
     # np.testing.assert_allclose(mcd_tens1, mcd_tens1_sos, atol=1e-7)
     # np.testing.assert_allclose(mcd_tens1_sos, mcd_tens1_sos2, atol=1e-7)
     mcd_term2 = (
-            -1.0 * epsilon
-            * TransitionMoment(O, op_c, k) * TransitionMoment(k, opm_b, f) * TransitionMoment(f, op_a, O)
+            TransitionMoment(O, op_c, k) * TransitionMoment(k, opm_b, f) * TransitionMoment(f, op_a, O)
             / (w_k - w_f)
     )
     # mcd_tens2 = evaluate_property_isr(

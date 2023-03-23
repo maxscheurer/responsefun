@@ -1,6 +1,24 @@
+#  Copyright (C) 2023 by the responsefun authors
+#
+#  This file is part of responsefun.
+#
+#  responsefun is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as published
+#  by the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  responsefun is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
+#
+
 from sympy import Symbol, Mul, Add, latex
 from sympy.physics.quantum.state import Bra, Ket
-from responsefun.response_operators import DipoleOperator, DipoleMoment, TransitionFrequency
+from responsefun.ResponseOperator import OneParticleOperator, Moment, TransitionFrequency
 from itertools import permutations
 import string
 
@@ -33,7 +51,7 @@ def _build_sos_via_permutation(term, perm_pairs):
         Single SOS term.
     perm_pairs: list of tuples
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     Returns
@@ -48,7 +66,7 @@ def _build_sos_via_permutation(term, perm_pairs):
 
     # extract operators from the entered SOS term
     operators = [
-        op for op in term.args if isinstance(op, DipoleOperator)
+        op for op in term.args if isinstance(op, OneParticleOperator)
     ]
     # check that the (op, freq) pairs are specified in the correct order
     for op, pair in zip(operators, perm_pairs):
@@ -95,7 +113,7 @@ class SumOverStates:
 
         perm_pairs: list of tuples, optional
             List of (op, freq) pairs whose permutation yields the full SOS expression;
-            (op, freq): (<class 'responsetree.response_operators.DipoleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+            (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
             e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
         excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
@@ -126,16 +144,16 @@ class SumOverStates:
             self._components = []
             for arg in expr.args:
                 for a in arg.args:
-                    if isinstance(a, DipoleOperator) and a not in self._operators:
+                    if isinstance(a, OneParticleOperator) and a not in self._operators:
                         self._operators.append(a)
                         for c in a.comp:
                             self._components.append(c)
-                    if isinstance(a, DipoleMoment):
+                    if isinstance(a, Moment):
                         raise TypeError(
                             "SOS expression must not contain an instance of "
-                            "<class 'responsetree.response_operators.DipoleMoment'>. All transition "
+                            "<class 'responsefun.ResponseOperator.Moment'>. All transition "
                             "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for "
-                            "example by means of <class 'responsetree.sum_over_states.TransitionMoment'>."
+                            "example by means of <class 'responsefun.SumOverStates.TransitionMoment'>."
                         )
             self._components.sort()
             for index in self._summation_indices:
@@ -143,18 +161,18 @@ class SumOverStates:
                     if Bra(index) not in arg.args or Ket(index) not in arg.args:
                         raise ValueError("Given indices of summation are not correct.")
         elif isinstance(expr, Mul):
-            self._operators = [a for a in expr.args if isinstance(a, DipoleOperator)]
+            self._operators = [a for a in expr.args if isinstance(a, OneParticleOperator)]
             self._components = []
             for a in expr.args:
-                if isinstance(a, DipoleOperator):
+                if isinstance(a, OneParticleOperator):
                     for c in a.comp:
                         self._components.append(c)
-                elif isinstance(a, DipoleMoment):
+                elif isinstance(a, Moment):
                     raise TypeError(
                             "SOS expression must not contain an instance of "
-                            "<class 'responsetree.response_operators.DipoleMoment'>. All transition "
+                            "<class 'responsefun.ResponseOperator.Moment'>. All transition "
                             "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for "
-                            "example by means of <class 'responsetree.sum_over_states.TransitionMoment'>."
+                            "example by means of <class 'responsefun.SumOverStates.TransitionMoment'>."
                     )
             self._components.sort()
             for index in self._summation_indices:
@@ -237,38 +255,3 @@ class SumOverStates:
         ret = ret[:-1]
         ret += "} " + latex(self.expr)
         return ret
-
-
-if __name__ == "__main__":
-    from responsefun.symbols_and_labels import (
-        O, n, k, m,
-        w_n, w_k, w_m,
-        w, w_1, w_2, w_3, w_o, gamma,
-        op_a, op_b, op_c, op_d
-    )
-    alpha_sos_expr = (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
-            + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
-        )
-    alpha_sos = SumOverStates(alpha_sos_expr, [n], excluded_states=O)
-    print(type(alpha_sos))
-    # print(
-    #     alpha_sos.expr, alpha_sos.summation_indices, alpha_sos.transition_frequencies,
-    #     alpha_sos.order, alpha_sos.operators, alpha_sos.correlation_btw_freq
-    # )
-
-    beta_sos_term = (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k) * TransitionMoment(k, op_c, O)
-        / ((w_n - w_o) * (w_k - w_2))
-    )
-    beta_sos = SumOverStates(beta_sos_term, [n, k], perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)])
-    # print(beta_sos.expr.args)
-    # print(beta_sos.summation_indices)
-    # print(beta_sos.transition_frequencies, beta_sos.order, beta_sos.operators, beta_sos.number_of_terms)
-    # print(beta_sos.latex)
-
-    gamma_extra_terms = (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O)
-        * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
-        / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
-    )

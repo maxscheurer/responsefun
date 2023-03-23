@@ -1,6 +1,6 @@
 from sympy import Symbol
 import sympy.physics.quantum.operator as qmoperator
-from responsefun.adcc_properties import available_operators
+from responsefun.AdccProperties import available_operators
 
 
 for op_type, tup in available_operators.items():
@@ -150,7 +150,7 @@ class ResponseVector(ResponseOperator):
         return "X_{{{}, {}}}".format(self._comp, self._no)
 
 
-class DipoleOperator(ResponseOperator):
+class OneParticleOperator(ResponseOperator):
     def __init__(self, comp, op_type):
         super().__init__(comp)
         if isinstance(op_type, Symbol):
@@ -186,7 +186,7 @@ class DipoleOperator(ResponseOperator):
         return r"{}_{{{}}}".format(available_operators[self._op_type][0], self._comp)
 
 
-class DipoleMoment(Symbol):
+class Moment(Symbol):
     def __new__(self, comp, from_state, to_state, op_type, **assumptions):
         assert isinstance(comp, str)
         assert isinstance(from_state, Symbol)
@@ -242,11 +242,3 @@ class TransitionFrequency(Symbol):
     @property
     def state(self):
         return self._state
-
-
-class LeviCivita(qmoperator.Operator):
-    def _print_contents(self, printer):
-        return r"\epsilon_{ABC}"
-
-    def _print_contents_latex(self, printer):
-        return r"\epsilon_{ABC}"

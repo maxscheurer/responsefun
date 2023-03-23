@@ -1,9 +1,25 @@
+#  Copyright (C) 2023 by the responsefun authors
+#
+#  This file is part of responsefun.
+#
+#  responsefun is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as published
+#  by the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  responsefun is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
+#
+
 import numpy as np
-#from adcc.adc_pp import modified_transition_moments
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.OneParticleOperator import product_trace
 from responsefun.testdata.cache import MockExcitedStates
-from responsefun.magnetic_dipole_moments import gs_magnetic_dipole_moment
 from tqdm import tqdm
 from cached_property import cached_property
 
@@ -18,7 +34,7 @@ from cached_property import cached_property
 available_operators = {
         "electric": ("\\mu", 1, 1),
         "magnetic": ("m", 2, 1),
-        "dia_magnet": ("\\xi", 1, 2)
+        "dia_magnet": ("\\xi", 1, 2),
 }
 
 
@@ -46,6 +62,24 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
             )
             s2s_tm[i, j] = np.array([product_trace(tdm, op) for op in operator])
     return np.squeeze(s2s_tm)
+
+
+# TODO: testing
+def gs_magnetic_dipole_moment(ground_state, level=2):
+    magdips = ground_state.reference_state.operators.magnetic_dipole
+    ref_dipmom = np.array(
+            [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
+    )
+    if level == 1:
+        return ref_dipmom
+    elif level == 2:
+        mp2corr = np.array(
+                [product_trace(dip, ground_state.mp2_diffdm) for dip in magdips]
+        )
+        return ref_dipmom + mp2corr
+    else:
+        raise NotImplementedError("Only magnetic dipole moments for level 1 and 2"
+                                  " are implemented.")
 
 
 class AdccProperties:
@@ -113,7 +147,7 @@ class AdccProperties:
                 gs_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
             else:
                 raise NotImplementedError()
-        return gs_moment 
+        return gs_moment
 
     @cached_property
     def transition_moment(self):
@@ -162,32 +196,3 @@ class AdccProperties:
                 self._state, self.operator, initial_state, final_state
             )
             return s2s_tm
-
-
-if __name__ == "__main__":
-    from pyscf import gto, scf
-    import adcc
-    from responsefun.testdata import cache
-    from adcc.Excitation import Excitation
-
-    mol = gto.M(
-        atom="""
-        O 0 0 0
-        H 0 0 1.795239827225189
-        H 1.693194615993441 0 -0.599043184453037
-        """,
-        unit="Bohr",
-        basis="sto-3g",
-    )
-
-    scfres = scf.RHF(mol)
-    scfres.kernel()
-
-    refstate = adcc.ReferenceState(scfres)
-    matrix = adcc.AdcMatrix("adc2", refstate)
-    state = adcc.adc2(scfres, n_singlets=5)
-    mp = state.ground_state
-
-    adcc_prop = AdccProperties(state, "electric")
-    s2s_tdms = adcc_prop.state_to_state_transition_moment
-    print(s2s_tdms)

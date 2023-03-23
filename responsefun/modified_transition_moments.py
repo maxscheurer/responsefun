@@ -1,33 +1,29 @@
-#!/usr/bin/env python3
-## vi: tabstop=4 shiftwidth=4 softtabstop=4 expandtab
-## ---------------------------------------------------------------------
-##
-## Copyright (C) 2019 by the adcc authors
-##
-## This file is part of adcc.
-##
-## adcc is free software: you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published
-## by the Free Software Foundation, either version 3 of the License, or
-## (at your option) any later version.
-##
-## adcc is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with adcc. If not, see <http://www.gnu.org/licenses/>.
-##
-## ---------------------------------------------------------------------
-from math import sqrt
+#  Copyright (C) 2023 by the responsefun authors
+#
+#  This file is part of responsefun.
+#
+#  responsefun is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as published
+#  by the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  responsefun is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
+#
 
+from math import sqrt
 from adcc import block as b
 from adcc.LazyMp import LazyMp
 from adcc.AdcMethod import AdcMethod
 from adcc.functions import einsum, evaluate
 from adcc.Intermediates import Intermediates
 from adcc.AmplitudeVector import AmplitudeVector
+import warnings
 
 
 def mtm_adc0(mp, op, intermediates):
@@ -117,6 +113,9 @@ def modified_transition_moments(method, ground_state, operator=None,
     -------
     adcc.AmplitudeVector or list of adcc.AmplitudeVector
     """
+    warnings.warn("This function will soon be deprecated since all its functionality has "
+                  "been moved to the corresponding function of adcc.")
+
     if not isinstance(method, AdcMethod):
         method = AdcMethod(method)
     if not isinstance(ground_state, LazyMp):
