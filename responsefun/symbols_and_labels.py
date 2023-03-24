@@ -5,10 +5,10 @@ from responsefun.ResponseOperator import (
 )
 
 
-O, f = symbols(r"O, f", real=True)
-gamma = symbols(r"\gamma", real=True)
-n, m, p, k = symbols(r"n, m, p, k", real=True)
-w, w_o, w_1, w_2, w_3 = symbols(r"w, w_{\sigma}, w_{1}, w_{2}, w_{3}", real=True)
+O, f = symbols("O, f", real=True)
+gamma = symbols("gamma", real=True)
+n, m, p, k = symbols("n, m, p, k", real=True)
+w, w_o, w_1, w_2, w_3 = symbols("w, w_sigma, w_1, w_2, w_3", real=True)
 
 w_f = TransitionFrequency(f, real=True)
 w_n = TransitionFrequency(n, real=True)

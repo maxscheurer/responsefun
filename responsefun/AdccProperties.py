@@ -32,9 +32,9 @@ from cached_property import cached_property
 #   2: anti-hermitian
 # the third argument specifies the dimensionality
 available_operators = {
-        "electric": ("\\mu", 1, 1),
+        "electric": ("mu", 1, 1),
         "magnetic": ("m", 2, 1),
-        "dia_magnet": ("\\xi", 1, 2),
+        "dia_magnet": ("xi", 1, 2),
 }
 
 
