@@ -1,20 +1,4 @@
-#  Copyright (C) 2023 by the responsefun authors
-#
-#  This file is part of responsefun.
-#
-#  responsefun is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU Lesser General Public License as published
-#  by the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  responsefun is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU Lesser General Public License for more details.
-#
-#  You should have received a copy of the GNU Lesser General Public License
-#  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
-#
+# taken from PR #158 of adcc as long as it has not been merged yet
 
 from math import sqrt
 from adcc import block as b
@@ -113,8 +97,7 @@ def modified_transition_moments(method, ground_state, operator=None,
     -------
     adcc.AmplitudeVector or list of adcc.AmplitudeVector
     """
-    warnings.warn("This function will soon be deprecated since all its functionality has "
-                  "been moved to the corresponding function of adcc.")
+    warnings.warn("This function will soon be deprecated once PR #158 of adcc has been merged.")
 
     if not isinstance(method, AdcMethod):
         method = AdcMethod(method)

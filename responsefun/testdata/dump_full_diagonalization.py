@@ -1,3 +1,5 @@
+# taken from respondo
+
 import adcc
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.OneParticleOperator import product_trace
@@ -7,6 +9,8 @@ from cache import cases
 import zarr
 import numpy as np
 from tqdm import tqdm
+
+from responsefun.AdccProperties import transition_moments
 
 
 def main():
@@ -60,6 +64,8 @@ def main():
                 continue
             exci[key] = d
 
+        # TODO: remove line once PR #158 of adcc has been merged
+        exci['transition_magnetic_dipole_moment'] = transition_moments(state, mdips)
         exci['transition_dipole_moment_s2s'] = s2s_tdms
         exci['transition_magnetic_moment_s2s'] = s2s_tdms_mag
         exci.attrs['kind'] = state.kind

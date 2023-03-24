@@ -17,11 +17,14 @@
 #
 
 import numpy as np
+from itertools import product
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.OneParticleOperator import product_trace
 from responsefun.testdata.cache import MockExcitedStates
 from tqdm import tqdm
 from cached_property import cached_property
+from responsefun.transition_dm import transition_dm
+import warnings
 
 
 # dict of operators available in responsefun so far
@@ -37,6 +40,26 @@ available_operators = {
         "dia_magnet": ("xi", 1, 2),
 }
 
+def transition_moments(state, operator):
+    if state.property_method.level == 0:
+        warnings.warn("ADC(0) transition moments are known to be faulty in some cases.")
+
+    op_shape = np.shape(operator)
+    iterables = [list(range(shape)) for shape in op_shape]
+    components = list(product(*iterables))
+    moments = np.zeros((state.size, *op_shape))
+    for i, ee in enumerate(tqdm(state.excitations)):
+        tdm = transition_dm(
+            state.property_method, state.ground_state, ee.excitation_vector
+        )
+        tms = np.zeros(op_shape)
+        for c in components:
+            # list indices must be integers (1-D operators)
+            c = c[0] if len(c) == 1 else c
+            tms[c] = product_trace(operator[c], tdm)
+        moments[i] = tms
+    return np.squeeze(moments)
+
 
 def state_to_state_transition_moments(state, operator, initial_state=None, final_state=None):
     istates = state.size
@@ -50,7 +73,10 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
         fstates = 1
         excitations2 = [state.excitations[final_state]]
 
-    s2s_tm = np.zeros((istates, fstates, 3))
+    op_shape = np.shape(operator)
+    iterables = [list(range(shape)) for shape in op_shape]
+    components = list(product(*iterables))
+    s2s_tm = np.zeros((istates, fstates, *op_shape))
     for i, ee1 in enumerate(tqdm(excitations1)):
         for j, ee2 in enumerate(excitations2):
             tdm = state2state_transition_dm(
@@ -60,7 +86,12 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
                 ee2.excitation_vector,
                 state.matrix.intermediates,
             )
-            s2s_tm[i, j] = np.array([product_trace(tdm, op) for op in operator])
+            tms = np.zeros(op_shape)
+            for c in components:
+                # list indices must be integers (1-D operators)
+                c = c[0] if len(c) == 1 else c
+                tms[c] = product_trace(tdm, operator[c])
+            s2s_tm[i, j] = tms
     return np.squeeze(s2s_tm)
 
 
@@ -152,12 +183,17 @@ class AdccProperties:
     @cached_property
     def transition_moment(self):
         if self.op_type == "electric":
-            transition_moment = self._state.transition_dipole_moment
-        elif self.op_type == "magnetic":
-            transition_moment = self._state.transition_magnetic_dipole_moment
+            return self._state.transition_dipole_moment
+        # TODO: use commented code once PR #158 of adcc has been merged
+        # elif self.op_type == "magnetic":
+        #     return self._state.transition_magnetic_dipole_moment
         else:
-            raise NotImplementedError()
-        return transition_moment
+            if isinstance(self._state, MockExcitedStates):
+                if self.op_type == "magnetic":
+                    return self._state.transition_magnetic_dipole_moment
+                else:
+                    raise NotImplementedError()
+            return transition_moments(self._state, self.operator)
 
     @cached_property
     def state_to_state_transition_moment(self):
