@@ -89,6 +89,11 @@ def gs_magnetic_dipole_moment(ground_state, level=2):
                 [product_trace(dip, ground_state.mp2_diffdm) for dip in magdips]
         )
         return ref_dipmom + mp2corr
+    elif level == 3:
+        mp3corr = -1.0 * np.array(
+                [product_trace(dip, ground_state.mp3_diffdm) for dip in magdips]
+        )
+        return ref_dipmom + mp3corr
     else:
-        raise NotImplementedError("Only magnetic dipole moments for level 1 and 2"
+        raise NotImplementedError("Only magnetic dipole moments for level 1, 2, and 3"
                                   " are implemented.")

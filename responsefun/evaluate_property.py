@@ -19,6 +19,8 @@ from responsefun.adcc_properties import AdccProperties, available_operators
 
 from adcc import AmplitudeVector
 from adcc.workflow import construct_adcmatrix
+from adcc.IsrMatrix import IsrMatrix
+
 from respondo.solve_response import solve_response, transition_polarizability, transition_polarizability_complex
 from respondo.cpp_algebra import ResponseVector as RV
 from tqdm import tqdm
@@ -354,7 +356,11 @@ def evaluate_property_isr(
                     for c in components:
                         rvec = rvecs[c[op_dim:]]
                         if isinstance(rvec, AmplitudeVector):
-                            rhs = bmatrix_vector_product(property_method, mp, dips[c[:op_dim]], rvec)
+                            # use b matrix vector product of adcc needed for third order
+                            isr_matrix = IsrMatrix(property_method, mp, dips[c[:op_dim]])
+                            rhs = isr_matrix @ rvec
+                            # use b matrix vector product of responsefun
+                            # rhs = bmatrix_vector_product(property_method, mp, dips[c[:op_dim]], rvec) 
                             if key[3] == 0.0:
                                 response[c] = solve_response(matrix, rhs, -key[2], gamma=0.0, **solver_args)
                             else:

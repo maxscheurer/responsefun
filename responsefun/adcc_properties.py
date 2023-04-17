@@ -87,14 +87,20 @@ def ground_state_moments(state, op_type):
         ref_state_moment[c] = product_trace(op_int[c], ref_state_density) 
     if pm_level == 1:
         return  nuclear_gs + ref_state_moment
-    if pm_level == 2:
+    elif pm_level == 2:
         mp2_corr = np.zeros((size,)*op_int.ndim)
         mp2_density = state.ground_state.mp2_diffdm
         for c in components:
             mp2_corr[c] = np.array(product_trace(op_int[c], mp2_density)) 
         return nuclear_gs + ref_state_moment + mp2_corr 
+    elif pm_level == 3:
+        mp3_corr = np.zeros((size,)*op_int.ndim)
+        mp3_density = state.ground_state.mp3_diffdm
+        for c in components:
+            mp3_corr[c] = np.array(product_trace(op_int[c], mp3_density)) 
+        return nuclear_gs + ref_state_moment + mp3_corr 
     else:
-        raise NotImplementedError("Only dipole moments for level 1 and 2"
+        raise NotImplementedError("Only dipole moments for level 1, 2, and 3"
                                       " are implemented.")
 
 def transition_moments(state, op_type):
@@ -107,6 +113,9 @@ def transition_moments(state, op_type):
         size = op_int.shape[0]
     elif op_type == "electric_quadrupole_traceless":
         op_int= np.array(state.reference_state.operators.electric_quadrupole_traceless)
+        size = op_int.shape[0]
+    elif op_type == "nabla":
+        op_int= np.array(state.reference_state.operators.nabla)
         size = op_int.shape[0]
     else:
         raise NotImplementedError()
@@ -196,21 +205,21 @@ def state_to_state_transition_moments(state, op_type, initial_state=None, final_
             excitations1 = state.excitations
             excitations2 = state.excitations
         elif initial_state is None:
-            if op_int.ndim ==2:
+            if op_int.ndim == 2:
                 s2s_tdms = np.zeros((state.size, 1, size, size))
             else:
                 s2s_tdms = np.zeros((state.size, 1, size))
             excitations1 = state.excitations
             excitations2 = [state.excitations[final_state]]
         elif final_state is None:
-            if op_int.ndim ==2:
+            if op_int.ndim == 2:
                 s2s_tdms = np.zeros((1, state.size, size, size))
             else:
                 s2s_tdms = np.zeros((1, state.size, size))
             excitations1 = [state.excitations[initial_state]]
             excitations2 = state.excitations
         else:
-            if op_int.ndim ==2:
+            if op_int.ndim == 2:
                 s2s_tdms = np.zeros((1, 1, size, size))
             else:
                 s2s_tdms = np.zeros((1, 1, size))
@@ -359,8 +368,8 @@ class AdccProperties:
                     self._transition_dipole_moment = self._state.transition_dipole_moment
                 elif self._op_type == "magnetic":
                     self._transition_dipole_moment = self._state.transition_magnetic_dipole_moment
-                elif self._op_type == "nabla":
-                    self._transition_dipole_moment = self._state.transition_dipole_moment_velocity
+                # elif self._op_type == "nabla":
+                #     self._transition_dipole_moment = self._state.transition_dipole_moment_velocity
                 elif self._op_type in available_operators:
                     self._transition_dipole_moment = transition_moments(self._state, self._op_type)
                 else:
