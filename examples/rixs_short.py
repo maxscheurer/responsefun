@@ -5,8 +5,10 @@ Compute the RIXS amplitudes within the so-called rotating wave approximation for
 from scipy.constants import physical_constants
 from pyscf import gto, scf
 import adcc
-from responsefun.symbols_and_labels import *
-from responsefun.sum_over_states import TransitionMoment
+from responsefun.symbols_and_labels import (
+    op_a, op_b, f, n, O, gamma, w_n, w
+)
+from responsefun.SumOverStates import TransitionMoment
 from responsefun.evaluate_property import evaluate_property_isr
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]

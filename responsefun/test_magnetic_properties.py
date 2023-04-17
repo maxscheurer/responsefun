@@ -5,10 +5,14 @@ from scipy.constants import physical_constants
 
 from responsefun.testdata.static_data import xyz
 from responsefun.testdata import cache
-from responsefun.misc import expand_test_templates, assert_allclose_signfix
-from responsefun.symbols_and_labels import *
-from responsefun.sum_over_states import TransitionMoment, SumOverStates
-from responsefun.evaluate_property import evaluate_property_isr, evaluate_property_sos, evaluate_property_sos_fast
+from responsefun.symbols_and_labels import (
+    O, n, m, p, k,
+    op_a, op_b, op_c, op_d, op_e, opm_a, opm_b, opm_c, opm_d, opm_e,
+    w_n, w_m, w_p, w_k, w, w_o, w_1, w_2, w_3,
+)
+from responsefun.SumOverStates import TransitionMoment, SumOverStates
+from responsefun.evaluate_property import evaluate_property_isr, evaluate_property_sos_fast
+from adcc.misc import expand_test_templates
 
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
@@ -191,7 +195,7 @@ class TestBetaLike(unittest.TestCase):
         expr = SOS_beta_like[ops]
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
-        
+
         omegas = [(w_o, 1), (w_2, 0.5)]
         beta_sos = evaluate_property_sos_fast(mock_state, expr, [n, k], omegas, extra_terms=False)
         beta_isr = evaluate_property_isr(state, expr, [n, k], omegas, extra_terms=False)
@@ -232,7 +236,7 @@ class TestDeltaLike(unittest.TestCase):
         np.testing.assert_allclose(delta_isr, delta_sos, atol=1e-8)
 
 
-class TestCmPara(unittest.TestCase):
+class TestCottonMoutonPara(unittest.TestCase):
     def test_h2o_sto3g_adc2(self):
         case = "h2o_sto3g_adc2"
         molecule, basis, method = case.split("_")

@@ -1,3 +1,5 @@
+# taken from respondo
+
 import os
 import numpy as np
 import zarr
@@ -13,7 +15,7 @@ cases = {
 }
 
 
-class MockExcitedStatesTestData:
+class MockExcitedStates:
     def __init__(self, zr):
         self.zr = zr
         exci = self.zr.excitation

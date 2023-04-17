@@ -1,6 +1,6 @@
 from sympy import Symbol
 import sympy.physics.quantum.operator as qmoperator
-from responsefun.adcc_properties import available_operators
+from responsefun.AdccProperties import available_operators
 
 
 for op_type, tup in available_operators.items():
@@ -34,7 +34,7 @@ class ResponseOperator(qmoperator.Operator):
         return self._comp
 
     def _print_contents(self, printer):
-        return "{}_{{{}}}".format(self.__class__.__name__, self._comp)
+        return "{}_{}".format(self.__class__.__name__, self._comp)
 
 
 class MTM(ResponseOperator):
@@ -66,16 +66,14 @@ class MTM(ResponseOperator):
         return self._dim
 
     def _print_contents(self, printer):
-        if self._op_type == "electric":
-            return "F_{{{}}}".format(self._comp)
-        else:
-            return "F({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
+        op = available_operators[self._op_type][0]
+        return "F({})_{}".format(op, self._comp)
 
     def _print_contents_latex(self, printer):
-        if self._op_type == "electric":
-            return "F_{{{}}}".format(self._comp)
-        else:
-            return "F({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
+        op = available_operators[self._op_type][0]
+        if len(op) > 1:
+            op = "\\" + op
+        return "F({})_{{{}}}".format(op, self._comp)
 
 
 class S2S_MTM(ResponseOperator):
@@ -108,16 +106,14 @@ class S2S_MTM(ResponseOperator):
         return self._dim
 
     def _print_contents(self, printer):
-        if self._op_type == "electric":
-            return "B_{{{}}}".format(self._comp)
-        else:
-            return "B({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
+        op = available_operators[self._op_type][0]
+        return "B({})_{}".format(op, self._comp)
 
     def _print_contents_latex(self, printer):
-        if self._op_type == "electric":
-            return "B_{{{}}}".format(self._comp)
-        else:
-            return "B({})_{{{}}}".format(available_operators[self._op_type][0], self._comp)
+        op = available_operators[self._op_type][0]
+        if len(op) > 1:
+            op = "\\" + op
+        return "B({})_{{{}}}".format(op, self._comp)
 
 
 class ResponseVector(ResponseOperator):
@@ -144,13 +140,13 @@ class ResponseVector(ResponseOperator):
         return self._symmetry
 
     def _print_contents(self, printer):
-        return "X_{{{}, {}}}".format(self._comp, self._no)
+        return "X_({}, {})".format(self._comp, self._no)
 
     def _print_contents_latex(self, printer):
         return "X_{{{}, {}}}".format(self._comp, self._no)
 
 
-class DipoleOperator(ResponseOperator):
+class OneParticleOperator(ResponseOperator):
     def __init__(self, comp, op_type):
         super().__init__(comp)
         if isinstance(op_type, Symbol):
@@ -180,19 +176,23 @@ class DipoleOperator(ResponseOperator):
         return self._dim
 
     def _print_contents(self, printer):
-        return r"{}_{{{}}}".format(available_operators[self._op_type][0], self._comp)
+        op = available_operators[self._op_type][0]
+        return "{}_{}".format(op, self._comp)
 
     def _print_contents_latex(self, printer):
-        return r"{}_{{{}}}".format(available_operators[self._op_type][0], self._comp)
+        op = available_operators[self._op_type][0]
+        if len(op) > 1:
+            op = "\\" + op
+        return "{}_{{{}}}".format(op, self._comp)
 
 
-class DipoleMoment(Symbol):
+class Moment(Symbol):
     def __new__(self, comp, from_state, to_state, op_type, **assumptions):
         assert isinstance(comp, str)
         assert isinstance(from_state, Symbol)
         assert isinstance(to_state, Symbol)
         assert op_type in available_operators
-        name = r"{}_{{{}}}^{{{}}}".format(available_operators[op_type][0], comp, str(from_state)+str(to_state))
+        name = "{}_{}^{}".format(available_operators[op_type][0], comp, str(from_state)+str(to_state))
         obj = Symbol.__new__(self, name, **assumptions)
         obj._comp = comp
         obj._from_state = from_state
@@ -234,7 +234,7 @@ class DipoleMoment(Symbol):
 class TransitionFrequency(Symbol):
     def __new__(self, state, **assumptions):
         assert isinstance(state, Symbol)
-        name = r"w_{{{}}}".format(str(state))
+        name = "w_{}".format(str(state))
         obj = Symbol.__new__(self, name, **assumptions)
         obj._state = state
         return obj
@@ -242,13 +242,4 @@ class TransitionFrequency(Symbol):
     @property
     def state(self):
         return self._state
-
-
-class LeviCivita(qmoperator.Operator):
-    def _print_contents(self, printer):
-        return r"\epsilon_{ABC}"
-
-    def _print_contents_latex(self, printer):
-        return r"\epsilon_{ABC}"
-
 

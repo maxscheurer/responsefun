@@ -1,4 +1,4 @@
-#  Copyright (C) 2019 by Maximilian Scheurer
+#  Copyright (C) 2023 by the responsefun authors
 #
 #  This file is part of responsefun.
 #
@@ -20,26 +20,23 @@ from sympy.physics.quantum.state import Bra, Ket
 from sympy import Symbol, Mul, Add, Pow, adjoint, latex, simplify, fraction, zoo, Integer, Float, Abs
 from sympy.physics.quantum.operator import Operator
 
-from responsefun.symbols_and_labels import (
-    O, f, n, op_a, op_b, F_A, F_B, F_C, B_B, M,
-    w, w_n, w_f
-)
-from responsefun.response_operators import MTM, S2S_MTM, DipoleOperator, DipoleMoment, TransitionFrequency
-from responsefun.sum_over_states import TransitionMoment, SumOverStates
+from responsefun.symbols_and_labels import O, M
+from responsefun.ResponseOperator import MTM, S2S_MTM, OneParticleOperator, Moment, TransitionFrequency
+from responsefun.SumOverStates import SumOverStates
 
 
 def extract_bra_op_ket(expr):
     """Return list of bra*op*ket sequences in a SymPy term.
     """
     assert type(expr) == Mul
-    bok = [Bra, DipoleOperator, Ket]
+    bok = [Bra, OneParticleOperator, Ket]
     expr_types = [type(term) for term in expr.args]
     ret = [list(expr.args[i:i+3]) for i, k in enumerate(expr_types)
            if expr_types[i:i+3] == bok]
     return ret
 
 
-def insert_single_dipole_moments(expr, summation_indices):
+def insert_single_moments(expr, summation_indices):
     assert type(expr) == Mul
     boks = extract_bra_op_ket(expr)
     subs_list = []
@@ -65,7 +62,7 @@ def insert_single_dipole_moments(expr, summation_indices):
                     sign = -1.0
         else:
             continue
-        mu_symbol = sign * DipoleMoment(op.comp, from_state, to_state, op.op_type)
+        mu_symbol = sign * Moment(op.comp, from_state, to_state, op.op_type)
         subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
     return expr.subs(subs_list)
 
@@ -162,10 +159,9 @@ def to_isr_single_term(expr, operators=None):
     assert type(expr) == Mul
     if not operators:
         operators = [
-            op for op in expr.args if isinstance(op, DipoleOperator)
+            op for op in expr.args if isinstance(op, OneParticleOperator)
         ]
     i1 = insert_isr_transition_moments(expr, operators)
-    M = Operator("M")
     return insert_matrix(i1, M)
 
 
@@ -341,8 +337,8 @@ def compute_extra_terms(
                 ]
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
-        # convert single (transition) dipole moments to instances of DipoleMoment
-            new_term_2 = insert_single_dipole_moments(new_term_1, summation_indices)
+        # convert single (transition) moments to instances of Moment
+            new_term_2 = insert_single_moments(new_term_1, summation_indices)
             mod_extra_terms.append(new_term_2)
     return compute_remaining_terms(mod_extra_terms, correlation_btw_freq)
 
@@ -355,7 +351,7 @@ class IsrFormulation:
         """
         Parameters
         ----------
-        sos: <class 'responsefun.sum_over_states.SumOverStates'>
+        sos: <class 'responsefun.SumOverStates.SumOverStates'>
             SOS expression to be transformed into its ADC/ISR formulation.
 
         extra_terms: bool, optional
@@ -376,7 +372,7 @@ class IsrFormulation:
 
         self._main_terms = 0
         for term in sos_term_list:
-            mod_term = insert_single_dipole_moments(term, sos.summation_indices)
+            mod_term = insert_single_moments(term, sos.summation_indices)
             self._main_terms += to_isr_single_term(mod_term, sos.operators)
 
         if extra_terms:
@@ -434,58 +430,3 @@ class IsrFormulation:
     @property
     def latex(self):
         return latex(self.expr)
-
-
-tm1 = TransitionMoment(O, op_a, f)
-tm2 = TransitionMoment(f, op_b, O)
-
-isr_tm = insert_isr_transition_moments(tm1.expr, [op_a])
-assert isr_tm == adjoint(F_A) * Ket(f)
-
-tm_fn = TransitionMoment(f, op_b, n)
-isr_s2s = insert_isr_transition_moments(tm_fn.expr, [op_b])
-assert isr_s2s == Bra(f) * B_B * Ket(n)
-
-tm_12 = insert_isr_transition_moments(tm1 * tm2 / (w_f - w), [op_a, op_b])
-assert tm_12 == adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f - w)
-
-test_cases = {
-    "static": {
-        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f),
-        "ref": adjoint(F_A) * (M)**-1 * F_B
-    },
-    "freq_neg": {
-        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f - w),
-        "ref": adjoint(F_A) * (M - w)**-1 * F_B
-    },
-    "freq_pos": {
-        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f + w),
-        "ref": adjoint(F_A) * (M + w)**-1 * F_B
-    },
-    "freq_offset": {
-        "term": adjoint(F_A) * Ket(f) * Bra(f) * F_B / (w_f + w - 1),
-        "ref": adjoint(F_A) * (M + w - 1)**-1 * F_B
-    },
-    "tpa_like": {
-        "term": adjoint(F_A) * Ket(f) * Bra(f) * B_B * Ket(n) / (w_f - w),
-        "ref": adjoint(F_A) * (M - w)**-1 * B_B * Ket(n)
-    },
-    "beta_like": {
-        "term": adjoint(F_A) * Ket(f) * Bra(f) * B_B * Ket(n) * Bra(n) * F_C / ((w_f - w) * (w_n + w)),
-        "ref": adjoint(F_A) * (M - w)**-1 * B_B * (M + w)**-1 * F_C
-    }
-}
-
-for case in test_cases:
-    tc = test_cases[case]
-    term = tc["term"]
-    ref = tc["ref"]
-    ret = insert_matrix(term, M)
-    if ret != ref:
-        raise AssertionError(f"Test {case} failed:"
-                             " ref = {ref}, ret = {ret}")
-    # print(latex(ret))
-
-
-if __name__ == "__main__":
-    pass
