@@ -324,10 +324,10 @@ def evaluate_property_isr(
                         rvec = rvecs[c[op_dim:]]
                         if isinstance(rvec, AmplitudeVector):
                             # use b matrix vector product of adcc needed for third order
-                            isr_matrix = IsrMatrix(property_method, mp, dips[c[:op_dim]])
+                            isr_matrix = IsrMatrix(property_method, mp, ops[c[:op_dim]])
                             rhs = isr_matrix @ rvec
                             # use b matrix vector product of responsefun
-                            # rhs = bmatrix_vector_product(property_method, mp, dips[c[:op_dim]], rvec) 
+                            # rhs = bmatrix_vector_product(property_method, mp, ops[c[:op_dim]], rvec) 
                             if projection is not None:
                                 rhs -= projection(rhs)
                             if key[3] == 0.0:

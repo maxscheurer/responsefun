@@ -35,7 +35,7 @@ def read_full_diagonalization():
         if not os.path.isdir(zarr_file):
             continue
         z = zarr.open(zarr_file, mode='r')
-        ret[case] = MockExcitedStatesTestData(z)
+        ret[case] = MockExcitedStates(z)
     return ret
 
 

@@ -280,6 +280,8 @@ class AdccProperties:
     def transition_moment(self):
         if self.op_type == "electric":
             return self._state.transition_dipole_moment
+        elif self._op_type == "nabla":
+            return self._state.transition_dipole_moment_velocity
         # TODO: use commented code once PR #158 of adcc has been merged
         # elif self.op_type == "magnetic":
         #     return self._state.transition_magnetic_dipole_moment
@@ -287,6 +289,8 @@ class AdccProperties:
             if isinstance(self._state, MockExcitedStates):
                 if self.op_type == "magnetic":
                     return self._state.transition_magnetic_dipole_moment
+                elif self.op_type == "electric_quadrupole":
+                    return self._state.transition_electric_quadrupole_moment
                 else:
                     raise NotImplementedError()
             return transition_moments(self._state, self.operator)
@@ -298,6 +302,10 @@ class AdccProperties:
                 return self._state.transition_dipole_moment_s2s
             elif self.op_type == "magnetic":
                 return self._state.transition_magnetic_moment_s2s
+            elif self.op_type == "nabla":
+                return self._state.transition_nabla_s2s
+            elif self.op_type == "electric_quadrupole":
+                return self._state.transition_electric_quadrupole_moment_s2s
             else:
                 raise NotImplementedError()
         return state_to_state_transition_moments(self._state, self.operator)

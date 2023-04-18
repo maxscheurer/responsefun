@@ -8,6 +8,7 @@ from responsefun.testdata import cache
 from responsefun.symbols_and_labels import (
     O, f, gamma, n, m, p, k,
     op_a, op_b, op_c, op_d,
+    nabla_a, nabla_b, 
     w_f, w_n, w_m, w_p, w_k, w, w_o, w_1, w_2, w_3,
 )
 from responsefun.SumOverStates import TransitionMoment
@@ -50,6 +51,19 @@ SOS_expressions = {
     "tpa_resonant": ((
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f/2))
         + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f/2))
+    ), None),
+    #velocity gauge
+    "alpha_vel_a": ((
+        TransitionMoment(O, nabla_a, n) * TransitionMoment(n, op_b, O) / (w_n - w)
+        + TransitionMoment(O, op_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
+    ), None),
+    "alpha_vel_b": ((
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
+        + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, op_a, O) / (w_n + w)
+    ), None),
+    "alpha_vel_ab": ((
+        TransitionMoment(O, nabla_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
+        + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
     ), None),
     "beta": ((
         TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k)
@@ -269,6 +283,81 @@ class TestIsrAgainstSos(unittest.TestCase):
                 state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
         )
 
+    def template_alpha_vel_a (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_a_expr = SOS_expressions["alpha_vel_a"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_a_sos = evaluate_property_sos(mock_state, vel_a_expr, [n], freq)
+            vel_a_isr = evaluate_property_isr(state, vel_a_expr, [n], freq)
+
+        assert_allclose_signfix(vel_a_isr, vel_a_sos, atol=1e-7)
+
+        # # mistakenly specify final state
+        # self.assertRaises(
+        #         ValueError, evaluate_property_sos,
+        #         mock_state, vel_a_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+        # self.assertRaises(
+        #         ValueError, evaluate_property_isr,
+        #         state, vel_a_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+
+    def template_alpha_vel_b (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_b_expr = SOS_expressions["alpha_vel_b"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_b_sos = evaluate_property_sos(mock_state, vel_b_expr, [n], freq)
+            vel_b_isr = evaluate_property_isr(state, vel_b_expr, [n], freq)
+
+        assert_allclose_signfix(vel_b_isr, vel_b_sos, atol=1e-7)
+
+        # # mistakenly specify final state
+        # self.assertRaises(
+        #         ValueError, evaluate_property_sos,
+        #         mock_state, vel_b_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+        # self.assertRaises(
+        #         ValueError, evaluate_property_isr,
+        #         state, vel_b_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+
+    def template_alpha_vel_ab (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_ab_expr = SOS_expressions["alpha_vel_ab"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_ab_sos = evaluate_property_sos(mock_state, vel_ab_expr, [n], freq)
+            vel_ab_isr = evaluate_property_isr(state, vel_ab_expr, [n], freq)
+
+        assert_allclose_signfix(vel_ab_isr, vel_ab_sos, atol=1e-7)
+
+        # # mistakenly specify final state
+        # self.assertRaises(
+        #         ValueError, evaluate_property_sos,
+        #         mock_state, vel_ab_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+        # self.assertRaises(
+        #         ValueError, evaluate_property_isr,
+        #         state, vel_ab_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+
 #    def template_first_hyperpolarizability(self, case):
 #        molecule, basis, method = case.split("_")
 #        scfres = run_scf(molecule, basis)
@@ -401,6 +490,81 @@ class TestIsrAgainstSosFast(unittest.TestCase):
         # self.assertRaises(
         #         ValueError, evaluate_property_isr,
         #         state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
+        # )
+
+    def template_alpha_vel_a (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_a_expr = SOS_expressions["alpha_vel_a"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_a_sos = evaluate_property_sos_fast(mock_state, vel_a_expr, [n], freq)
+            vel_a_isr = evaluate_property_isr(state, vel_a_expr, [n], freq)
+
+        assert_allclose_signfix(vel_a_isr, vel_a_sos, atol=1e-7)
+
+        # # mistakenly specify final state
+        # self.assertRaises(
+        #         ValueError, evaluate_property_sos,
+        #         mock_state, vel_a_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+        # self.assertRaises(
+        #         ValueError, evaluate_property_isr,
+        #         state, vel_a_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+
+    def template_alpha_vel_b (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_b_expr = SOS_expressions["alpha_vel_b"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_b_sos = evaluate_property_sos_fast(mock_state, vel_b_expr, [n], freq)
+            vel_b_isr = evaluate_property_isr(state, vel_b_expr, [n], freq)
+
+        assert_allclose_signfix(vel_b_isr, vel_b_sos, atol=1e-7)
+
+        # # mistakenly specify final state
+        # self.assertRaises(
+        #         ValueError, evaluate_property_sos,
+        #         mock_state, vel_b_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+        # self.assertRaises(
+        #         ValueError, evaluate_property_isr,
+        #         state, vel_b_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+
+    def template_alpha_vel_ab (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_ab_expr = SOS_expressions["alpha_vel_ab"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_ab_sos = evaluate_property_sos_fast(mock_state, vel_ab_expr, [n], freq)
+            vel_ab_isr = evaluate_property_isr(state, vel_ab_expr, [n], freq)
+
+        assert_allclose_signfix(vel_ab_isr, vel_ab_sos, atol=1e-7)
+
+        # # mistakenly specify final state
+        # self.assertRaises(
+        #         ValueError, evaluate_property_sos,
+        #         mock_state, vel_ab_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
+        # )
+        # self.assertRaises(
+        #         ValueError, evaluate_property_isr,
+        #         state, vel_ab_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
         # )
 
     def template_first_hyperpolarizability(self, case):
