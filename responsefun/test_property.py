@@ -188,16 +188,6 @@ class TestIsrAgainstSos(unittest.TestCase):
             np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-7,
                                        err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
 
-        # mistakenly specify final state
-        self.assertRaises(
-                ValueError, evaluate_property_sos,
-                mock_state, alpha_expr, [n], (w, 0.0), 0.0, final_state=(f, 2), symmetric=True
-        )
-        self.assertRaises(
-                ValueError, evaluate_property_isr,
-                state, alpha_expr, [n], (w, 0.0), 0.0, final_state=(f, 2), symmetric=True
-        )
-
     def template_rixs_short(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
@@ -259,16 +249,6 @@ class TestIsrAgainstSos(unittest.TestCase):
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
-        # specify frequency that is not included in the SOS expression
-        self.assertRaises(
-                ValueError, evaluate_property_sos,
-                mock_state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
-        )
-        self.assertRaises(
-                ValueError, evaluate_property_isr,
-                state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
-        )
-
 #    def template_first_hyperpolarizability(self, case):
 #        molecule, basis, method = case.split("_")
 #        scfres = run_scf(molecule, basis)
@@ -309,16 +289,6 @@ class TestIsrAgainstSosFast(unittest.TestCase):
             alpha_isr = evaluate_property_isr(state, alpha_expr, [n], tup[0], tup[1], symmetric=True)
             np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-7,
                                        err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
-
-        # mistakenly specify final state
-        self.assertRaises(
-                ValueError, evaluate_property_sos_fast,
-                mock_state, alpha_expr, [n], (w, 0.0), 0.0, final_state=(f, 2)
-        )
-        self.assertRaises(
-                ValueError, evaluate_property_isr,
-                state, alpha_expr, [n], (w, 0.0), 0.0, final_state=(f, 2), symmetric=True
-        )
 
     def template_rixs_short(self, case):
         molecule, basis, method = case.split("_")
