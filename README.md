@@ -1,15 +1,11 @@
 ResponseFun
 ==============================
-[//]: # (Badges)
-[![Travis Build Status](https://travis-ci.com/maxscheurer/ResponseFun.png)](https://travis-ci.com/maxscheurer/ResponseFun)
-
-[comment]: [![codecov](https://codecov.io/gh/maxscheurer/ResponseFun/branch/master/graph/badge.svg)](https://codecov.io/gh/maxscheurer/ResponseFun/branch/master)
 
 Fun with Response Functions
 
 ### Copyright
 
-Copyright (c) 2019, Maximilian Scheurer
+Copyright (c) 2023, The responsefun Developers
 
 
 #### Acknowledgements
