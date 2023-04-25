@@ -20,7 +20,7 @@ import numpy as np
 from itertools import product
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.OneParticleOperator import product_trace
-from responsefun.testdata.cache import MockExcitedStates
+from responsefun.testdata.mock import MockExcitedStates
 from tqdm import tqdm
 from cached_property import cached_property
 from responsefun.transition_dm import transition_dm

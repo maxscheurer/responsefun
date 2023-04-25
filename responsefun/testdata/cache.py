@@ -1,8 +1,7 @@
 # taken from respondo
 
 import os
-import numpy as np
-import zarr
+from .mock import MockExcitedStates
 
 
 cases = {
@@ -15,19 +14,8 @@ cases = {
 }
 
 
-class MockExcitedStates:
-    def __init__(self, zr):
-        self.zr = zr
-        exci = self.zr.excitation
-        for k in exci.attrs:
-            setattr(self, k, exci.attrs[k])
-        for k in exci:
-            setattr(self, k,
-                    np.asarray(exci[k]))
-        self.ground_state = self.zr.ground_state
-
-
 def read_full_diagonalization():
+    import zarr
     ret = {}
     for case in cases:
         thisdir = os.path.dirname(__file__)
