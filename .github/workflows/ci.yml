@@ -36,3 +36,25 @@ jobs:
       - name: Run tests
         run: |
           pytest --pyargs responsefun -v -s
+
+  formatting:
+    name: Code style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+            auto-update-conda: true
+            environment-file: ci_env.yml
+            activate-environment: ci-env
+            miniforge-variant: Mambaforge
+            use-mamba: true
+            miniforge-version: latest
+            python-version: 3.9
+      - name: Conda Info
+        run: |
+          conda info
+          conda list
+      - run: |
+          ruff responsefun
+          isort -c responsefun

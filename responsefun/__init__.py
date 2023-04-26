@@ -2,9 +2,6 @@
 ResponseFun
 Fun with Response Functions
 """
-
-# Add imports here
-from responsefun import *
-
-# Handle versioneer
 from ._version import __version__
+
+__all__ = ["__version__"]

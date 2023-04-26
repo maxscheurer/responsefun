@@ -6,5 +6,7 @@ dependencies:
   - adcc >=0.15.4
   - respondo >=0.0.4
   - numpy <=1.23.5
+  - isort
+  - ruff
   - pip:
     - pyscf

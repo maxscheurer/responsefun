@@ -202,16 +202,10 @@ class TestIsrAgainstSos:
             for ee in state.excitations:
                 final_state = ee.index
                 if tup[0][1] == 0.0 and tup[1] == 0.0:
-                    self.assertRaises(
-                            ZeroDivisionError,
-                            evaluate_property_sos,
-                            mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
-                    )
-                    self.assertRaises(
-                            ZeroDivisionError,
-                            evaluate_property_isr,
-                            state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
-                    )
+                    with pytest.raises(ZeroDivisionError):
+                            evaluate_property_sos(mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state))
+                    with pytest.raises(ZeroDivisionError):
+                            evaluate_property_isr(state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state))
                 else:
                     rixs_sos = evaluate_property_sos(mock_state, rixs_expr, [n], tup[0], tup[1],
                                                      final_state=(f, final_state))
@@ -304,16 +298,10 @@ class TestIsrAgainstSosFast:
             for ee in state.excitations:
                 final_state = ee.index
                 if tup[0][1] == 0.0 and tup[1] == 0.0:
-                    self.assertRaises(
-                            ZeroDivisionError,
-                            evaluate_property_sos_fast,
-                            mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
-                    )
-                    self.assertRaises(
-                            ZeroDivisionError,
-                            evaluate_property_isr,
-                            state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
-                    )
+                    with pytest.raises(ZeroDivisionError):
+                        evaluate_property_sos_fast(mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state))
+                    with pytest.raises(ZeroDivisionError):
+                        evaluate_property_isr(state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state))
                 else:
                     rixs_sos = evaluate_property_sos_fast(mock_state, rixs_expr, [n], tup[0], tup[1],
                                                           final_state=(f, final_state))
@@ -393,14 +381,10 @@ class TestIsrAgainstSosFast:
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)
 
         # give wrong indices of summation
-        self.assertRaises(
-                ValueError, evaluate_property_sos_fast,
-                mock_state, beta_expr, [n, p], omega_list[0], perm_pairs=perm_pairs
-        )
-        self.assertRaises(
-                ValueError, evaluate_property_isr,
-                state, beta_expr, [n, p], omega_list[0], perm_pairs=perm_pairs
-        )
+        with pytest.raises(ValueError):
+            evaluate_property_sos_fast(mock_state, beta_expr, [n, p], omega_list[0], perm_pairs=perm_pairs)
+        with pytest.raises(ValueError):
+            evaluate_property_isr(state, beta_expr, [n, p], omega_list[0], perm_pairs=perm_pairs)
 
     def test_complex_first_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
@@ -423,6 +407,7 @@ class TestIsrAgainstSosFast:
                                              perm_pairs=perm_pairs)
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)
 
+    @pytest.mark.slow
     def test_second_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
@@ -449,6 +434,7 @@ class TestIsrAgainstSosFast:
             gamma_sos_tot = gamma_sos - gamma_sos_extra
             np.testing.assert_allclose(gamma_isr_tot, gamma_sos_tot, atol=1e-7)
 
+    @pytest.mark.slow
     def test_extra_terms_second_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
@@ -464,16 +450,10 @@ class TestIsrAgainstSosFast:
 
         for omegas in omega_list:
             if omegas[1][1] == 0.0 and omegas[2][1] == 0.0:
-                self.assertRaises(
-                        ZeroDivisionError,
-                        evaluate_property_sos_fast,
-                        mock_state, gamma_expr, [n, m], omegas, perm_pairs=perm_pairs, extra_terms=False
-                )
-                self.assertRaises(
-                        ZeroDivisionError,
-                        evaluate_property_isr,
-                        state, gamma_expr, [n, m], omegas, perm_pairs=perm_pairs, extra_terms=False
-                )
+                with pytest.raises(ZeroDivisionError):
+                    evaluate_property_sos_fast(mock_state, gamma_expr, [n, m], omegas, perm_pairs=perm_pairs, extra_terms=False)
+                with pytest.raises(ZeroDivisionError):
+                    evaluate_property_isr(state, gamma_expr, [n, m], omegas, perm_pairs=perm_pairs, extra_terms=False)
             else:
                 gamma_sos = evaluate_property_sos_fast(mock_state, gamma_expr, [n, m], omegas,
                                                        perm_pairs=perm_pairs, extra_terms=False)

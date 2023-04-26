@@ -42,7 +42,6 @@ SOS_alpha_like = {
             + TransitionMoment(O, opm_b, n) * TransitionMoment(n, opm_a, O) / (w_n + w)
         )
 }
-alpha_list = [(c, ) for c in list(SOS_alpha_like.keys())]
 
 
 SOS_beta_like = {
@@ -77,7 +76,6 @@ SOS_beta_like = {
             / ((w_n - w_o) * (w_k - w_2))
         )
 }
-beta_list = [(c, ) for c in list(SOS_beta_like.keys())]
 
 
 SOS_gamma_like = {
@@ -136,7 +134,6 @@ SOS_gamma_like = {
             / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
         )
 }
-gamma_list = [(c, ) for c in list(SOS_gamma_like.keys())]
 
 
 SOS_delta_like = {
@@ -165,10 +162,9 @@ SOS_delta_like = {
             / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
         )
 }
-delta_list = [(c, ) for c in list(SOS_delta_like.keys())]
 
 
-@pytest.mark.parametrize("ops", alpha_list)
+@pytest.mark.parametrize("ops", SOS_alpha_like.keys())
 class TestAlphaLike:
     def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
@@ -186,7 +182,7 @@ class TestAlphaLike:
         np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-8)
 
 
-@pytest.mark.parametrize("ops", beta_list)
+@pytest.mark.parametrize("ops", SOS_beta_like.keys())
 class TestBetaLike:
     def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
@@ -205,7 +201,8 @@ class TestBetaLike:
         np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-8)
 
 
-@pytest.mark.parametrize("ops", gamma_list)
+@pytest.mark.slow
+@pytest.mark.parametrize("ops", SOS_gamma_like.keys())
 class TestGammaLike:
     def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
@@ -224,7 +221,8 @@ class TestGammaLike:
         np.testing.assert_allclose(gamma_isr, gamma_sos, atol=1e-8)
 
 
-@pytest.mark.parametrize("ops", delta_list)
+@pytest.mark.slow
+@pytest.mark.parametrize("ops", SOS_delta_like.keys())
 class TestDeltaLike:
     def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
@@ -243,6 +241,7 @@ class TestDeltaLike:
         np.testing.assert_allclose(delta_isr, delta_sos, atol=1e-8)
 
 
+@pytest.mark.slow
 class TestCottonMoutonPara:
     def test_h2o_sto3g_adc2(self):
         case = "h2o_sto3g_adc2"
