@@ -3,6 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - adcc >=0.15.4
-  - respondo >=0.4.0
+  - respondo >=0.0.4
   - pip:
     - pyscf
