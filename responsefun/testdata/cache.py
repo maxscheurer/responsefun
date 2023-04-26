@@ -1,7 +1,7 @@
 # taken from respondo
 
 import os
-from .mock import MockExcitedStates
+from responsefun.testdata.mock import MockExcitedStates
 
 
 cases = {

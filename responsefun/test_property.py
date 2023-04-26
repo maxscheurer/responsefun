@@ -1,4 +1,4 @@
-import unittest
+import pytest
 import adcc
 import numpy as np
 from scipy.constants import physical_constants
@@ -16,7 +16,7 @@ from respondo.polarizability import static_polarizability, real_polarizability, 
 from respondo.tpa import tpa_resonant
 from respondo.rixs import rixs
 from adcc.Excitation import Excitation
-from adcc.misc import expand_test_templates, assert_allclose_signfix
+from adcc.misc import assert_allclose_signfix
 
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
@@ -77,9 +77,9 @@ SOS_expressions = {
 }
 
 
-@expand_test_templates(case_list)
-class TestIsrAgainstRespondo(unittest.TestCase):
-    def template_static_polarizability(self, case):
+@pytest.mark.parametrize('case', cache.cases)
+class TestIsrAgainstRespondo:
+    def test_static_polarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -90,7 +90,7 @@ class TestIsrAgainstRespondo(unittest.TestCase):
         alpha = evaluate_property_isr(state, alpha_expr, [n], (w, 0.0), symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
-    def template_real_polarizability(self, case):
+    def test_real_polarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -102,7 +102,7 @@ class TestIsrAgainstRespondo(unittest.TestCase):
         alpha = evaluate_property_isr(state, alpha_expr, [n], (w, omega), symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
-    def template_complex_polarizability(self, case):
+    def test_complex_polarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -115,7 +115,7 @@ class TestIsrAgainstRespondo(unittest.TestCase):
         alpha = evaluate_property_isr(state, alpha_expr, [n], (w, omega), gamma_val, symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
-    def template_rixs_short(self, case):
+    def test_rixs_short(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -134,7 +134,7 @@ class TestIsrAgainstRespondo(unittest.TestCase):
             np.testing.assert_allclose(rixs_short, rixs_ref[1], atol=1e-7,
                                        err_msg="final_state = {}".format(final_state))
 
-    def template_rixs(self, case):
+    def test_rixs(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -153,7 +153,7 @@ class TestIsrAgainstRespondo(unittest.TestCase):
             np.testing.assert_allclose(rixs_tens, rixs_ref[1], atol=1e-7,
                                        err_msg="final_state = {}".format(final_state))
 
-    def template_tpa_resonant(self, case):
+    def test_tpa_resonant(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -169,9 +169,9 @@ class TestIsrAgainstRespondo(unittest.TestCase):
             np.testing.assert_allclose(tpa, tpa_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state))
 
 
-@expand_test_templates(case_list)
-class TestIsrAgainstSos(unittest.TestCase):
-    def template_polarizability(self, case):
+@pytest.mark.parametrize('case', [case for case in cache.cases if case in cache.data_fulldiag])
+class TestIsrAgainstSos:
+    def test_polarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -188,7 +188,7 @@ class TestIsrAgainstSos(unittest.TestCase):
             np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-7,
                                        err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
 
-    def template_rixs_short(self, case):
+    def test_rixs_short(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -220,7 +220,7 @@ class TestIsrAgainstSos(unittest.TestCase):
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(tup[0][1], tup[1], final_state)
                     assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7, err_msg=err_msg)
 
-    def template_rixs(self, case):
+    def test_rixs(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -235,7 +235,7 @@ class TestIsrAgainstSos(unittest.TestCase):
         rixs_isr = evaluate_property_isr(state, rixs_expr, [n], omega, gamma_val, final_state=(f, final_state))
         assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7)
 
-    def template_tpa_resonant(self, case):
+    def test_tpa_resonant(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -249,7 +249,7 @@ class TestIsrAgainstSos(unittest.TestCase):
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
-#    def template_first_hyperpolarizability(self, case):
+#    def test_first_hyperpolarizability(self, case):
 #        molecule, basis, method = case.split("_")
 #        scfres = run_scf(molecule, basis)
 #        refstate = adcc.ReferenceState(scfres)
@@ -271,9 +271,9 @@ class TestIsrAgainstSos(unittest.TestCase):
 #                                       err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
 
 
-@expand_test_templates(case_list)
-class TestIsrAgainstSosFast(unittest.TestCase):
-    def template_polarizability(self, case):
+@pytest.mark.parametrize('case', [case for case in cache.cases if case in cache.data_fulldiag])
+class TestIsrAgainstSosFast:
+    def test_polarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -290,7 +290,7 @@ class TestIsrAgainstSosFast(unittest.TestCase):
             np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-7,
                                        err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
 
-    def template_rixs_short(self, case):
+    def test_rixs_short(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -322,7 +322,7 @@ class TestIsrAgainstSosFast(unittest.TestCase):
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(tup[0][1], tup[1], final_state)
                     assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7, err_msg=err_msg)
 
-    def template_rixs(self, case):
+    def test_rixs(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -349,7 +349,7 @@ class TestIsrAgainstSosFast(unittest.TestCase):
         #         state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val, final_state=(f, final_state)
         # )
 
-    def template_tpa_resonant(self, case):
+    def test_tpa_resonant(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -373,7 +373,7 @@ class TestIsrAgainstSosFast(unittest.TestCase):
         #         state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
         # )
 
-    def template_first_hyperpolarizability(self, case):
+    def test_first_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -402,7 +402,7 @@ class TestIsrAgainstSosFast(unittest.TestCase):
                 state, beta_expr, [n, p], omega_list[0], perm_pairs=perm_pairs
         )
 
-    def template_complex_first_hyperpolarizability(self, case):
+    def test_complex_first_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -423,7 +423,7 @@ class TestIsrAgainstSosFast(unittest.TestCase):
                                              perm_pairs=perm_pairs)
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)
 
-    def template_second_hyperpolarizability(self, case):
+    def test_second_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -449,7 +449,7 @@ class TestIsrAgainstSosFast(unittest.TestCase):
             gamma_sos_tot = gamma_sos - gamma_sos_extra
             np.testing.assert_allclose(gamma_isr_tot, gamma_sos_tot, atol=1e-7)
 
-    def template_extra_terms_second_hyperpolarizability(self, case):
+    def test_extra_terms_second_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)

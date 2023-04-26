@@ -1,4 +1,4 @@
-import unittest
+import pytest
 import adcc
 import numpy as np
 from scipy.constants import physical_constants
@@ -12,7 +12,6 @@ from responsefun.symbols_and_labels import (
 )
 from responsefun.SumOverStates import TransitionMoment, SumOverStates
 from responsefun.evaluate_property import evaluate_property_isr, evaluate_property_sos_fast
-from adcc.misc import expand_test_templates
 
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
@@ -169,10 +168,12 @@ SOS_delta_like = {
 delta_list = [(c, ) for c in list(SOS_delta_like.keys())]
 
 
-@expand_test_templates(alpha_list)
-class TestAlphaLike(unittest.TestCase):
-    def template_h2o_sto3g_adc2(self, ops):
+@pytest.mark.parametrize("ops", alpha_list)
+class TestAlphaLike:
+    def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
+        if case not in cache.data_fulldiag:
+            pytest.skip(f"{case} cache file not available.")
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -185,10 +186,12 @@ class TestAlphaLike(unittest.TestCase):
         np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-8)
 
 
-@expand_test_templates(beta_list)
-class TestBetaLike(unittest.TestCase):
-    def template_h2o_sto3g_adc2(self, ops):
+@pytest.mark.parametrize("ops", beta_list)
+class TestBetaLike:
+    def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
+        if case not in cache.data_fulldiag:
+            pytest.skip(f"{case} cache file not available.")
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -202,10 +205,12 @@ class TestBetaLike(unittest.TestCase):
         np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-8)
 
 
-@expand_test_templates(gamma_list)
-class TestGammaLike(unittest.TestCase):
-    def template_h2o_sto3g_adc2(self, ops):
+@pytest.mark.parametrize("ops", gamma_list)
+class TestGammaLike:
+    def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
+        if case not in cache.data_fulldiag:
+            pytest.skip(f"{case} cache file not available.")
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -219,10 +224,12 @@ class TestGammaLike(unittest.TestCase):
         np.testing.assert_allclose(gamma_isr, gamma_sos, atol=1e-8)
 
 
-@expand_test_templates(delta_list)
-class TestDeltaLike(unittest.TestCase):
-    def template_h2o_sto3g_adc2(self, ops):
+@pytest.mark.parametrize("ops", delta_list)
+class TestDeltaLike:
+    def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
+        if case not in cache.data_fulldiag:
+            pytest.skip(f"{case} cache file not available.")
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -236,9 +243,11 @@ class TestDeltaLike(unittest.TestCase):
         np.testing.assert_allclose(delta_isr, delta_sos, atol=1e-8)
 
 
-class TestCottonMoutonPara(unittest.TestCase):
+class TestCottonMoutonPara:
     def test_h2o_sto3g_adc2(self):
         case = "h2o_sto3g_adc2"
+        if case not in cache.data_fulldiag:
+            pytest.skip(f"{case} cache file not available.")
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
