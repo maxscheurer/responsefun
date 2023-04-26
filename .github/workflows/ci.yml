@@ -32,7 +32,7 @@ jobs:
           conda list
       - name: Install package
         run: |
-          pip install -e ."[test]"
+          pip install ."[test]"
       - name: Run tests
         run: |
-          pytest responsefun -v -k "smoke"
+          pytest --pyargs responsefun -k "smoke" -v -s
