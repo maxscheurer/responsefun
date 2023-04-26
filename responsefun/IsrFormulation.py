@@ -154,7 +154,8 @@ def insert_matrix(expr, matrix=Operator("M")):
 
 
 def insert_isr_transition_moments(expr, operators):
-    """Insert vector F of modified transition moments and matrix B of modified excited-states transition moments."""
+    """Insert vector F of modified transition moments and matrix B of modified excited-states
+    transition moments."""
     assert type(expr) == Mul
     assert isinstance(operators, list)
     ret = expr.copy()
@@ -172,7 +173,8 @@ def insert_isr_transition_moments(expr, operators):
 
 
 def to_isr_single_term(expr, operators=None):
-    """Convert a single SOS term to its ADC/ISR formulation by inserting the corresponding ISR quantities."""
+    """Convert a single SOS term to its ADC/ISR formulation by inserting the corresponding ISR
+    quantities."""
     assert type(expr) == Mul
     if not operators:
         operators = [op for op in expr.args if isinstance(op, OneParticleOperator)]
@@ -181,7 +183,8 @@ def to_isr_single_term(expr, operators=None):
 
 
 def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
-    """Determine the additional terms that arise when converting a single SOS term to its ADC/ISR formulation.
+    """Determine the additional terms that arise when converting a single SOS term to its ADC/ISR
+    formulation.
 
     Parameters
     ----------
@@ -193,7 +196,8 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
-        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        It is important to note that the ground state is represented by the SymPy symbol O,
+        while the integer 0
         represents the first excited state.
 
     Returns
@@ -259,8 +263,10 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
 
     correlation_btw_freq: list of tuples, optional
         List that indicates the correlation between the frequencies;
-        the tuple entries are either instances of <class 'sympy.core.add.Add'> or <class 'sympy.core.symbol.Symbol'>;
-        the first entry is the frequency that can be replaced by the second entry, e.g., (w_o, w_1+w_2).
+        the tuple entries are either instances of <class 'sympy.core.add.Add'> or
+        <class 'sympy.core.symbol.Symbol'>;
+        the first entry is the frequency that can be replaced by the second entry,
+        e.g., (w_o, w_1+w_2).
 
     Returns
     ----------
@@ -297,7 +303,8 @@ def compute_extra_terms(
     correlation_btw_freq=None,
     print_extra_term_dict=False,
 ):
-    """Determine the additional terms that arise when converting an SOS expression to its ADC/ISR formulation.
+    """Determine the additional terms that arise when converting an SOS expression to its ADC/ISR
+    formulation.
 
     Parameters
     ----------
@@ -309,14 +316,16 @@ def compute_extra_terms(
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
-        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        It is important to note that the ground state is represented by the SymPy symbol O,
+        while the integer 0
         represents the first excited state.
 
     correlation_btw_freq: list of tuples, optional
             List that indicates the correlation between the frequencies;
             the tuple entries are either instances of <class 'sympy.core.add.Add'>
             or <class 'sympy.core.symbol.Symbol'>;
-            the first entry is the frequency that can be replaced by the second entry, e.g., (w_o, w_1+w_2).
+            the first entry is the frequency that can be replaced by the second entry, e.g.,
+            (w_o, w_1+w_2).
 
     print_extra_term_dict: bool, optional
         Print dictionary that explains where which additional term comes from,
@@ -368,9 +377,7 @@ def compute_extra_terms(
 
 
 class IsrFormulation:
-    """
-    Class representing an ADC/ISR formulation of a response function.
-    """
+    """Class representing an ADC/ISR formulation of a response function."""
 
     def __init__(self, sos, extra_terms=True, print_extra_term_dict=False):
         """

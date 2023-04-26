@@ -13,9 +13,7 @@ for op_type, tup in available_operators.items():
 
 
 class ResponseOperator(qmoperator.Operator):
-    """
-    Base class for (state-to-state) modified transition moments and response vectors.
-    """
+    """Base class for (state-to-state) modified transition moments and response vectors."""
 
     def __init__(self, comp):
         """
@@ -51,7 +49,8 @@ class MTM(ResponseOperator):
         self._dim = available_operators[self._op_type][2]
         if len(self._comp) != self._dim:
             raise ValueError(
-                f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
+                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                "components were specified."
             )
 
     @property
@@ -91,7 +90,8 @@ class S2S_MTM(ResponseOperator):
         self._dim = available_operators[self._op_type][2]
         if len(self._comp) != self._dim:
             raise ValueError(
-                f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
+                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                "components were specified."
             )
 
     @property
@@ -161,7 +161,8 @@ class OneParticleOperator(ResponseOperator):
         self._dim = available_operators[self._op_type][2]
         if len(self._comp) != self._dim:
             raise ValueError(
-                f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
+                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                "components were specified."
             )
 
     @property
@@ -205,7 +206,8 @@ class Moment(Symbol):
         obj._dim = available_operators[op_type][2]
         if len(comp) != obj._dim:
             raise ValueError(
-                f"The operator is {obj._dim}-dimensional, but {len(comp)} components were specified."
+                f"The operator is {obj._dim}-dimensional, but {len(comp)} "
+                "components were specified."
             )
         return obj
 

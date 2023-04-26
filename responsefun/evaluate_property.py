@@ -68,9 +68,8 @@ def find_remaining_indices(sos_expr, summation_indices):
 
 
 def replace_bra_op_ket(expr):
-    """Replace Bra(to_state)*op*Ket(from_state) sequence in a SymPy term
-    by an instance of <class 'responsefun.ResponseOperator.Moment'>.
-    """
+    """Replace Bra(to_state)*op*Ket(from_state) sequence in a SymPy term by an instance of <class
+    'responsefun.ResponseOperator.Moment'>."""
     assert type(expr) == Mul
     subs_dict = {}
     for ia, a in enumerate(expr.args):
@@ -83,7 +82,8 @@ def replace_bra_op_ket(expr):
 
 
 def scalar_product(left_v, right_v):
-    """Evaluate the scalar product between two instances of ResponseVector and/or AmplitudeVector."""
+    """Evaluate the scalar product between two instances of ResponseVector and/or
+    AmplitudeVector."""
     if isinstance(left_v, AmplitudeVector):
         lv = RV(left_v)
     else:
@@ -177,11 +177,13 @@ def evaluate_property_isr(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     extra_terms: bool, optional
-        Compute the additional terms that arise when converting the SOS expression to its ADC/ISR formulation;
+        Compute the additional terms that arise when converting the SOS expression to its
+        ADC/ISR formulation;
         by default 'True'.
 
     symmetric: bool, optional
@@ -190,8 +192,8 @@ def evaluate_property_isr(
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
-        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
-        represents the first excited state.
+        It is important to note that the ground state is represented by the SymPy symbol O,
+        while the integer 0 represents the first excited state.
 
     Returns
     ----------
@@ -220,7 +222,8 @@ def evaluate_property_isr(
         excluded_states=excluded_states,
     )
     print(
-        f"\nThe following SOS expression was entered/generated. It consists of {sos.number_of_terms} term(s):\n{sos}\n"
+        "\nThe following SOS expression was entered/generated. "
+        f"It consists of {sos.number_of_terms} term(s):\n{sos}\n"
     )
 
     # store adcc properties for the required operators in a dict
@@ -246,8 +249,8 @@ def evaluate_property_isr(
     isr = IsrFormulation(sos, extra_terms, print_extra_term_dict=True)
     print(
         f"The SOS expression was transformed into the following ADC/ISR formulation:\n{isr}\nThus, "
-        f"{isr.number_of_extra_terms} non-vanishing terms were identified that must be additionally "
-        "considered due to the definition of the ADC matrices.\n"
+        f"{isr.number_of_extra_terms} non-vanishing terms were identified that must be additionally"
+        " considered due to the definition of the ADC matrices.\n"
     )
     print("Building tree to determine suitable response vectors ...")
     rvecs_dict_list = build_tree(isr.mod_expr)
@@ -381,8 +384,8 @@ def evaluate_property_isr(
                             )
                             if projection is not None:
                                 raise NotImplementedError(
-                                    "Projecting out states from a response equation with a complex right-hand side"
-                                    "has not yet been implemented."
+                                    "Projecting out states from a response equation with a complex "
+                                    "right-hand side has not yet been implemented."
                                 )
                                 # rhs.real -= projection(rhs.real)
                                 # rhs.imag -= projection(rhs.imag)
@@ -446,14 +449,16 @@ def evaluate_property_isr(
         rvecs_dict_tot.update(dict((value, key) for key, value in rvecs_dict.items()))
 
     print(
-        f"In total, {len(rvecs_dict_tot)} response vectors (with multiple components each) were defined:"
+        f"In total, {len(rvecs_dict_tot)} response vectors (with multiple components each) "
+        "were defined:"
     )
     for key, value in rvecs_dict_tot.items():
         print(f"X_{{{key}}}: {value}")
     if len(rvecs_dict_tot) > number_of_unique_rvecs:
         print(
-            "However, inserting the specified frequency values caused response vectors to become equal, "
-            f"so that in the end only {number_of_unique_rvecs} response vectors had to be determined."
+            "However, inserting the specified frequency values caused response "
+            f" vectors to become equal, so that in the end only {number_of_unique_rvecs}"
+            " response vectors had to be determined."
         )
         for lv, rv in equal_rvecs.items():
             print(f"X_{{{lv}}} = X_{{{rv}}}") if lv != rv else print(f"X_{{{lv}}}")
@@ -666,11 +671,13 @@ def evaluate_property_sos(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     extra_terms: bool, optional
-        Compute the additional terms that arise when converting the SOS expression to its ADC/ISR formulation;
+        Compute the additional terms that arise when converting the SOS expression to its
+        ADC/ISR formulation;
         by default 'True'.
 
     symmetric: bool, optional
@@ -679,8 +686,8 @@ def evaluate_property_sos(
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
-        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
-        represents the first excited state.
+        It is important to note that the ground state is represented by the SymPy symbol O,
+        while the integer 0 represents the first excited state.
 
     Returns
     ----------
@@ -706,7 +713,8 @@ def evaluate_property_sos(
         excluded_states=excluded_states,
     )
     print(
-        f"\nThe following SOS expression was entered/generated. It consists of {sos.number_of_terms} term(s):\n{sos}\n"
+        "\nThe following SOS expression was entered/generated. It consists of "
+        f"{sos.number_of_terms} term(s):\n{sos}\n"
     )
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
@@ -762,8 +770,8 @@ def evaluate_property_sos(
         else:
             et_list = []
         print(
-            f"{len(et_list)} non-vanishing terms were identified that must be additionally considered "
-            "due to the definition of the adcc properties.\n"
+            f"{len(et_list)} non-vanishing terms were identified that must be additionally "
+            "considered due to the definition of the adcc properties.\n"
         )
         for et in et_list:
             # the extra terms contain less indices of summation
@@ -803,7 +811,8 @@ def evaluate_property_sos(
         for i in indices:
             state_map = {sum_ind[ii]: ind for ii, ind in enumerate(i)}
 
-            # skip the rest of the loop for this iteration if it corresponds to one of the excluded states
+            # skip the rest of the loop for this iteration if it corresponds to one
+            # of the excluded states
             if set(sos.excluded_states).intersection(set(state_map.values())):
                 continue
 
@@ -902,17 +911,19 @@ def evaluate_property_sos_fast(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     extra_terms: bool, optional
-        Compute the additional terms that arise when converting the SOS expression to its ADC/ISR formulation;
+        Compute the additional terms that arise when converting the SOS expression to its
+        ADC/ISR formulation;
         by default 'True'.
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
-        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
-        represents the first excited state.
+        It is important to note that the ground state is represented by the SymPy symbol O,
+        while the integer 0 represents the first excited state.
 
     Returns
     ----------
@@ -937,7 +948,8 @@ def evaluate_property_sos_fast(
         excluded_states=excluded_states,
     )
     print(
-        f"\nThe following SOS expression was entered/generated. It consists of {sos.number_of_terms} term(s):\n{sos}\n"
+        "\nThe following SOS expression was entered/generated. It consists of "
+        f"{sos.number_of_terms} term(s):\n{sos}\n"
     )
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
@@ -973,8 +985,8 @@ def evaluate_property_sos_fast(
         else:
             number_of_extra_terms = 1
         print(
-            f"{number_of_extra_terms} non-vanishing terms were identified that must be additionally "
-            "considered due to the definition of the adcc properties.\n"
+            f"{number_of_extra_terms} non-vanishing terms were identified that must be "
+            "additionally considered due to the definition of the adcc properties.\n"
         )
         sos_with_et = sos.expr + computed_terms
         sos_expr_mod = sos_with_et.subs(correlation_btw_freq)
@@ -991,8 +1003,8 @@ def evaluate_property_sos_fast(
     else:
         term_list = [replace_bra_op_ket(sos_expr_mod)]
     print(
-        f"Summing over {len(state.excitation_energy_uncorrected)} excited states using the Einstein "
-        "summation convention ..."
+        f"Summing over {len(state.excitation_energy_uncorrected)} excited states "
+        "using the Einstein summation convention ..."
     )
     for it, term in enumerate(term_list):
         einsum_list = []

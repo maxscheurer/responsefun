@@ -32,9 +32,8 @@ ABC = list(string.ascii_uppercase)
 
 
 class TransitionMoment:
-    """
-    Class representing a transition moment Bra(from_state)*op*Ket(to_state) in a SymPy expression.
-    """
+    """Class representing a transition moment Bra(from_state)*op*Ket(to_state) in a SymPy
+    expression."""
 
     def __init__(self, from_state, operator, to_state):
         self.expr = Bra(from_state) * operator * Ket(to_state)
@@ -51,13 +50,15 @@ class TransitionMoment:
 
 def _build_sos_via_permutation(term, perm_pairs):
     """Generate a SOS expression via permutation.
+
     Parameters
     ----------
     term: <class 'sympy.core.mul.Mul'>
         Single SOS term.
     perm_pairs: list of tuples
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
     Returns
@@ -94,9 +95,7 @@ def _build_sos_via_permutation(term, perm_pairs):
 
 
 class SumOverStates:
-    """
-    Class representing a sum-over-states (SOS) expression.
-    """
+    """Class representing a sum-over-states (SOS) expression."""
 
     def __init__(
         self,
@@ -125,12 +124,14 @@ class SumOverStates:
 
         perm_pairs: list of tuples, optional
             List of (op, freq) pairs whose permutation yields the full SOS expression;
-            (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>, <class 'sympy.core.symbol.Symbol'>),
+            (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+            <class 'sympy.core.symbol.Symbol'>),
             e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
         excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
             List of states that are excluded from the summation.
-            It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+            It is important to note that the ground state is represented by the SymPy symbol O,
+            while the integer 0
             represents the first excited state.
         """
         if not isinstance(summation_indices, list):
@@ -166,8 +167,8 @@ class SumOverStates:
                         raise TypeError(
                             "SOS expression must not contain an instance of "
                             "<class 'responsefun.ResponseOperator.Moment'>. All transition "
-                            "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for "
-                            "example by means of <class 'responsefun.SumOverStates.TransitionMoment'>."
+                            "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences,"
+                            "for example by means of 'responsefun.SumOverStates.TransitionMoment'>."
                         )
             self._components.sort()
             for index in self._summation_indices:
@@ -185,8 +186,8 @@ class SumOverStates:
                     raise TypeError(
                         "SOS expression must not contain an instance of "
                         "<class 'responsefun.ResponseOperator.Moment'>. All transition "
-                        "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences, for "
-                        "example by means of <class 'responsefun.SumOverStates.TransitionMoment'>."
+                        "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences,"
+                        "for example by means of 'responsefun.SumOverStates.TransitionMoment'."
                     )
             self._components.sort()
             for index in self._summation_indices:

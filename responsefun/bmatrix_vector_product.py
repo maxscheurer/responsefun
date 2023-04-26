@@ -133,12 +133,11 @@ DISPATCH = {
 
 
 def bmatrix_vector_product(method, ground_state, dips, vec):
-    """Compute the matrix-vector product of an ISR one-particle operator
-    for the provided ADC method.
-    The product was derived using the original equations from the work of
-    Schirmer and Trofimov (J. Schirmer and A. B. Trofimov, “Intermediate state
-    representation approach to physical properties of electronically excited
-    molecules,” J. Chem. Phys. 120, 11449–11464 (2004).).
+    """Compute the matrix-vector product of an ISR one-particle operator for the provided ADC
+    method. The product was derived using the original equations from the work of Schirmer and
+    Trofimov (J. Schirmer and A. B. Trofimov, “Intermediate state representation approach to
+    physical properties of electronically excited molecules,” J. Chem. Phys. 120, 11449–11464
+    (2004).).
 
     Parameters
     ----------

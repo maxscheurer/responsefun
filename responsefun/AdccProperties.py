@@ -113,9 +113,7 @@ def gs_magnetic_dipole_moment(ground_state, level=2):
 
 
 class AdccProperties:
-    """
-    Class encompassing all properties that can be obtained from adcc for a given operator.
-    """
+    """Class encompassing all properties that can be obtained from adcc for a given operator."""
 
     def __init__(self, state, op_type):
         """

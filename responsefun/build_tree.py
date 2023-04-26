@@ -181,8 +181,8 @@ def show_tree(root):
 
 
 def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
-    """Build a tree structure to define response vectors for evaluating
-    the ADC/ISR formulation of a molecular property.
+    """Build a tree structure to define response vectors for evaluating the ADC/ISR formulation of a
+    molecular property.
 
     Parameters
     ----------
@@ -201,8 +201,8 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
     Returns
     ----------
     list of tuples
-        For each tuple: The first entry is the root expression, i.e., a SymPy expression that contains instances
-        of <class 'responsefun.ResponseOperator.ResponseVector'>;
+        For each tuple: The first entry is the root expression, i.e., a SymPy expression
+        that contains instances of <class 'responsefun.ResponseOperator.ResponseVector'>;
         the second entry is a dictionary with tuples as keys specifying the response vectors.
     """
     if rvecs_list is None:
@@ -284,7 +284,8 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
             key = (oper_rhs.__class__.__name__, oper_rhs.op_type, leaf.w, leaf.gamma, None, None)
             comp = oper_rhs.comp
 
-        # if the created tuple is not already among the keys of the rvecs dictionary, a new entry will be made
+        # if the created tuple is not already among the keys of the rvecs dictionary,
+        # a new entry will be made
         if key not in rvecs:
             rvecs[key] = no
             no += 1

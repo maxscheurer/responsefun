@@ -87,9 +87,8 @@ DISPATCH = {
 
 
 def transition_dm(method, ground_state, amplitude, intermediates=None):
-    """
-    Compute the one-particle transition density matrix from ground to excited
-    state in the MO basis.
+    """Compute the one-particle transition density matrix from ground to excited state in the MO
+    basis.
 
     Parameters
     ----------

@@ -335,27 +335,34 @@ class TestIsrAgainstSos:
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
+    # def test_first_hyperpolarizability(self, case):
+    #     molecule, basis, method = case.split("_")
+    #     scfres = run_scf(molecule, basis)
+    #     refstate = adcc.ReferenceState(scfres)
+    #     beta_expr = SOS_expressions["beta"][0]
+    #     perm_pairs = SOS_expressions["beta"][1]
+    #     omega_list = [
+    #         [(w_o, w_1 + w_2), (w_1, 0.0), (w_2, 0.0)],
+    #         [(w_o, w_1 + w_2), (w_1, 0.05), (w_2, 0.05)],
+    #         [(w_o, w_1 + w_2), (w_1, -0.05), (w_2, 0.05)],
+    #         [(w_o, w_1 + w_2), (w_1, 0.04), (w_2, 0.06)],
+    #     ]
+    #     mock_state = cache.data_fulldiag[case]
+    #     state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-#    def test_first_hyperpolarizability(self, case):
-#        molecule, basis, method = case.split("_")
-#        scfres = run_scf(molecule, basis)
-#        refstate = adcc.ReferenceState(scfres)
-#        beta_expr = SOS_expressions["beta"][0]
-#        perm_pairs = SOS_expressions["beta"][1]
-#        omega_list = [
-#                [(w_o, w_1+w_2), (w_1, 0.0), (w_2, 0.0)],
-#                [(w_o, w_1+w_2), (w_1, 0.05), (w_2, 0.05)],
-#                [(w_o, w_1+w_2), (w_1, -0.05), (w_2, 0.05)],
-#                [(w_o, w_1+w_2), (w_1, 0.04), (w_2, 0.06)]
-#        ]
-#        mock_state = cache.data_fulldiag[case]
-#        state = adcc.run_adc(refstate, method=method, n_singlets=5)
-#
-#        for omegas in omega_list:
-#            beta_sos = evaluate_property_sos(mock_state, beta_expr, [n, k], omegas, perm_pairs=perm_pairs)
-#            beta_isr = evaluate_property_isr(state, beta_expr, [n, k], omegas, perm_pairs=perm_pairs)
-#            np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)#,
-#                                       err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]))
+    #     for omegas in omega_list:
+    #         beta_sos = evaluate_property_sos(
+    #             mock_state, beta_expr, [n, k], omegas, perm_pairs=perm_pairs
+    #         )
+    #         beta_isr = evaluate_property_isr(
+    #             state, beta_expr, [n, k], omegas, perm_pairs=perm_pairs
+    #         )
+    #         np.testing.assert_allclose(
+    #             beta_isr,
+    #             beta_sos,
+    #             atol=1e-7,
+    #             err_msg="w = {}, gamma = {}".format(tup[0][1], tup[1]),
+    #         )
 
 
 @pytest.mark.parametrize("case", [case for case in cache.cases if case in cache.data_fulldiag])
@@ -439,11 +446,13 @@ class TestIsrAgainstSosFast:
         # give two different values for the same frequency
         # self.assertRaises(
         #         ValueError, evaluate_property_sos_fast,
-        #         mock_state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val, final_state=(f, final_state)
+        #         mock_state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val,
+        #         final_state=(f, final_state)
         # )
         # self.assertRaises(
         #         ValueError, evaluate_property_isr,
-        #         state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val, final_state=(f, final_state)
+        #         state, rixs_expr, [n], [(w, 0.05), (w, 0.03)], gamma_val,
+        #         final_state=(f, final_state)
         # )
 
     def test_tpa_resonant(self, case):

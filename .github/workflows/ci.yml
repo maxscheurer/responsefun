@@ -58,6 +58,7 @@ jobs:
         run: |
           conda info
           conda list
-      - run: |
+      - name: Run ruff and isort
+        run: |
           ruff responsefun
-          isort -c responsefun
+          isort -rc responsefun
