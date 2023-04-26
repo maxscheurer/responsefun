@@ -35,4 +35,4 @@ jobs:
           pip install -e ."[test]"
       - name: Run tests
         run: |
-          pytest responsefun -v --cov responsefun
+          pytest responsefun -v
