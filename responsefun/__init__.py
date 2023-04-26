@@ -1,14 +1,4 @@
-"""
-ResponseFun
-Fun with Response Functions
-"""
+"""ResponseFun Fun with Response Functions."""
+from ._version import __version__
 
-# Add imports here
-from responsefun import *
-
-# Handle versioneer
-from ._version import get_versions
-versions = get_versions()
-__version__ = versions['version']
-__git_revision__ = versions['full-revisionid']
-del get_versions, versions
+__all__ = ["__version__"]

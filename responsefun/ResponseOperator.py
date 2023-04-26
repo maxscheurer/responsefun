@@ -1,21 +1,20 @@
-from sympy import Symbol
 import sympy.physics.quantum.operator as qmoperator
-from responsefun.AdccProperties import available_operators
+from sympy import Symbol
 
+from responsefun.AdccProperties import available_operators
 
 for op_type, tup in available_operators.items():
     if tup[1] not in [0, 1, 2]:
         raise ValueError(
-                f"An unknown symmetry was specified for the {op_type} operator. "
-                "Only the following symmetries are allowed:\n"
-                "0: no symmetry assumed, 1: hermitian, 2: anti-hermitian"
+            f"An unknown symmetry was specified for the {op_type} operator. "
+            "Only the following symmetries are allowed:\n"
+            "0: no symmetry assumed, 1: hermitian, 2: anti-hermitian"
         )
 
 
 class ResponseOperator(qmoperator.Operator):
-    """
-    Base class for (state-to-state) modified transition moments and response vectors.
-    """
+    """Base class for (state-to-state) modified transition moments and response vectors."""
+
     def __init__(self, comp):
         """
         Parameters
@@ -50,7 +49,8 @@ class MTM(ResponseOperator):
         self._dim = available_operators[self._op_type][2]
         if len(self._comp) != self._dim:
             raise ValueError(
-                    f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
+                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                "components were specified."
             )
 
     @property
@@ -90,7 +90,8 @@ class S2S_MTM(ResponseOperator):
         self._dim = available_operators[self._op_type][2]
         if len(self._comp) != self._dim:
             raise ValueError(
-                    f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
+                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                "components were specified."
             )
 
     @property
@@ -160,7 +161,8 @@ class OneParticleOperator(ResponseOperator):
         self._dim = available_operators[self._op_type][2]
         if len(self._comp) != self._dim:
             raise ValueError(
-                    f"The operator is {self._dim}-dimensional, but {len(self._comp)} components were specified."
+                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                "components were specified."
             )
 
     @property
@@ -192,7 +194,9 @@ class Moment(Symbol):
         assert isinstance(from_state, Symbol)
         assert isinstance(to_state, Symbol)
         assert op_type in available_operators
-        name = "{}_{}^{}".format(available_operators[op_type][0], comp, str(from_state)+str(to_state))
+        name = "{}_{}^{}".format(
+            available_operators[op_type][0], comp, str(from_state) + str(to_state)
+        )
         obj = Symbol.__new__(self, name, **assumptions)
         obj._comp = comp
         obj._from_state = from_state
@@ -202,7 +206,8 @@ class Moment(Symbol):
         obj._dim = available_operators[op_type][2]
         if len(comp) != obj._dim:
             raise ValueError(
-                    f"The operator is {obj._dim}-dimensional, but {len(comp)} components were specified."
+                f"The operator is {obj._dim}-dimensional, but {len(comp)} "
+                "components were specified."
             )
         return obj
 

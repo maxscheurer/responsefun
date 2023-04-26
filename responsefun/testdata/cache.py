@@ -1,9 +1,8 @@
 # taken from respondo
 
 import os
-import numpy as np
-import zarr
 
+from responsefun.testdata.mock import MockExcitedStates
 
 cases = {
     # "h2o_sto3g_adc1": 10,
@@ -15,26 +14,16 @@ cases = {
 }
 
 
-class MockExcitedStates:
-    def __init__(self, zr):
-        self.zr = zr
-        exci = self.zr.excitation
-        for k in exci.attrs:
-            setattr(self, k, exci.attrs[k])
-        for k in exci:
-            setattr(self, k,
-                    np.asarray(exci[k]))
-        self.ground_state = self.zr.ground_state
-
-
 def read_full_diagonalization():
+    import zarr
+
     ret = {}
     for case in cases:
         thisdir = os.path.dirname(__file__)
         zarr_file = os.path.join(thisdir, f"{case}.zarr")
         if not os.path.isdir(zarr_file):
             continue
-        z = zarr.open(zarr_file, mode='r')
+        z = zarr.open(zarr_file, mode="r")
         ret[case] = MockExcitedStates(z)
     return ret
 
