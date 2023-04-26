@@ -35,4 +35,4 @@ jobs:
           pip install ."[test]"
       - name: Run tests
         run: |
-          pytest --pyargs responsefun -k "smoke" -v -s
+          pytest --pyargs responsefun -v -s
