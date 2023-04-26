@@ -1,0 +1,8 @@
+name: ci-env
+channels:
+  - conda-forge
+dependencies:
+  - adcc >=0.15.4
+  - respondo >=0.4.0
+  - pip:
+    - pyscf
