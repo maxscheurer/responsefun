@@ -1,13 +1,12 @@
 # taken from respondo
 
 import adcc
+import numpy as np
+import zarr
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.OneParticleOperator import product_trace
-from static_data import xyz
 from cache import cases
-
-import zarr
-import numpy as np
+from static_data import xyz
 from tqdm import tqdm
 
 from responsefun.AdccProperties import transition_moments
@@ -18,14 +17,14 @@ def main():
         n_singlets = cases[case]
         molecule, basis, method = case.split("_")
         scfres = adcc.backends.run_hf(
-            "pyscf", xyz=xyz[molecule],
+            "pyscf",
+            xyz=xyz[molecule],
             basis=basis,
             # conv_tol=conv_tol,
             # multiplicity=multiplicity,
             # conv_tol_grad=conv_tol_grad,
         )
-        state = adcc.run_adc(method=method, data_or_matrix=scfres,
-                             n_singlets=n_singlets)
+        state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets)
         dips = state.reference_state.operators.electric_dipole
         mdips = state.reference_state.operators.magnetic_dipole
 
@@ -48,9 +47,9 @@ def main():
                 s2s_tdms[i, j] = tdm_fn
                 s2s_tdms_mag[i, j] = tdm_mag
 
-        z = zarr.open(f'{case}.zarr', mode='w')
-        z.create_group('excitation')
-        exci = z['excitation']
+        z = zarr.open(f"{case}.zarr", mode="w")
+        z.create_group("excitation")
+        exci = z["excitation"]
         propkeys = state.excitation_property_keys
         propkeys.extend([k.name for k in state._excitation_energy_corrections])
         for key in propkeys:
@@ -65,20 +64,20 @@ def main():
             exci[key] = d
 
         # TODO: remove line once PR #158 of adcc has been merged
-        exci['transition_magnetic_dipole_moment'] = transition_moments(state, mdips)
-        exci['transition_dipole_moment_s2s'] = s2s_tdms
-        exci['transition_magnetic_moment_s2s'] = s2s_tdms_mag
-        exci.attrs['kind'] = state.kind
-        exci.attrs['method'] = state.method.name
-        exci.attrs['property_method'] = state.property_method.name
+        exci["transition_magnetic_dipole_moment"] = transition_moments(state, mdips)
+        exci["transition_dipole_moment_s2s"] = s2s_tdms
+        exci["transition_magnetic_moment_s2s"] = s2s_tdms_mag
+        exci.attrs["kind"] = state.kind
+        exci.attrs["method"] = state.method.name
+        exci.attrs["property_method"] = state.property_method.name
         mp = state.ground_state
         hf = state.reference_state
-        z['ground_state/dipole_moment/1'] = mp.dipole_moment(1)
-        z['ground_state/dipole_moment/2'] = mp.dipole_moment(2)
-        z['ground_state/energy/2'] = mp.energy(2)
-        z['ground_state/energy/3'] = mp.energy(3)
-        z['reference_state/energy_scf'] = hf.energy_scf
-        z['reference_state/dipole_moment'] = hf.dipole_moment
+        z["ground_state/dipole_moment/1"] = mp.dipole_moment(1)
+        z["ground_state/dipole_moment/2"] = mp.dipole_moment(2)
+        z["ground_state/energy/2"] = mp.energy(2)
+        z["ground_state/energy/3"] = mp.energy(3)
+        z["reference_state/energy_scf"] = hf.energy_scf
+        z["reference_state/dipole_moment"] = hf.dipole_moment
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 # taken from respondo
 
 import os
-from responsefun.testdata.mock import MockExcitedStates
 
+from responsefun.testdata.mock import MockExcitedStates
 
 cases = {
     # "h2o_sto3g_adc1": 10,
@@ -16,13 +16,14 @@ cases = {
 
 def read_full_diagonalization():
     import zarr
+
     ret = {}
     for case in cases:
         thisdir = os.path.dirname(__file__)
         zarr_file = os.path.join(thisdir, f"{case}.zarr")
         if not os.path.isdir(zarr_file):
             continue
-        z = zarr.open(zarr_file, mode='r')
+        z = zarr.open(zarr_file, mode="r")
         ret[case] = MockExcitedStates(z)
     return ret
 
