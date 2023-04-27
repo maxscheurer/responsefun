@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "versioningit~=2.0"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 # Self-descriptive entries which should always be present
@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "responsefun"
 description = ""
-dynamic = ["version"]
+version = "0.0.1"
 readme = "README.md"
 authors = [
     { name = "Antonia Papapostolou, Maximilian Scheurer" }
@@ -73,24 +73,6 @@ where = ["."]
 responsefun = [
     "py.typed"
 ]
-
-[tool.versioningit]
-default-version = "1+unknown"
-
-[tool.versioningit.format]
-distance = "{base_version}+{distance}.{vcs}{rev}"
-dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
-distance-dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
-
-[tool.versioningit.vcs]
-# The method key:
-method = "git"  # <- The method name
-# Parameters to pass to the method:
-match = ["*"]
-default-tag = "1.0.0"
-
-[tool.versioningit.write]
-file = "responsefun/_version.py"
 
 [tool.isort]
 profile = "black"
