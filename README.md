@@ -1,15 +1,20 @@
 ResponseFun
 ==============================
-[//]: # (Badges)
-[![Travis Build Status](https://travis-ci.com/maxscheurer/ResponseFun.png)](https://travis-ci.com/maxscheurer/ResponseFun)
 
-[comment]: [![codecov](https://codecov.io/gh/maxscheurer/ResponseFun/branch/master/graph/badge.svg)](https://codecov.io/gh/maxscheurer/ResponseFun/branch/master)
+Fun with Response Functions in the Algebraic Diagrammatic Construction Framework.
 
-Fun with Response Functions
+### Development
+
+A suitable `conda` environment for development can be created from the `ci_env.yml` file.
+
+Tests can be run with `pytest responsefun`, or `pytest --pyargs responsefun` if the package is installed.
+To exclude the slowest test, run `pytest -k "not slow" responsefun`.
+
+Code style is enforced through `black` (formatting), `isort` (sorting import statements), and `ruff` (linting).
 
 ### Copyright
 
-Copyright (c) 2019, Maximilian Scheurer
+Copyright (c) 2023, The `responsefun` Developers
 
 
 #### Acknowledgements

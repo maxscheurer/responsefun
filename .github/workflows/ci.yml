@@ -1,0 +1,64 @@
+name: CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    name: Python ${{ matrix.version }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      matrix:
+        include:
+          - {version: '3.9', os: ubuntu-latest}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+            auto-update-conda: true
+            environment-file: ci_env.yml
+            activate-environment: ci-env
+            miniforge-variant: Mambaforge
+            use-mamba: true
+            miniforge-version: latest
+            python-version: ${{ matrix.version }}
+      - name: Conda Info
+        run: |
+          conda info
+          conda list
+      - name: Install package
+        run: |
+          pip install ."[test]"
+      - name: Run tests
+        run: |
+          pytest --pyargs responsefun -v -s
+
+  formatting:
+    name: Code style
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+            auto-update-conda: true
+            environment-file: ci_env.yml
+            activate-environment: ci-env
+            miniforge-variant: Mambaforge
+            use-mamba: true
+            miniforge-version: latest
+            python-version: 3.9
+      - name: Conda Info
+        run: |
+          conda info
+          conda list
+      - name: Run ruff and isort
+        run: |
+          ruff responsefun
+          isort -rc responsefun

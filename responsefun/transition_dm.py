@@ -1,17 +1,16 @@
 # taken from PR #158 of adcc as long as it has not been merged yet
 
+import warnings
 from math import sqrt
 
 from adcc import block as b
-from adcc.LazyMp import LazyMp
+from adcc.adc_pp.util import check_doubles_amplitudes, check_singles_amplitudes
 from adcc.AdcMethod import AdcMethod
+from adcc.AmplitudeVector import AmplitudeVector
 from adcc.functions import einsum
 from adcc.Intermediates import Intermediates
-from adcc.AmplitudeVector import AmplitudeVector
+from adcc.LazyMp import LazyMp
 from adcc.OneParticleOperator import OneParticleOperator
-
-from adcc.adc_pp.util import check_doubles_amplitudes, check_singles_amplitudes
-import warnings
 
 
 def tdm_adc0(mp, amplitude, intermediates):
@@ -44,9 +43,8 @@ def tdm_cvs_adc2(mp, amplitude, intermediates):
     p0 = intermediates.cvs_p0
 
     # Compute CVS-ADC(2) tdm
-    dm.oc = (  # cvs_adc2_dp0_oc
-        - einsum("ja,Ia->jI", p0.ov, u1)
-        + (1 / sqrt(2)) * einsum("kIab,jkab->jI", u2, t2)
+    dm.oc = -einsum("ja,Ia->jI", p0.ov, u1) + (1 / sqrt(2)) * einsum(  # cvs_adc2_dp0_oc
+        "kIab,jkab->jI", u2, t2
     )
 
     # cvs_adc2_dp0_vc
@@ -65,17 +63,11 @@ def tdm_adc2(mp, amplitude, intermediates):
     p0 = mp.mp2_diffdm
 
     # Compute ADC(2) tdm
-    dm.oo = (  # adc2_dp0_oo
-        - einsum("ia,ja->ij", p0.ov, u1)
-        - einsum("ikab,jkab->ji", u2, t2)
-    )
-    dm.vv = (  # adc2_dp0_vv
-        + einsum("ia,ib->ab", u1, p0.ov)
-        + einsum("ijac,ijbc->ab", u2, t2)
-    )
+    dm.oo = -einsum("ia,ja->ij", p0.ov, u1) - einsum("ikab,jkab->ji", u2, t2)  # adc2_dp0_oo
+    dm.vv = +einsum("ia,ib->ab", u1, p0.ov) + einsum("ijac,ijbc->ab", u2, t2)  # adc2_dp0_vv
     dm.ov -= einsum("ijab,jb->ia", td2, u1)  # adc2_dp0_ov
     dm.vo += 0.5 * (  # adc2_dp0_vo
-        + einsum("ijab,jkbc,kc->ai", t2, t2, u1)
+        +einsum("ijab,jkbc,kc->ai", t2, t2, u1)
         - einsum("ab,ib->ai", p0.vv, u1)
         + einsum("ja,ij->ai", u1, p0.oo)
     )
@@ -95,9 +87,8 @@ DISPATCH = {
 
 
 def transition_dm(method, ground_state, amplitude, intermediates=None):
-    """
-    Compute the one-particle transition density matrix from ground to excited
-    state in the MO basis.
+    """Compute the one-particle transition density matrix from ground to excited state in the MO
+    basis.
 
     Parameters
     ----------
@@ -122,8 +113,7 @@ def transition_dm(method, ground_state, amplitude, intermediates=None):
         intermediates = Intermediates(ground_state)
 
     if method.name not in DISPATCH:
-        raise NotImplementedError("transition_dm is not implemented "
-                                  f"for {method.name}.")
+        raise NotImplementedError("transition_dm is not implemented " f"for {method.name}.")
     else:
         ret = DISPATCH[method.name](ground_state, amplitude, intermediates)
         return ret.evaluate()

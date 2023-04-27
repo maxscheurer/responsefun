@@ -16,21 +16,18 @@
 #  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
 #
 
-from adcc import AdcMethod
-from adcc import LazyMp
-from adcc import block as b
-from adcc.functions import einsum
-from adcc.AmplitudeVector import AmplitudeVector
-from respondo.cpp_algebra import ResponseVector as RV
 import warnings
+
+from adcc import AdcMethod, LazyMp
+from adcc import block as b
+from adcc.AmplitudeVector import AmplitudeVector
+from adcc.functions import einsum
+from respondo.cpp_algebra import ResponseVector as RV
 
 
 def bmvp_adc0(ground_state, dip, vec):
     assert isinstance(vec, AmplitudeVector)
-    ph = (
-            + 1.0 * einsum('ic,ac->ia', vec.ph, dip.vv)
-            - 1.0 * einsum('ka,ki->ia', vec.ph, dip.oo)
-    )
+    ph = +1.0 * einsum("ic,ac->ia", vec.ph, dip.vv) - 1.0 * einsum("ka,ki->ia", vec.ph, dip.oo)
     return AmplitudeVector(ph=ph)
 
 
@@ -44,82 +41,85 @@ def bmvp_adc2(ground_state, dip, vec):
     t2 = ground_state.t2(b.oovv)
 
     ph = (
-            # product of the ph diagonal block with the singles block of the vector
-            # zeroth order
-            + 1.0 * einsum('ic,ac->ia', vec.ph, dip.vv)
-            - 1.0 * einsum('ka,ki->ia', vec.ph, dip.oo)
-            # second order
-            # (2,1)
-            - 1.0 * einsum('ic,jc,aj->ia', vec.ph, p0.ov, dip_vo)
-            - 1.0 * einsum('ka,kb,bi->ia', vec.ph, p0.ov, dip_vo)
-            - 1.0 * einsum('ic,ja,jc->ia', vec.ph, p0.ov, dip.ov)  # h.c.
-            - 1.0 * einsum('ka,ib,kb->ia', vec.ph, p0.ov, dip.ov)  # h.c.
-            # (2,2)
-            - 0.25 * einsum('ic,mnef,mnaf,ec->ia', vec.ph, t2, t2, dip.vv)
-            - 0.25 * einsum('ic,mnef,mncf,ae->ia', vec.ph, t2, t2, dip.vv)  # h.c.
-            # (2,3)
-            - 0.5 * einsum('ic,mnce,mnaf,ef->ia', vec.ph, t2, t2, dip.vv)
-            + 1.0 * einsum('ic,mncf,jnaf,jm->ia', vec.ph, t2, t2, dip.oo)
-            # (2,4)
-            + 0.25 * einsum('ka,mnef,inef,km->ia', vec.ph, t2, t2, dip.oo)
-            + 0.25 * einsum('ka,mnef,knef,mi->ia', vec.ph, t2, t2, dip.oo)  # h.c.
-            # (2,5)
-            - 1.0 * einsum('ka,knef,indf,ed->ia', vec.ph, t2, t2, dip.vv)
-            + 0.5 * einsum('ka,knef,imef,mn->ia', vec.ph, t2, t2, dip.oo)
-            # (2,6)
-            + 0.5 * einsum('kc,knef,inaf,ec->ia', vec.ph, t2, t2, dip.vv)
-            - 0.5 * einsum('kc,mncf,inaf,km->ia', vec.ph, t2, t2, dip.oo)
-            + 0.5 * einsum('kc,inef,kncf,ae->ia', vec.ph, t2, t2, dip.vv)  # h.c.
-            - 0.5 * einsum('kc,mnaf,kncf,mi->ia', vec.ph, t2, t2, dip.oo)  # h.c.
-            # (2,7)
-            - 1.0 * einsum('kc,kncf,imaf,mn->ia', vec.ph, t2, t2, dip.oo)
-            + 1.0 * einsum('kc,knce,inaf,ef->ia', vec.ph, t2, t2, dip.vv)
-
-            # product of the ph-2p2h coupling block with the doubles block of the vector
-            + 0.5 * (
-                - 2.0 * einsum('ilad,ld->ia', vec.pphh, dip.ov)
-                + 2.0 * einsum('ilad,lndf,fn->ia', vec.pphh, t2, dip_vo)
-                + 2.0 * einsum('ilca,lc->ia', vec.pphh, dip.ov)
-                - 2.0 * einsum('ilca,lncf,fn->ia', vec.pphh, t2, dip_vo)
-                - 2.0 * einsum('klad,kled,ei->ia', vec.pphh, t2, dip_vo)
-                - 2.0 * einsum('ilcd,nlcd,an->ia', vec.pphh, t2, dip_vo)
-            )
+        # product of the ph diagonal block with the singles block of the vector
+        # zeroth order
+        +1.0 * einsum("ic,ac->ia", vec.ph, dip.vv)
+        - 1.0 * einsum("ka,ki->ia", vec.ph, dip.oo)
+        # second order
+        # (2,1)
+        - 1.0 * einsum("ic,jc,aj->ia", vec.ph, p0.ov, dip_vo)
+        - 1.0 * einsum("ka,kb,bi->ia", vec.ph, p0.ov, dip_vo)
+        - 1.0 * einsum("ic,ja,jc->ia", vec.ph, p0.ov, dip.ov)  # h.c.
+        - 1.0 * einsum("ka,ib,kb->ia", vec.ph, p0.ov, dip.ov)  # h.c.
+        # (2,2)
+        - 0.25 * einsum("ic,mnef,mnaf,ec->ia", vec.ph, t2, t2, dip.vv)
+        - 0.25 * einsum("ic,mnef,mncf,ae->ia", vec.ph, t2, t2, dip.vv)  # h.c.
+        # (2,3)
+        - 0.5 * einsum("ic,mnce,mnaf,ef->ia", vec.ph, t2, t2, dip.vv)
+        + 1.0 * einsum("ic,mncf,jnaf,jm->ia", vec.ph, t2, t2, dip.oo)
+        # (2,4)
+        + 0.25 * einsum("ka,mnef,inef,km->ia", vec.ph, t2, t2, dip.oo)
+        + 0.25 * einsum("ka,mnef,knef,mi->ia", vec.ph, t2, t2, dip.oo)  # h.c.
+        # (2,5)
+        - 1.0 * einsum("ka,knef,indf,ed->ia", vec.ph, t2, t2, dip.vv)
+        + 0.5 * einsum("ka,knef,imef,mn->ia", vec.ph, t2, t2, dip.oo)
+        # (2,6)
+        + 0.5 * einsum("kc,knef,inaf,ec->ia", vec.ph, t2, t2, dip.vv)
+        - 0.5 * einsum("kc,mncf,inaf,km->ia", vec.ph, t2, t2, dip.oo)
+        + 0.5 * einsum("kc,inef,kncf,ae->ia", vec.ph, t2, t2, dip.vv)  # h.c.
+        - 0.5 * einsum("kc,mnaf,kncf,mi->ia", vec.ph, t2, t2, dip.oo)  # h.c.
+        # (2,7)
+        - 1.0 * einsum("kc,kncf,imaf,mn->ia", vec.ph, t2, t2, dip.oo)
+        + 1.0 * einsum("kc,knce,inaf,ef->ia", vec.ph, t2, t2, dip.vv)
+        # product of the ph-2p2h coupling block with the doubles block of the vector
+        + 0.5
+        * (
+            -2.0 * einsum("ilad,ld->ia", vec.pphh, dip.ov)
+            + 2.0 * einsum("ilad,lndf,fn->ia", vec.pphh, t2, dip_vo)
+            + 2.0 * einsum("ilca,lc->ia", vec.pphh, dip.ov)
+            - 2.0 * einsum("ilca,lncf,fn->ia", vec.pphh, t2, dip_vo)
+            - 2.0 * einsum("klad,kled,ei->ia", vec.pphh, t2, dip_vo)
+            - 2.0 * einsum("ilcd,nlcd,an->ia", vec.pphh, t2, dip_vo)
+        )
     )
 
     pphh = (
-            # product of the 2p2h-ph coupling block with the singles block of the vector
-            + 0.5 * (
-                (
-                    - 1.0 * einsum('ia,bj->ijab', vec.ph, dip_vo)
-                    + 1.0 * einsum('ia,jnbf,nf->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('ja,bi->ijab', vec.ph, dip_vo)
-                    - 1.0 * einsum('ja,inbf,nf->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('ib,aj->ijab', vec.ph, dip_vo)
-                    - 1.0 * einsum('ib,jnaf,nf->ijab', vec.ph, t2, dip.ov)
-                    - 1.0 * einsum('jb,ai->ijab', vec.ph, dip_vo)
-                    + 1.0 * einsum('jb,inaf,nf->ijab', vec.ph, t2, dip.ov)
-                ).antisymmetrise(0, 1).antisymmetrise(2, 3)
-                + (
-                    - 1.0 * einsum('ka,ijeb,ke->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('kb,ijea,ke->ijab', vec.ph, t2, dip.ov)
-                ).antisymmetrise(2, 3)
-                + (
-                    - 1.0 * einsum('ic,njab,nc->ijab', vec.ph, t2, dip.ov)
-                    + 1.0 * einsum('jc,niab,nc->ijab', vec.ph, t2, dip.ov)
-                ).antisymmetrise(0, 1)
+        # product of the 2p2h-ph coupling block with the singles block of the vector
+        +0.5
+        * (
+            (
+                -1.0 * einsum("ia,bj->ijab", vec.ph, dip_vo)
+                + 1.0 * einsum("ia,jnbf,nf->ijab", vec.ph, t2, dip.ov)
+                + 1.0 * einsum("ja,bi->ijab", vec.ph, dip_vo)
+                - 1.0 * einsum("ja,inbf,nf->ijab", vec.ph, t2, dip.ov)
+                + 1.0 * einsum("ib,aj->ijab", vec.ph, dip_vo)
+                - 1.0 * einsum("ib,jnaf,nf->ijab", vec.ph, t2, dip.ov)
+                - 1.0 * einsum("jb,ai->ijab", vec.ph, dip_vo)
+                + 1.0 * einsum("jb,inaf,nf->ijab", vec.ph, t2, dip.ov)
             )
-
-            # product of the 2p2h diagonal block with the doubles block of the vector
-            + 0.5 * (
-                (
-                    + 2.0 * einsum('ijcb,ac->ijab', vec.pphh, dip.vv)
-                    - 2.0 * einsum('ijca,bc->ijab', vec.pphh, dip.vv)
-                ).antisymmetrise(2, 3)
-                + (
-                    - 2.0 * einsum('kjab,ki->ijab', vec.pphh, dip.oo)
-                    + 2.0 * einsum('kiab,kj->ijab', vec.pphh, dip.oo)
-                ).antisymmetrise(0, 1)
-            )
+            .antisymmetrise(0, 1)
+            .antisymmetrise(2, 3)
+            + (
+                -1.0 * einsum("ka,ijeb,ke->ijab", vec.ph, t2, dip.ov)
+                + 1.0 * einsum("kb,ijea,ke->ijab", vec.ph, t2, dip.ov)
+            ).antisymmetrise(2, 3)
+            + (
+                -1.0 * einsum("ic,njab,nc->ijab", vec.ph, t2, dip.ov)
+                + 1.0 * einsum("jc,niab,nc->ijab", vec.ph, t2, dip.ov)
+            ).antisymmetrise(0, 1)
+        )
+        # product of the 2p2h diagonal block with the doubles block of the vector
+        + 0.5
+        * (
+            (
+                +2.0 * einsum("ijcb,ac->ijab", vec.pphh, dip.vv)
+                - 2.0 * einsum("ijca,bc->ijab", vec.pphh, dip.vv)
+            ).antisymmetrise(2, 3)
+            + (
+                -2.0 * einsum("kjab,ki->ijab", vec.pphh, dip.oo)
+                + 2.0 * einsum("kiab,kj->ijab", vec.pphh, dip.oo)
+            ).antisymmetrise(0, 1)
+        )
     )
     return AmplitudeVector(ph=ph, pphh=pphh)
 
@@ -133,12 +133,11 @@ DISPATCH = {
 
 
 def bmatrix_vector_product(method, ground_state, dips, vec):
-    """Compute the matrix-vector product of an ISR one-particle operator
-    for the provided ADC method.
-    The product was derived using the original equations from the work of
-    Schirmer and Trofimov (J. Schirmer and A. B. Trofimov, “Intermediate state
-    representation approach to physical properties of electronically excited
-    molecules,” J. Chem. Phys. 120, 11449–11464 (2004).).
+    """Compute the matrix-vector product of an ISR one-particle operator for the provided ADC
+    method. The product was derived using the original equations from the work of Schirmer and
+    Trofimov (J. Schirmer and A. B. Trofimov, “Intermediate state representation approach to
+    physical properties of electronically excited molecules,” J. Chem. Phys. 120, 11449–11464
+    (2004).).
 
     Parameters
     ----------
@@ -154,8 +153,10 @@ def bmatrix_vector_product(method, ground_state, dips, vec):
     -------
     adcc.AmplitudeVector or list of adcc.AmplitudeVector
     """
-    warnings.warn("This function is deprecated since its functionality has "
-                  "been moved to the IsrMatrix class of adcc.")
+    warnings.warn(
+        "This function is deprecated since its functionality has "
+        "been moved to the IsrMatrix class of adcc."
+    )
 
     if not isinstance(method, AdcMethod):
         method = AdcMethod(method)

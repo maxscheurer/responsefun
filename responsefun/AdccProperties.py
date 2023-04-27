@@ -16,16 +16,17 @@
 #  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
 #
 
-import numpy as np
+import warnings
 from itertools import product
+
+import numpy as np
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.OneParticleOperator import product_trace
-from responsefun.testdata.cache import MockExcitedStates
-from tqdm import tqdm
 from cached_property import cached_property
-from responsefun.transition_dm import transition_dm
-import warnings
+from tqdm import tqdm
 
+from responsefun.testdata.mock import MockExcitedStates
+from responsefun.transition_dm import transition_dm
 
 # dict of operators available in responsefun so far
 # the first argument specifies the symbol that is to be used for printing
@@ -120,7 +121,6 @@ def ground_state_moments(state, op_type):
     else:
         raise NotImplementedError("Only dipole moments for level 1, 2, and 3"
                                       " are implemented.")
-
 def transition_moments(state, operator):
     if state.property_method.level == 0:
         warnings.warn("ADC(0) transition moments are known to be faulty in some cases.")
@@ -130,9 +130,7 @@ def transition_moments(state, operator):
     components = list(product(*iterables))
     moments = np.zeros((state.size, *op_shape))
     for i, ee in enumerate(tqdm(state.excitations)):
-        tdm = transition_dm(
-            state.property_method, state.ground_state, ee.excitation_vector
-        )
+        tdm = transition_dm(state.property_method, state.ground_state, ee.excitation_vector)
         tms = np.zeros(op_shape)
         for c in components:
             # list indices must be integers (1-D operators)
@@ -180,7 +178,7 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
 def gs_magnetic_dipole_moment(ground_state, level=2):
     magdips = ground_state.reference_state.operators.magnetic_dipole
     ref_dipmom = np.array(
-            [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
+        [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
     )
     if level == 1:
         return ref_dipmom
@@ -189,20 +187,15 @@ def gs_magnetic_dipole_moment(ground_state, level=2):
                 [product_trace(dip, ground_state.mp2_diffdm) for dip in magdips]
         )
         return ref_dipmom + mp2corr
-    elif level == 3:
-        mp3corr = - 1.0 * np.array(
-                [product_trace(dip, ground_state.mp3_diffdm) for dip in magdips]
-        )
-        return ref_dipmom + mp3corr
     else:
-        raise NotImplementedError("Only magnetic dipole moments for level 1, 2 and 3"
-                                  " are implemented.")
+        raise NotImplementedError(
+            "Only magnetic dipole moments for level 1 and 2" " are implemented."
+        )
 
 
 class AdccProperties:
-    """
-    Class encompassing all properties that can be obtained from adcc for a given operator.
-    """
+    """Class encompassing all properties that can be obtained from adcc for a given operator."""
+
     def __init__(self, state, op_type):
         """
         Parameters
@@ -216,7 +209,7 @@ class AdccProperties:
         """
         if op_type not in available_operators:
             raise NotImplementedError(
-                    f"Only the following operators are available so far: {available_operators}."
+                f"Only the following operators are available so far: {available_operators}."
             )
         self._state = state
         self._state_size = len(state.excitation_energy_uncorrected)

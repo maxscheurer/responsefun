@@ -1,8 +1,7 @@
 from sympy import symbols
 from sympy.physics.quantum.operator import Operator
-from responsefun.ResponseOperator import (
-    MTM, S2S_MTM, ResponseVector, OneParticleOperator, TransitionFrequency
-)
+
+from responsefun.ResponseOperator import OneParticleOperator, TransitionFrequency
 
 # ground state and excited state f
 O, f = symbols("O, f", real=True)

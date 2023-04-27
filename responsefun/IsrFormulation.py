@@ -16,23 +16,42 @@
 #  along with responsefun. If not, see <http:www.gnu.org/licenses/>.
 #
 
-from sympy.physics.quantum.state import Bra, Ket
-from sympy import Symbol, Mul, Add, Pow, adjoint, latex, simplify, fraction, zoo, Integer, Float, Abs
+from sympy import (
+    Abs,
+    Add,
+    Float,
+    Integer,
+    Mul,
+    Pow,
+    Symbol,
+    adjoint,
+    fraction,
+    latex,
+    simplify,
+    zoo,
+)
 from sympy.physics.quantum.operator import Operator
+from sympy.physics.quantum.state import Bra, Ket
 
-from responsefun.symbols_and_labels import O, M
-from responsefun.ResponseOperator import MTM, S2S_MTM, OneParticleOperator, Moment, TransitionFrequency
+from responsefun.ResponseOperator import (
+    MTM,
+    S2S_MTM,
+    Moment,
+    OneParticleOperator,
+    TransitionFrequency,
+)
 from responsefun.SumOverStates import SumOverStates
+from responsefun.symbols_and_labels import M, O
 
 
 def extract_bra_op_ket(expr):
-    """Return list of bra*op*ket sequences in a SymPy term.
-    """
+    """Return list of bra*op*ket sequences in a SymPy term."""
     assert type(expr) == Mul
     bok = [Bra, OneParticleOperator, Ket]
     expr_types = [type(term) for term in expr.args]
-    ret = [list(expr.args[i:i+3]) for i, k in enumerate(expr_types)
-           if expr_types[i:i+3] == bok]
+    ret = [
+        list(expr.args[i : i + 3]) for i, k in enumerate(expr_types) if expr_types[i : i + 3] == bok
+    ]
     return ret
 
 
@@ -63,20 +82,20 @@ def insert_single_moments(expr, summation_indices):
         else:
             continue
         mu_symbol = sign * Moment(op.comp, from_state, to_state, op.op_type)
-        subs_list.append((bok[0]*bok[1]*bok[2], mu_symbol))
+        subs_list.append((bok[0] * bok[1] * bok[2], mu_symbol))
     return expr.subs(subs_list)
 
 
 def insert_matrix(expr, matrix=Operator("M")):
-    """Insert inverse shifted ADC matrix expression.
-    """
+    """Insert inverse shifted ADC matrix expression."""
     assert type(expr) == Mul
     kb = [Ket, Bra]
     expr_types = [type(term) for term in expr.args]
     ketbra_match = {
-        expr.args[i].label[0]: expr.args[i:i+2] for i, k in enumerate(expr_types)
-        if expr_types[i:i+2] == kb  # find Ket-Bra sequence
-        and expr.args[i].label[0] == expr.args[i+1].label[0]  # make sure they have the same state
+        expr.args[i].label[0]: expr.args[i : i + 2]
+        for i, k in enumerate(expr_types)
+        if expr_types[i : i + 2] == kb  # find Ket-Bra sequence
+        and expr.args[i].label[0] == expr.args[i + 1].label[0]  # make sure they have the same state
     }
     denominators = []
     for term in expr.args:
@@ -122,7 +141,7 @@ def insert_matrix(expr, matrix=Operator("M")):
         denom_dict = {}
         for tup in denominator_matches[k]:
             freq_argument, denom_remove = tup
-            bra_subs *= (matrix + freq_argument)**-1
+            bra_subs *= (matrix + freq_argument) ** -1
             denom_dict[denom_remove] = 1
         assert bra_subs != 1
         assert len(denom_dict) > 0
@@ -135,8 +154,8 @@ def insert_matrix(expr, matrix=Operator("M")):
 
 
 def insert_isr_transition_moments(expr, operators):
-    """Insert vector F of modified transition moments and matrix B of modified excited-states transition moments.
-    """
+    """Insert vector F of modified transition moments and matrix B of modified excited-states
+    transition moments."""
     assert type(expr) == Mul
     assert isinstance(operators, list)
     ret = expr.copy()
@@ -154,19 +173,18 @@ def insert_isr_transition_moments(expr, operators):
 
 
 def to_isr_single_term(expr, operators=None):
-    """Convert a single SOS term to its ADC/ISR formulation by inserting the corresponding ISR quantities.
-    """
+    """Convert a single SOS term to its ADC/ISR formulation by inserting the corresponding ISR
+    quantities."""
     assert type(expr) == Mul
     if not operators:
-        operators = [
-            op for op in expr.args if isinstance(op, OneParticleOperator)
-        ]
+        operators = [op for op in expr.args if isinstance(op, OneParticleOperator)]
     i1 = insert_isr_transition_moments(expr, operators)
     return insert_matrix(i1, M)
 
 
 def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
-    """Determine the additional terms that arise when converting a single SOS term to its ADC/ISR formulation.
+    """Determine the additional terms that arise when converting a single SOS term to its ADC/ISR
+    formulation.
 
     Parameters
     ----------
@@ -178,7 +196,8 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
-        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        It is important to note that the ground state is represented by the SymPy symbol O,
+        while the integer 0
         represents the first excited state.
 
     Returns
@@ -199,7 +218,9 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
             bra, ket = bok[0].label[0], bok[2].label[0]
             if bra == index and (bra, ket) not in special_cases and (ket, bra) not in special_cases:
                 special_cases.append((bra, ket))
-            elif ket == index and (ket, bra) not in special_cases and (bra, ket) not in special_cases:
+            elif (
+                ket == index and (ket, bra) not in special_cases and (bra, ket) not in special_cases
+            ):
                 special_cases.append((ket, bra))
     # remove excluded cases
     for state in excluded_states:
@@ -211,11 +232,13 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
         if case == O:
             term = expr.subs([tup, (TransitionFrequency(index, real=True), 0)])
         else:
-            term = expr.subs([tup, (TransitionFrequency(index, real=True), TransitionFrequency(case, real=True))])
+            term = expr.subs(
+                [tup, (TransitionFrequency(index, real=True), TransitionFrequency(case, real=True))]
+            )
             boks = extract_bra_op_ket(term)
             for bok in boks:
                 if bok[0].label[0] == case and bok[2].label[0] == case:
-                    term = term.subs(bok[0]*bok[1]*bok[2], Bra(O)*bok[1]*Ket(O))
+                    term = term.subs(bok[0] * bok[1] * bok[2], Bra(O) * bok[1] * Ket(O))
         if term == zoo:
             raise ZeroDivisionError("Extra terms cannot be determined for static SOS expressions.")
         extra_terms[(tup,)] = term
@@ -240,8 +263,10 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
 
     correlation_btw_freq: list of tuples, optional
         List that indicates the correlation between the frequencies;
-        the tuple entries are either instances of <class 'sympy.core.add.Add'> or <class 'sympy.core.symbol.Symbol'>;
-        the first entry is the frequency that can be replaced by the second entry, e.g., (w_o, w_1+w_2).
+        the tuple entries are either instances of <class 'sympy.core.add.Add'> or
+        <class 'sympy.core.symbol.Symbol'>;
+        the first entry is the frequency that can be replaced by the second entry,
+        e.g., (w_o, w_1+w_2).
 
     Returns
     ----------
@@ -272,8 +297,14 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
 
 
 def compute_extra_terms(
-        expr, summation_indices, excluded_states=None, correlation_btw_freq=None, print_extra_term_dict=False):
-    """Determine the additional terms that arise when converting an SOS expression to its ADC/ISR formulation.
+    expr,
+    summation_indices,
+    excluded_states=None,
+    correlation_btw_freq=None,
+    print_extra_term_dict=False,
+):
+    """Determine the additional terms that arise when converting an SOS expression to its ADC/ISR
+    formulation.
 
     Parameters
     ----------
@@ -285,14 +316,16 @@ def compute_extra_terms(
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
-        It is important to note that the ground state is represented by the SymPy symbol O, while the integer 0
+        It is important to note that the ground state is represented by the SymPy symbol O,
+        while the integer 0
         represents the first excited state.
 
     correlation_btw_freq: list of tuples, optional
             List that indicates the correlation between the frequencies;
             the tuple entries are either instances of <class 'sympy.core.add.Add'>
             or <class 'sympy.core.symbol.Symbol'>;
-            the first entry is the frequency that can be replaced by the second entry, e.g., (w_o, w_1+w_2).
+            the first entry is the frequency that can be replaced by the second entry, e.g.,
+            (w_o, w_1+w_2).
 
     print_extra_term_dict: bool, optional
         Print dictionary that explains where which additional term comes from,
@@ -330,23 +363,22 @@ def compute_extra_terms(
                 new_indices = summation_indices.copy()
                 for tup in case:
                     new_indices.remove(tup[0])
-                subs_list_1 = list(zip(new_indices, summation_indices[:len(new_indices)]))
+                subs_list_1 = list(zip(new_indices, summation_indices[: len(new_indices)]))
                 freq_list = [
                     (TransitionFrequency(ni, real=True), TransitionFrequency(nsi, real=True))
                     for ni, nsi in subs_list_1
                 ]
                 subs_list_1 += freq_list
                 new_term_1 = term.subs(subs_list_1)
-        # convert single (transition) moments to instances of Moment
+            # convert single (transition) moments to instances of Moment
             new_term_2 = insert_single_moments(new_term_1, summation_indices)
             mod_extra_terms.append(new_term_2)
     return compute_remaining_terms(mod_extra_terms, correlation_btw_freq)
 
 
 class IsrFormulation:
-    """
-    Class representing an ADC/ISR formulation of a response function.
-    """
+    """Class representing an ADC/ISR formulation of a response function."""
+
     def __init__(self, sos, extra_terms=True, print_extra_term_dict=False):
         """
         Parameters
@@ -379,8 +411,11 @@ class IsrFormulation:
             if print_extra_term_dict:
                 print("Determining extra terms ...")
             computed_terms = compute_extra_terms(
-                sos.expr, sos.summation_indices, sos.excluded_states,
-                sos.correlation_btw_freq, print_extra_term_dict
+                sos.expr,
+                sos.summation_indices,
+                sos.excluded_states,
+                sos.correlation_btw_freq,
+                print_extra_term_dict,
             )
             self._extra_terms = 0
             if computed_terms == 0:
