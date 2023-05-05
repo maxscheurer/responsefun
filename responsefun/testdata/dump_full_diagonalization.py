@@ -9,8 +9,6 @@ from cache import cases
 from static_data import xyz
 from tqdm import tqdm
 
-from responsefun.AdccProperties import transition_moments
-
 
 def main():
     for case in cases:
