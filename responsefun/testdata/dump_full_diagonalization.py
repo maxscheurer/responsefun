@@ -9,8 +9,6 @@ from cache import cases
 from static_data import xyz
 from tqdm import tqdm
 
-from responsefun.AdccProperties import transition_moments
-
 
 def main():
     for case in cases:
@@ -63,8 +61,6 @@ def main():
                 continue
             exci[key] = d
 
-        # TODO: remove line once PR #158 of adcc has been merged
-        exci["transition_magnetic_dipole_moment"] = transition_moments(state, mdips)
         exci["transition_dipole_moment_s2s"] = s2s_tdms
         exci["transition_magnetic_moment_s2s"] = s2s_tdms_mag
         exci.attrs["kind"] = state.kind
