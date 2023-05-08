@@ -1,10 +1,8 @@
-import unittest
 import adcc
 import numpy as np
+import pytest
 from scipy.constants import physical_constants
 
-from responsefun.testdata.static_data import xyz
-from responsefun.testdata import cache
 from responsefun.symbols_and_labels import (
     O, n, m, p, k,
     op_a, op_b, op_c, op_d, op_e,
@@ -12,9 +10,13 @@ from responsefun.symbols_and_labels import (
     w_n, w_m, w_p, w_k, w, w_o, w_2, w_3,
 )
 from responsefun.SumOverStates import TransitionMoment
-from responsefun.evaluate_property import evaluate_property_isr, evaluate_property_sos, evaluate_property_sos_fast
-from adcc.Excitation import Excitation
-from adcc.misc import expand_test_templates, assert_allclose_signfix
+from responsefun.evaluate_property import (
+    evaluate_property_isr, 
+    evaluate_property_sos, 
+    evaluate_property_sos_fast
+)
+from responsefun.testdata.static_data import xyz
+from responsefun.testdata import cache
 
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
@@ -43,7 +45,7 @@ SOS_alpha_like = {
             + TransitionMoment(O, Q_cd, n) * TransitionMoment(n, Q_ab, O) / (w_n + w)
         )
 }
-alpha_list = [(c, ) for c in list(SOS_alpha_like.keys())]
+# alpha_list = [(c, ) for c in list(SOS_alpha_like.keys())]
 
 
 SOS_beta_like = {
@@ -73,7 +75,7 @@ SOS_beta_like = {
             / ((w_n - w_o) * (w_k - w_2))
         )
 }
-beta_list = [(c, ) for c in list(SOS_beta_like.keys())]
+# beta_list = [(c, ) for c in list(SOS_beta_like.keys())]
 
 
 SOS_gamma_like = {
@@ -96,12 +98,12 @@ SOS_gamma_like = {
             / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
         )
 }
-gamma_list = [(c, ) for c in list(SOS_gamma_like.keys())]
+# gamma_list = [(c, ) for c in list(SOS_gamma_like.keys())]
 
 
-@expand_test_templates(alpha_list)
-class TestAlphaLike(unittest.TestCase):
-    def template_h2o_sto3g_adc2(self, ops):
+@pytest.mark.parametrize("ops", SOS_alpha_like.keys())
+class TestAlphaLike:
+    def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
@@ -115,9 +117,9 @@ class TestAlphaLike(unittest.TestCase):
         np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-8)
 
 
-@expand_test_templates(beta_list)
-class TestBetaLike(unittest.TestCase):
-    def template_h2o_sto3g_adc2(self, ops):
+@pytest.mark.parametrize("ops", SOS_beta_like.keys()) 
+class TestBetaLike:
+    def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
@@ -131,10 +133,10 @@ class TestBetaLike(unittest.TestCase):
         beta_isr = evaluate_property_isr(state, expr, [n, k], omegas, extra_terms=False)
         np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-8)
 
-
-@expand_test_templates(gamma_list)
-class TestGammaLike(unittest.TestCase):
-    def template_h2o_sto3g_adc2(self, ops):
+@pytest.mark.slow
+@pytest.mark.parametrize("ops", SOS_gamma_like.keys()) 
+class TestGammaLike:
+    def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
