@@ -15,6 +15,8 @@ jobs:
       matrix:
         include:
           - {version: '3.9', os: ubuntu-latest}
+          - {version: '3.11', os: ubuntu-latest}
+          - {version: '3.10', os: macos-latest}
     steps:
       - uses: actions/checkout@v2
       - uses: conda-incubator/setup-miniconda@v2

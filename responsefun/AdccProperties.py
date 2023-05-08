@@ -21,12 +21,12 @@ from itertools import product
 
 import numpy as np
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
+from adcc.adc_pp.transition_dm import transition_dm
 from adcc.OneParticleOperator import product_trace
 from cached_property import cached_property
 from tqdm import tqdm
 
 from responsefun.testdata.mock import MockExcitedStates
-from responsefun.transition_dm import transition_dm
 
 # dict of operators available in responsefun so far
 # the first argument specifies the symbol that is to be used for printing

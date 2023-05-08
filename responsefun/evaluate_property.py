@@ -21,6 +21,8 @@ from itertools import combinations_with_replacement, permutations, product
 
 import numpy as np
 from adcc import AmplitudeVector
+from adcc.IsrMatrix import IsrMatrix
+from adcc.adc_pp.modified_transition_moments import modified_transition_moments
 from adcc.workflow import construct_adcmatrix
 from respondo.cpp_algebra import ResponseVector as RV
 from respondo.solve_response import (
@@ -34,13 +36,8 @@ from sympy.physics.quantum.state import Bra, Ket
 from tqdm import tqdm
 
 from responsefun.AdccProperties import AdccProperties, available_operators
-from responsefun.bmatrix_vector_product import (
-    bmatrix_vector_product,
-    bmatrix_vector_product_complex,
-)
 from responsefun.build_tree import build_tree
 from responsefun.IsrFormulation import IsrFormulation, compute_extra_terms
-from responsefun.modified_transition_moments import modified_transition_moments
 from responsefun.ResponseOperator import (
     MTM,
     S2S_MTM,
@@ -49,6 +46,7 @@ from responsefun.ResponseOperator import (
     ResponseVector,
     TransitionFrequency,
 )
+from responsefun.rvec_algebra import scalar_product, bmatrix_vector_product
 from responsefun.SumOverStates import SumOverStates
 from responsefun.symbols_and_labels import O, gamma
 
@@ -79,26 +77,6 @@ def replace_bra_op_ket(expr):
             key = to_state * a * from_state
             subs_dict[key] = Moment(a.comp, from_state.label[0], to_state.label[0], a.op_type)
     return expr.subs(subs_dict)
-
-
-def scalar_product(left_v, right_v):
-    """Evaluate the scalar product between two instances of ResponseVector and/or
-    AmplitudeVector."""
-    if isinstance(left_v, AmplitudeVector):
-        lv = RV(left_v)
-    else:
-        lv = left_v.copy()
-    if isinstance(right_v, AmplitudeVector):
-        rv = RV(right_v)
-    else:
-        rv = right_v.copy()
-    assert isinstance(lv, RV) and isinstance(rv, RV)
-    real = lv.real @ rv.real - lv.imag @ rv.imag
-    imag = lv.real @ rv.imag + lv.imag @ rv.real
-    if imag == 0:
-        return real
-    else:
-        return real + 1j * imag
 
 
 def sign_change(no, rvecs_dict, sign=1):
@@ -350,14 +328,15 @@ def evaluate_property_isr(
                 if key[4] == "ResponseVector":
                     no = key[5]
                     rvecs = response_dict[equal_rvecs[no]]
-                    product_vecs_shape = (3,) * op_dim + rvecs.shape
-                    iterables = [list(range(shape)) for shape in product_vecs_shape]
+                    rhss_shape = (3,) * op_dim + rvecs.shape
+                    iterables = [list(range(shape)) for shape in rhss_shape]
                     components = list(product(*iterables))
-                    response = np.empty(product_vecs_shape, dtype=object)
+                    response = np.empty(rhss_shape, dtype=object)
                     for c in components:
                         rvec = rvecs[c[op_dim:]]
                         if isinstance(rvec, AmplitudeVector):
-                            rhs = bmatrix_vector_product(property_method, mp, ops[c[:op_dim]], rvec) 
+                            bmatrix = IsrMatrix(property_method, mp, ops[c[:op_dim]])
+                            rhs = bmatrix @ rvec
                             if projection is not None:
                                 rhs -= projection(rhs)
                             if key[3] == 0.0:
@@ -379,7 +358,7 @@ def evaluate_property_isr(
                                     **solver_args,
                                 )
                         elif isinstance(rvec, RV):
-                            rhs = bmatrix_vector_product_complex(
+                            rhs = bmatrix_vector_product(
                                 property_method, mp, ops[c[:op_dim]], rvec
                             )
                             if projection is not None:
@@ -407,20 +386,19 @@ def evaluate_property_isr(
                             raise ValueError()
                     response_dict[value] = response
                 elif key[4] == final_state[0]:
-                    product_vecs_shape = (3,) * op_dim
-                    iterables = [list(range(shape)) for shape in product_vecs_shape]
+                    rhss_shape = (3,) * op_dim
+                    iterables = [list(range(shape)) for shape in rhss_shape]
                     components = list(product(*iterables))
-                    response = np.empty(product_vecs_shape, dtype=object)
+                    response = np.empty(rhss_shape, dtype=object)
                     if key[3] == 0.0:
                         for c in components:
-                            product_vec = bmatrix_vector_product(
-                                property_method, mp, ops[c], state.excitation_vector[final_state[1]]
-                            )
+                            bmatrix = IsrMatrix(property_method, mp, ops[c])
+                            rhs = bmatrix @ state.excitation_vector[final_state[1]]
                             if projection is not None:
-                                product_vec -= projection(product_vec)
+                                rhs -= projection(rhs)
                             response[c] = solve_response(
                                 matrix,
-                                product_vec,
+                                rhs,
                                 -key[2],
                                 gamma=0.0,
                                 projection=projection,
@@ -428,14 +406,13 @@ def evaluate_property_isr(
                             )
                     else:
                         for c in components:
-                            product_vec = bmatrix_vector_product(
-                                property_method, mp, ops[c], state.excitation_vector[final_state[1]]
-                            )
+                            bmatrix = IsrMatrix(property_method, mp, ops[c])
+                            rhs = bmatrix @ state.excitation_vector[final_state[1]]
                             if projection is not None:
-                                product_vec -= projection(product_vec)
+                                rhs -= projection(rhs)
                             response[c] = solve_response(
                                 matrix,
-                                RV(product_vec),
+                                RV(rhs),
                                 -key[2],
                                 gamma=-key[3],
                                 projection=projection,

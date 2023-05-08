@@ -3,9 +3,9 @@ channels:
   - conda-forge
 dependencies:
   - libblas =*=*mkl
-  - adcc >=0.15.4
-  - respondo >=0.0.4
-  - numpy <=1.23.5
+  - adcc >=0.15.16
+  - respondo >=0.0.5
+  - numpy >=1.14
   - isort
   - ruff
   - pip:
