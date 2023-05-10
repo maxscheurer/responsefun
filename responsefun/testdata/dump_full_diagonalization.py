@@ -50,7 +50,8 @@ def main():
                 tdm_fn = np.array([product_trace(tdm, dip) for dip in dips])
                 tdm_mag = np.array([product_trace(tdm, mdip) for mdip in mdips])
                 tdm_nabla = np.array([product_trace(tdm, nabla1) for nabla1 in nabla])
-                tdm_quad = np.array([[product_trace(tdm, quad1) for quad1 in quad] for quad in quads])
+                tdm_quad = np.array([[product_trace(tdm, quad1) for quad1 in quad] 
+                                      for quad in quads])
 
                 s2s_tdms[i, j] = tdm_fn
                 s2s_tdms_mag[i, j] = tdm_mag

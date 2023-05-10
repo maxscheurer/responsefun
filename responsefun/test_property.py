@@ -31,8 +31,6 @@ from responsefun.symbols_and_labels import (
     op_d,
     nabla_a,
     nabla_b,
-    nabla_c,
-    nabla_d,
     p,
     w,
     w_1,
