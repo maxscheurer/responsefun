@@ -64,7 +64,7 @@ def ground_state_moments(state, op_type):
                                   "in adcc.")
 
     if op_type == "dia_magnet":
-        op_int = np.array(state.reference_state.operators.diag_mag)
+        op_int = np.array(state.reference_state.operators.dia_magnet)
         size = op_int.shape[0]
         coords = coords - gauge_origin
         r_r = np.einsum('ij,ik->ijk', coords, coords)  # construct r*r matrix
@@ -256,7 +256,7 @@ class AdccProperties:
             return np.array(
                     self._state.reference_state.operators.magnetic_dipole)
         elif self._op_type == "dia_magnet":
-            return np.array(self._state.reference_state.operators.diag_mag)
+            return np.array(self._state.reference_state.operators.dia_magnet)
         elif self._op_type == "electric_quadrupole":
             return np.array(
                     self._state.reference_state.operators.electric_quadrupole)
