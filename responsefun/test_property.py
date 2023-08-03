@@ -29,6 +29,8 @@ from responsefun.symbols_and_labels import (
     op_b,
     op_c,
     op_d,
+    nabla_a,
+    nabla_b,
     p,
     w,
     w_1,
@@ -91,6 +93,27 @@ SOS_expressions = {
             + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f / 2))
         ),
         None,
+    ),
+    "alpha_vel_a": (
+        (
+        TransitionMoment(O, nabla_a, n) * TransitionMoment(n, op_b, O) / (w_n - w)
+        + TransitionMoment(O, op_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
+        ),
+        None
+    ),
+    "alpha_vel_b": (
+        (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
+        + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, op_a, O) / (w_n + w)
+        ), 
+        None
+    ),
+    "alpha_vel_ab": (
+        (
+        TransitionMoment(O, nabla_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
+        + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
+        ), 
+        None
     ),
     "beta": (
         (
@@ -335,6 +358,51 @@ class TestIsrAgainstSos:
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
+    def test_alpha_vel_a (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_a_expr = SOS_expressions["alpha_vel_a"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_a_sos = evaluate_property_sos(mock_state, vel_a_expr, [n], freq)
+            vel_a_isr = evaluate_property_isr(state, vel_a_expr, [n], freq)
+
+        assert_allclose_signfix(vel_a_isr, vel_a_sos, atol=1e-7)
+
+    def test_alpha_vel_b (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_b_expr = SOS_expressions["alpha_vel_b"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_b_sos = evaluate_property_sos(mock_state, vel_b_expr, [n], freq)
+            vel_b_isr = evaluate_property_isr(state, vel_b_expr, [n], freq)
+
+        assert_allclose_signfix(vel_b_isr, vel_b_sos, atol=1e-7)
+
+    def test_alpha_vel_ab (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_ab_expr = SOS_expressions["alpha_vel_ab"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_ab_sos = evaluate_property_sos(mock_state, vel_ab_expr, [n], freq)
+            vel_ab_isr = evaluate_property_isr(state, vel_ab_expr, [n], freq)
+
+        assert_allclose_signfix(vel_ab_isr, vel_ab_sos, atol=1e-7)
+
     # def test_first_hyperpolarizability(self, case):
     #     molecule, basis, method = case.split("_")
     #     scfres = run_scf(molecule, basis)
@@ -480,6 +548,51 @@ class TestIsrAgainstSosFast:
         #         ValueError, evaluate_property_isr,
         #         state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
         # )
+
+    def test_alpha_vel_a (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_a_expr = SOS_expressions["alpha_vel_a"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_a_sos = evaluate_property_sos_fast(mock_state, vel_a_expr, [n], freq)
+            vel_a_isr = evaluate_property_isr(state, vel_a_expr, [n], freq)
+
+        assert_allclose_signfix(vel_a_isr, vel_a_sos, atol=1e-7)
+
+    def test_alpha_vel_b (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_b_expr = SOS_expressions["alpha_vel_b"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_b_sos = evaluate_property_sos_fast(mock_state, vel_b_expr, [n], freq)
+            vel_b_isr = evaluate_property_isr(state, vel_b_expr, [n], freq)
+
+        assert_allclose_signfix(vel_b_isr, vel_b_sos, atol=1e-7)
+
+    def test_alpha_vel_ab (self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        vel_ab_expr = SOS_expressions["alpha_vel_ab"][0]
+        mock_state = cache.data_fulldiag[case]
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        value_list = [(w, 0.0), (w, 0.05), (w, 0.03)]
+
+        for freq in value_list:
+            vel_ab_sos = evaluate_property_sos_fast(mock_state, vel_ab_expr, [n], freq)
+            vel_ab_isr = evaluate_property_isr(state, vel_ab_expr, [n], freq)
+
+        assert_allclose_signfix(vel_ab_isr, vel_ab_sos, atol=1e-7)
 
     def test_first_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")

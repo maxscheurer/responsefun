@@ -247,3 +247,4 @@ class TransitionFrequency(Symbol):
     @property
     def state(self):
         return self._state
+
