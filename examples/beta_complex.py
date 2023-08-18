@@ -5,7 +5,7 @@ from responsefun.symbols_and_labels import (
     O, n, p, w_n, w_p,
     w_1, w_2, w_o, gamma
 )
-from responsefun.sum_over_states import TransitionMoment
+from responsefun.SumOverStates import TransitionMoment
 from responsefun.evaluate_property import evaluate_property_isr
 
 
@@ -29,10 +29,14 @@ state = adcc.adc2(scfres, n_singlets=5)
 beta_term = (
     TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p) * TransitionMoment(p, op_c, O)
     / ((w_n - w_o - 1j*gamma) * (w_p - w_2 - 1j*gamma))
+    + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, p) * TransitionMoment(p, op_c, O)
+    / ((w_n + w_1 + 1j*gamma) * (w_p - w_2 - 1j*gamma))
+    + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_c, p) * TransitionMoment(p, op_a, O)
+    / ((w_n + w_1 + 1j*gamma) * (w_p + w_o + 1j*gamma))
 )
 beta_tens = evaluate_property_isr(
-    state, beta_term, [n, p], omegas=[(w_o, w_1+w_2+1j*gamma), (w_1, 0.5), (w_2, 0.5)], gamma_val=0.01,
-    perm_pairs=[(op_a, -w_o-1j*gamma), (op_b, w_1+1j*gamma), (op_c, w_2+1j*gamma)]
+    state, beta_term, [n, p], omegas=[(w_o, w_1+w_2), (w_1, 0.5), (w_2, 0.5)], gamma_val=0.01,
+    perm_pairs=[(op_b, w_1), (op_c, w_2)], extra_terms=False
 )
 
 print(beta_tens)
