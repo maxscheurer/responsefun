@@ -4,7 +4,7 @@ from sympy.physics.quantum.operator import Operator
 from responsefun.ResponseOperator import OneParticleOperator, TransitionFrequency
 
 # ground state and excited state f
-O, f = symbols("O, f", real=True)
+O, f, j = symbols("O, f, j", real=True)
 
 # damping factor
 gamma = symbols("gamma", real=True)
@@ -17,6 +17,7 @@ w, w_o, w_1, w_2, w_3 = symbols("w, w_sigma, w_1, w_2, w_3", real=True)
 
 # transition frequencies
 w_f = TransitionFrequency(f, real=True)
+w_j = TransitionFrequency(j, real=True)
 w_n = TransitionFrequency(n, real=True)
 w_m = TransitionFrequency(m, real=True)
 w_p = TransitionFrequency(p, real=True)

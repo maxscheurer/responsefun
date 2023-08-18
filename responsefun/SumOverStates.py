@@ -48,7 +48,7 @@ class TransitionMoment:
         return str(self.expr)
 
 
-def _build_sos_via_permutation(term, perm_pairs):
+def _build_sos_via_permutation_single(term, perm_pairs):
     """Generate a SOS expression via permutation.
 
     Parameters
@@ -74,11 +74,12 @@ def _build_sos_via_permutation(term, perm_pairs):
     # extract operators from the entered SOS term
     operators = [op for op in term.args if isinstance(op, OneParticleOperator)]
     # check that the (op, freq) pairs are specified in the correct order
-    for op, pair in zip(operators, perm_pairs):
-        if op != pair[0]:
-            raise ValueError(
-                "The pairs (op, freq) must be in the same order as in the entered SOS term."
-            )
+    ordered_perm_pairs = []
+    for op in operators:
+        for pair in perm_pairs:
+            if pair[0] == op:
+                ordered_perm_pairs.append(pair)
+    assert len(ordered_perm_pairs) == len(perm_pairs)
     # generate permutations
     perms = list(permutations(perm_pairs))
     # successively build up the SOS expression
@@ -91,6 +92,16 @@ def _build_sos_via_permutation(term, perm_pairs):
                 subs_list.append((perms[0][j][1], p[j][1]))
             new_term = term.subs(subs_list, simultaneous=True)
             sos_expr += new_term
+    return sos_expr
+
+
+def _build_sos_via_permutation(term, perm_pairs):
+    if isinstance(term, Add):
+        sos_expr = 0
+        for arg in term.args:
+            sos_expr += _build_sos_via_permutation_single(arg, perm_pairs)
+    else:
+        sos_expr = _build_sos_via_permutation_single(arg, perm_pairs)
     return sos_expr
 
 

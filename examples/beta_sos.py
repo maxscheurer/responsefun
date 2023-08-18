@@ -2,10 +2,20 @@
 Create a SumOverStates object using the first-order hyperpolarizability as an example.
 """
 
+from responsefun.SumOverStates import SumOverStates, TransitionMoment
 from responsefun.symbols_and_labels import (
-    op_a, op_b, op_c, O, n, p, w_n, w_p, w_o, w_1, w_2
+    O,
+    n,
+    op_a,
+    op_b,
+    op_c,
+    p,
+    w_1,
+    w_2,
+    w_n,
+    w_o,
+    w_p,
 )
-from responsefun.SumOverStates import TransitionMoment, SumOverStates
 
 beta_sos_term = (
     TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p)
