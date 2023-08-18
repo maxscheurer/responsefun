@@ -1,15 +1,15 @@
 """
-Compute the RIXS amplitudes within the so-called rotating wave approximation for water using the STO-3G basis set.
+Compute the RIXS amplitudes within the so-called rotating wave approximation
+for water using the STO-3G basis set.
 """
 
-from scipy.constants import physical_constants
-from pyscf import gto, scf
 import adcc
-from responsefun.symbols_and_labels import (
-    op_a, op_b, f, n, O, gamma, w_n, w
-)
-from responsefun.SumOverStates import TransitionMoment
+from pyscf import gto, scf
+from scipy.constants import physical_constants
+
 from responsefun.evaluate_property import evaluate_property_isr
+from responsefun.SumOverStates import TransitionMoment
+from responsefun.symbols_and_labels import O, f, gamma, n, op_a, op_b, w, w_n
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
 
@@ -34,7 +34,8 @@ rixs_sos_expr = (
     TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
 )
 rixs_tens = evaluate_property_isr(
-    state, rixs_sos_expr, [n], omegas=[(w, 534.74/Hartree)], gamma_val=0.124/Hartree, final_state=(f, 2)
+    state, rixs_sos_expr, [n], omegas=[(w, 534.74/Hartree)],
+    gamma_val=0.124/Hartree, final_state=(f, 2)
 )
 
 print(rixs_tens)

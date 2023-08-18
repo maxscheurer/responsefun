@@ -2,14 +2,13 @@
 Compute the Faraday MCD B term for water using the STO-3G basis set.
 Compare 
 """
-from pyscf import gto, scf
 import adcc
 import numpy as np
-from responsefun.symbols_and_labels import (
-    O, k, j, opm_b, op_c, op_a, w_k, w_j
-)
-from responsefun.SumOverStates import TransitionMoment
+from pyscf import gto, scf
+
 from responsefun.evaluate_property import evaluate_property_isr
+from responsefun.SumOverStates import TransitionMoment
+from responsefun.symbols_and_labels import O, j, k, op_a, op_c, opm_b, w_j, w_k
 
 # run SCF in PySCF
 mol = gto.M(
@@ -29,10 +28,12 @@ state = adcc.adc2(scfres, n_singlets=5)
 
 # define symbolic SOS expressions
 mcd_sos_expr1 = (
-        TransitionMoment(O, opm_b, k) * TransitionMoment(k, op_c, j) * TransitionMoment(j, op_a, O) / w_k
+        TransitionMoment(O, opm_b, k) * TransitionMoment(k, op_c, j) * TransitionMoment(j, op_a, O)
+        / w_k
 )
 mcd_sos_expr2 = (
-        TransitionMoment(O, op_c, k) * TransitionMoment(k, opm_b, j) * TransitionMoment(j, op_a, O) / (w_k - w_j)
+        TransitionMoment(O, op_c, k) * TransitionMoment(k, opm_b, j) * TransitionMoment(j, op_a, O)
+        / (w_k - w_j)
 
 )
 final_state = 0

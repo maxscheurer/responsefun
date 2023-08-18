@@ -2,14 +2,12 @@
 Compute the excited-state polarizability for water using the STO-3G basis set.
 """
 
-from pyscf import gto, scf
 import adcc
-from responsefun.symbols_and_labels import (
-    op_a, op_b, f, n, gamma, w_n, w_f, w
-)
-from responsefun.SumOverStates import TransitionMoment
-from responsefun.evaluate_property import evaluate_property_isr
+from pyscf import gto, scf
 
+from responsefun.evaluate_property import evaluate_property_isr
+from responsefun.SumOverStates import TransitionMoment
+from responsefun.symbols_and_labels import f, gamma, n, op_a, op_b, w, w_f, w_n
 
 # run SCF in PySCF
 mol = gto.M(
