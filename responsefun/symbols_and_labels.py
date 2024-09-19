@@ -64,4 +64,3 @@ nabla_b = OneParticleOperator("B", "nabla")
 nabla_c = OneParticleOperator("C", "nabla")
 nabla_d = OneParticleOperator("D", "nabla")
 nabla_e = OneParticleOperator("E", "nabla")
-

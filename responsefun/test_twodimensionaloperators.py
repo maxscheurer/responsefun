@@ -29,7 +29,7 @@ from responsefun.symbols_and_labels import (
 )
 from responsefun.SumOverStates import TransitionMoment
 from responsefun.evaluate_property import (
-    evaluate_property_isr, 
+    evaluate_property_isr,
     evaluate_property_sos_fast
 )
 from responsefun.testdata.static_data import xyz
@@ -38,6 +38,7 @@ from responsefun.testdata import cache
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
 
+
 def run_scf(molecule, basis, backend="pyscf"):
     scfres = adcc.backends.run_hf(
         backend, xyz=xyz[molecule],
@@ -45,78 +46,79 @@ def run_scf(molecule, basis, backend="pyscf"):
     )
     return scfres
 
+
 SOS_alpha_like = {
-        "ab":
-        (
-            TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, O) / (w_n - w)
-            + TransitionMoment(O, op_c, n) * TransitionMoment(n, Q_ab, O) / (w_n + w)
-        ),
-        "bc":
-        (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, O) / (w_n - w)
-            + TransitionMoment(O, Q_bc, n) * TransitionMoment(n, op_a, O) / (w_n + w)
-        ),
-        "abcd":
-        (
-            TransitionMoment(O, Q_ab, n) * TransitionMoment(n, Q_cd, O) / (w_n - w)
-            + TransitionMoment(O, Q_cd, n) * TransitionMoment(n, Q_ab, O) / (w_n + w)
-        )
+    "ab":
+    (
+        TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, O) / (w_n - w)
+        + TransitionMoment(O, op_c, n) * TransitionMoment(n, Q_ab, O) / (w_n + w)
+    ),
+    "bc":
+    (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, O) / (w_n - w)
+        + TransitionMoment(O, Q_bc, n) * TransitionMoment(n, op_a, O) / (w_n + w)
+    ),
+    "abcd":
+    (
+        TransitionMoment(O, Q_ab, n) * TransitionMoment(n, Q_cd, O) / (w_n - w)
+        + TransitionMoment(O, Q_cd, n) * TransitionMoment(n, Q_ab, O) / (w_n + w)
+    )
 }
 
 
 SOS_beta_like = {
-        "ab":
-        (
-            TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, k)
-            * TransitionMoment(k, op_d, O)
-            / ((w_n - w_o) * (w_k - w_2))
-        ),
-        "bc":
-        (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, k)
-            * TransitionMoment(k, op_d, O)
-            / ((w_n - w_o) * (w_k - w_2))
-        ),
-        "cd":
-        (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k)
-            * TransitionMoment(k, Q_cd, O)
-            / ((w_n - w_o) * (w_k - w_2))
-        ),
-        "abde":
-        (
-            TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, k)
-            * TransitionMoment(k, Q_de, O)
-            / ((w_n - w_o) * (w_k - w_2))
-        ),
-        "bcde":
-        (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, k)
-            * TransitionMoment(k, Q_de, O)
-            / ((w_n - w_o) * (w_k - w_2))
-        )
+    "ab":
+    (
+        TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, k)
+        * TransitionMoment(k, op_d, O)
+        / ((w_n - w_o) * (w_k - w_2))
+    ),
+    "bc":
+    (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, k)
+        * TransitionMoment(k, op_d, O)
+        / ((w_n - w_o) * (w_k - w_2))
+    ),
+    "cd":
+    (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, k)
+        * TransitionMoment(k, Q_cd, O)
+        / ((w_n - w_o) * (w_k - w_2))
+    ),
+    "abde":
+    (
+        TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, k)
+        * TransitionMoment(k, Q_de, O)
+        / ((w_n - w_o) * (w_k - w_2))
+    ),
+    "bcde":
+    (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, k)
+        * TransitionMoment(k, Q_de, O)
+        / ((w_n - w_o) * (w_k - w_2))
+    )
 }
 
 
 SOS_gamma_like = {
-        "ab":
-        (
-            TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, m)
-            * TransitionMoment(m, op_d, p) * TransitionMoment(p, op_e, O)
-            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
-        ),
-        "bc":
-        (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, m)
-            * TransitionMoment(m, op_d, p) * TransitionMoment(p, op_e, O)
-            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
-        ),
-        "de":
-        (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
-            * TransitionMoment(m, op_c, p) * TransitionMoment(p, Q_de, O)
-            / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
-        )
+    "ab":
+    (
+        TransitionMoment(O, Q_ab, n) * TransitionMoment(n, op_c, m)
+        * TransitionMoment(m, op_d, p) * TransitionMoment(p, op_e, O)
+        / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+    ),
+    "bc":
+    (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, Q_bc, m)
+        * TransitionMoment(m, op_d, p) * TransitionMoment(p, op_e, O)
+        / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+    ),
+    "de":
+    (
+        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
+        * TransitionMoment(m, op_c, p) * TransitionMoment(p, Q_de, O)
+        / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
+    )
 }
 
 
@@ -138,7 +140,7 @@ class TestAlphaLike:
         np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-8)
 
 
-@pytest.mark.parametrize("ops", SOS_beta_like.keys()) 
+@pytest.mark.parametrize("ops", SOS_beta_like.keys())
 class TestBetaLike:
     def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"
@@ -156,8 +158,9 @@ class TestBetaLike:
         beta_isr = evaluate_property_isr(state, expr, [n, k], omegas, extra_terms=False)
         np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-8)
 
+
 @pytest.mark.slow
-@pytest.mark.parametrize("ops", SOS_gamma_like.keys()) 
+@pytest.mark.parametrize("ops", SOS_gamma_like.keys())
 class TestGammaLike:
     def test_h2o_sto3g_adc2(self, ops):
         case = "h2o_sto3g_adc2"

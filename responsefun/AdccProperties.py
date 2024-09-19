@@ -36,49 +36,38 @@ from responsefun.testdata.mock import MockExcitedStates
 #   2: anti-hermitian
 # the third argument specifies the dimensionality
 available_operators = {
-        "electric": ("mu", 1, 1),
-        "magnetic": ("m", 2, 1),
-        "dia_magnet": ("xi", 1, 2),
-        "electric_quadrupole": ("Q", 1, 2),
-        "electric_quadrupole_traceless": ("\\theta", 1, 2),
-        "nabla": ("\\nabla", 2, 1)
+    "electric": ("mu", 1, 1),
+    "magnetic": ("m", 2, 1),
+    "dia_magnet": ("xi", 1, 2),
+    "electric_quadrupole": ("Q", 1, 2),
+    "electric_quadrupole_traceless": ("\\theta", 1, 2),
+    "nabla": ("\\nabla", 2, 1)
 }
 
 
-def ground_state_moments(state, op_type):
+def ground_state_moments(state, op_type, gauge_origin_string):
     assert op_type in available_operators
     charges = np.array(state.reference_state.nuclear_charges)
     masses = np.array(state.reference_state.nuclear_masses)
     coords = np.array(state.reference_state.coordinates)
     coords = np.reshape(coords, (charges.size, 3))  # reshape coordinates
-    if state.reference_state.gauge_origin == 'mass_center':
-        gauge_origin = np.einsum('i,ij->j', masses, coords)/masses.sum()
-    elif state.reference_state.gauge_origin == 'charge_center':
-        gauge_origin = np.einsum('i,ij->j ', charges, coords)/charges.sum()
-    elif state.reference_state.gauge_origin == 'origin':
+    if gauge_origin_string == 'mass_center':
+        gauge_origin = np.einsum('i,ij->j', masses, coords) / masses.sum()
+    elif gauge_origin_string == 'charge_center':
+        gauge_origin = np.einsum('i,ij->j ', charges, coords) / charges.sum()
+    elif gauge_origin_string == 'origin':
         gauge_origin = [0.0, 0.0, 0.0]
-    elif type(state.reference_state.gauge_origin) == list:
-        gauge_origin = state.reference_state.gauge_origin
+    elif isinstance(gauge_origin_string, list):
+        gauge_origin = gauge_origin_string
     else:
         raise NotImplementedError("Gauge origin not correctly specified "
                                   "in adcc.")
 
     if op_type == "dia_magnet":
-        op_int = np.array(state.reference_state.operators.dia_magnet)
-        size = op_int.shape[0]
-        coords = coords - gauge_origin
-        r_r = np.einsum('ij,ik->ijk', coords, coords)  # construct r*r matrix
-        r_2 = np.zeros((charges.size, 3, 3))  # construct r^2
-        for i in range(charges.size):
-            for j in range(3):
-                r_2[i][j][j] = np.trace(r_r[i])
-        term = r_2 - r_r
-        nuclear_gs = - 0.25 * np.einsum('i,i,ijk->jk', charges**2,
-                                        1/masses, term)
-        nuclear_gs = 0 * nuclear_gs  # no nuclear contribution needed
-    elif op_type == "electric_quadrupole":
+        nuclear_gs = np.zeros((3, 3))  # no nuclear contribution needed
+    if op_type == "electric_quadrupole":
         op_int = -1.0 * np.array(
-                state.reference_state.operators.electric_quadrupole)
+            state.reference_state.operators.electric_quadrupole(gauge_origin))
         size = op_int.shape[0]
         nuc_gs = state.reference_state.nuclear_quadrupole
         nuclear_gs = np.zeros((3, 3))
@@ -90,7 +79,8 @@ def ground_state_moments(state, op_type):
         nuclear_gs[2][2] = nuc_gs[5]  # zz
     elif op_type == "electric_quadrupole_traceless":
         op_int = -1.0 * np.array(
-                state.reference_state.operators.electric_quadrupole_traceless)
+            state.reference_state.operators.
+            electric_quadrupole_traceless(gauge_origin))
         size = op_int.shape[0]
         coords = coords - gauge_origin
         r_r = np.einsum('ij,ik->ijk', coords, coords)  # construct r*r matrix
@@ -106,19 +96,19 @@ def ground_state_moments(state, op_type):
     pm_level = state.property_method.level
     ref_state_density = state.reference_state.density
     components = list(product(range(size), repeat=op_int.ndim))
-    ref_state_moment = np.zeros((size,)*op_int.ndim)
+    ref_state_moment = np.zeros((size,) * op_int.ndim)
     for c in components:
         ref_state_moment[c] = product_trace(op_int[c], ref_state_density)
     if pm_level == 1:
         return nuclear_gs + ref_state_moment
     elif pm_level == 2:
-        mp2_corr = np.zeros((size,)*op_int.ndim)
+        mp2_corr = np.zeros((size,) * op_int.ndim)
         mp2_density = state.ground_state.mp2_diffdm
         for c in components:
             mp2_corr[c] = np.array(product_trace(op_int[c], mp2_density))
         return nuclear_gs + ref_state_moment + mp2_corr
     elif pm_level == 3:
-        mp3_corr = np.zeros((size,)*op_int.ndim)
+        mp3_corr = np.zeros((size,) * op_int.ndim)
         mp3_density = state.ground_state.mp3_diffdm
         for c in components:
             mp3_corr[c] = np.array(product_trace(op_int[c], mp3_density))
@@ -197,8 +187,8 @@ def gs_magnetic_dipole_moment(ground_state, level=2):
         return ref_dipmom
     elif level == 2:
         mp2corr = - 1.0 * np.array(
-                [product_trace(dip, ground_state.mp2_diffdm)
-                 for dip in magdips]
+            [product_trace(dip, ground_state.mp2_diffdm)
+                for dip in magdips]
         )
         return ref_dipmom + mp2corr
     else:
@@ -212,7 +202,7 @@ class AdccProperties:
     """Class encompassing all properties that can be
        obtained from adcc for a given operator."""
 
-    def __init__(self, state, op_type):
+    def __init__(self, state, op_type, gauge_origin='origin'):
         """
         Parameters
         ----------
@@ -230,8 +220,9 @@ class AdccProperties:
             )
         self._state = state
         self._state_size = len(state.excitation_energy_uncorrected)
-
+        print(f'I am operator {op_type} with origin {gauge_origin}')
         self._op_type = op_type
+        self._gauge_origin = gauge_origin
         self._op_dim = available_operators[op_type][2]
 
         # to make things faster if not all state-to-state
@@ -254,17 +245,20 @@ class AdccProperties:
             return self._state.reference_state.operators.electric_dipole
         elif self._op_type == "magnetic":
             return np.array(
-                    self._state.reference_state.operators.magnetic_dipole)
+                self._state.reference_state.operators.magnetic_dipole(self._gauge_origin))
         elif self._op_type == "dia_magnet":
-            return np.array(self._state.reference_state.operators.dia_magnet)
+            return np.array(self._state.reference_state.operators.dia_magnet(self._gauge_origin))
         elif self._op_type == "electric_quadrupole":
             return np.array(
-                    self._state.reference_state.operators.electric_quadrupole)
+                self._state.reference_state.operators.electric_quadrupole(self._gauge_origin))
         elif self._op_type == "electric_quadrupole_traceless":
             return np.array(
-                    self._state.reference_state.operators.electric_quadrupole_traceless)
+                self._state.reference_state.operators.
+                electric_quadrupole_traceless(self._gauge_origin))
         elif self._op_type == "nabla":
-            return np.array(self._state.reference_state.operators.nabla)
+            print(type(self._gauge_origin))
+            return np.array(self._state.reference_state.operators.
+                            nabla(self._gauge_origin))
         else:
             raise NotImplementedError()
 
@@ -287,7 +281,8 @@ class AdccProperties:
                 gs_moment = gs_magnetic_dipole_moment(self._state.ground_state,
                                                       pm_level)
             elif self._op_type in available_operators:
-                gs_moment = ground_state_moments(self._state, self.op_type)
+                gs_moment = ground_state_moments(self._state, self.op_type,
+                                                 self._gauge_origin)
             else:
                 raise NotImplementedError()
         return gs_moment
@@ -334,9 +329,9 @@ class AdccProperties:
                 return self.state_to_state_transition_moment[:, final_state]
             if self._s2s_tm_f[final_state] is None:
                 self._s2s_tm_f[final_state] =\
-                        state_to_state_transition_moments(
-                            self._state, self.operator,
-                            final_state=final_state
+                    state_to_state_transition_moments(
+                        self._state, self.operator,
+                        final_state=final_state
                 )
             return self._s2s_tm_f[final_state]
         elif final_state is None:
@@ -344,10 +339,10 @@ class AdccProperties:
                 return self.state_to_state_transition_moment[initial_state, :]
             if self._s2s_tm_i[initial_state] is None:
                 self._s2s_tm_i[initial_state] =\
-                        state_to_state_transition_moments(
-                            self._state,
-                            self.operator,
-                            initial_state=initial_state
+                    state_to_state_transition_moments(
+                        self._state,
+                        self.operator,
+                        initial_state=initial_state
                 )
             return self._s2s_tm_i[initial_state]
         else:

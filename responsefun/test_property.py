@@ -96,23 +96,23 @@ SOS_expressions = {
     ),
     "alpha_vel_a": (
         (
-        TransitionMoment(O, nabla_a, n) * TransitionMoment(n, op_b, O) / (w_n - w)
-        + TransitionMoment(O, op_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
+            TransitionMoment(O, nabla_a, n) * TransitionMoment(n, op_b, O) / (w_n - w)
+            + TransitionMoment(O, op_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
         ),
         None
     ),
     "alpha_vel_b": (
         (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
-        + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, op_a, O) / (w_n + w)
-        ), 
+            TransitionMoment(O, op_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
+            + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, op_a, O) / (w_n + w)
+        ),
         None
     ),
     "alpha_vel_ab": (
         (
-        TransitionMoment(O, nabla_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
-        + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
-        ), 
+            TransitionMoment(O, nabla_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
+            + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
+        ),
         None
     ),
     "beta": (
@@ -358,7 +358,7 @@ class TestIsrAgainstSos:
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
-    def test_alpha_vel_a (self, case):
+    def test_alpha_vel_a(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -373,7 +373,7 @@ class TestIsrAgainstSos:
 
         assert_allclose_signfix(vel_a_isr, vel_a_sos, atol=1e-7)
 
-    def test_alpha_vel_b (self, case):
+    def test_alpha_vel_b(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -388,7 +388,7 @@ class TestIsrAgainstSos:
 
         assert_allclose_signfix(vel_b_isr, vel_b_sos, atol=1e-7)
 
-    def test_alpha_vel_ab (self, case):
+    def test_alpha_vel_ab(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -549,7 +549,7 @@ class TestIsrAgainstSosFast:
         #         state, tpa_expr, [n], (w, 0.05), final_state=(f, final_state)
         # )
 
-    def test_alpha_vel_a (self, case):
+    def test_alpha_vel_a(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -564,7 +564,7 @@ class TestIsrAgainstSosFast:
 
         assert_allclose_signfix(vel_a_isr, vel_a_sos, atol=1e-7)
 
-    def test_alpha_vel_b (self, case):
+    def test_alpha_vel_b(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
@@ -579,7 +579,7 @@ class TestIsrAgainstSosFast:
 
         assert_allclose_signfix(vel_b_isr, vel_b_sos, atol=1e-7)
 
-    def test_alpha_vel_ab (self, case):
+    def test_alpha_vel_ab(self, case):
         molecule, basis, method = case.split("_")
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)

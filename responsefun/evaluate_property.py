@@ -206,9 +206,9 @@ def evaluate_property_isr(
 
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
-    for op_type in sos.operator_types:
-        adcc_prop[op_type] = AdccProperties(state, op_type)
-
+    for op_type, gauge_origin in sos.operator_types_and_origin:
+        adcc_prop[op_type] = AdccProperties(state, op_type, gauge_origin)
+        print(adcc_prop)
     all_omegas = omegas.copy()
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
@@ -695,8 +695,8 @@ def evaluate_property_sos(
     )
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
-    for op_type in sos.operator_types:
-        adcc_prop[op_type] = AdccProperties(state, op_type)
+    for op_type, gauge_origin in sos.operator_types_and_origin:
+        adcc_prop[op_type] = AdccProperties(state, op_type, gauge_origin)
 
     all_omegas = omegas.copy()
     if final_state:
@@ -930,8 +930,8 @@ def evaluate_property_sos_fast(
     )
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
-    for op_type in sos.operator_types:
-        adcc_prop[op_type] = AdccProperties(state, op_type)
+    for op_type, gauge_origin in sos.operator_types_and_origin:
+        adcc_prop[op_type] = AdccProperties(state, op_type, gauge_origin)
 
     subs_dict = {om_tup[0]: om_tup[1] for om_tup in omegas}
     if final_state:

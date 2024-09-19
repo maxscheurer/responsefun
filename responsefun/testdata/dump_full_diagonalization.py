@@ -24,12 +24,11 @@ def main():
             # multiplicity=multiplicity,
             # conv_tol_grad=conv_tol_grad,
         )
-        state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets,
-                             gauge_origin = 'origin')
+        state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets)
         dips = state.reference_state.operators.electric_dipole
-        mdips = state.reference_state.operators.magnetic_dipole
-        nabla = state.reference_state.operators.nabla
-        quads = np.array(state.reference_state.operators.electric_quadrupole)
+        mdips = state.reference_state.operators.magnetic_dipole('origin')
+        nabla = state.reference_state.operators.nabla('origin')
+        quads = np.array(state.reference_state.operators.electric_quadrupole('origin'))
 
         # state to state transition moments
         s2s_tdms = np.zeros((state.size, state.size, 3))
@@ -50,8 +49,8 @@ def main():
                 tdm_fn = np.array([product_trace(tdm, dip) for dip in dips])
                 tdm_mag = np.array([product_trace(tdm, mdip) for mdip in mdips])
                 tdm_nabla = np.array([product_trace(tdm, nabla1) for nabla1 in nabla])
-                tdm_quad = np.array([[product_trace(tdm, quad1) for quad1 in quad] 
-                                      for quad in quads])
+                tdm_quad = np.array([[product_trace(tdm, quad1) for quad1 in quad]
+                                    for quad in quads])
 
                 s2s_tdms[i, j] = tdm_fn
                 s2s_tdms_mag[i, j] = tdm_mag

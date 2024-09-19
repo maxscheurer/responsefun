@@ -246,6 +246,16 @@ class SumOverStates:
         return set([op.op_type for op in self._operators])
 
     @property
+    def operator_types_and_origin(self):
+        # check if all defined gauge origins are identical
+        if all(operator.gauge_origin == self._operators[0].gauge_origin for operator in self._operators):
+            types_origin_set = set([(op.op_type, op.gauge_origin) for op in self._operators])
+        else: 
+            raise AttributeError('all defined gauge origins must be identical')
+        
+        return types_origin_set
+
+    @property
     def components(self):
         return self._components
 
