@@ -3,38 +3,37 @@ import numpy as np
 import pytest
 from scipy.constants import physical_constants
 
+from responsefun.evaluate_property import (
+    evaluate_property_isr,
+    evaluate_property_sos_fast,
+)
+from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
-    n,
-    m,
-    p,
+    Q_ab,
+    Q_bc,
+    Q_cd,
+    Q_de,
     k,
+    m,
+    n,
     op_a,
     op_b,
     op_c,
     op_d,
     op_e,
-    Q_ab,
-    Q_bc,
-    Q_cd,
-    Q_de,
-    w_n,
-    w_m,
-    w_p,
-    w_k,
+    p,
     w,
-    w_o,
     w_2,
     w_3,
+    w_k,
+    w_m,
+    w_n,
+    w_o,
+    w_p,
 )
-from responsefun.SumOverStates import TransitionMoment
-from responsefun.evaluate_property import (
-    evaluate_property_isr,
-    evaluate_property_sos_fast
-)
-from responsefun.testdata.static_data import xyz
 from responsefun.testdata import cache
-
+from responsefun.testdata.static_data import xyz
 
 Hartree = physical_constants["hartree-electron volt relationship"][0]
 

@@ -21,8 +21,8 @@ from itertools import combinations_with_replacement, permutations, product
 
 import numpy as np
 from adcc import AmplitudeVector
-from adcc.IsrMatrix import IsrMatrix
 from adcc.adc_pp.modified_transition_moments import modified_transition_moments
+from adcc.IsrMatrix import IsrMatrix
 from adcc.workflow import construct_adcmatrix
 from respondo.cpp_algebra import ResponseVector as RV
 from respondo.solve_response import (
@@ -46,7 +46,7 @@ from responsefun.ResponseOperator import (
     ResponseVector,
     TransitionFrequency,
 )
-from responsefun.rvec_algebra import scalar_product, bmatrix_vector_product
+from responsefun.rvec_algebra import bmatrix_vector_product, scalar_product
 from responsefun.SumOverStates import SumOverStates
 from responsefun.symbols_and_labels import O, gamma
 

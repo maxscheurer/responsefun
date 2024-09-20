@@ -82,4 +82,4 @@ line-length = 100
 
 [tool.ruff]
 line-length = 100
-ignore = ["E741"]
+lint.ignore = ["E741", "E721"]
