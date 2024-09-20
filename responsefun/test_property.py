@@ -99,21 +99,21 @@ SOS_expressions = {
             TransitionMoment(O, nabla_a, n) * TransitionMoment(n, op_b, O) / (w_n - w)
             + TransitionMoment(O, op_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
         ),
-        None
+        None,
     ),
     "alpha_vel_b": (
         (
             TransitionMoment(O, op_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
             + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, op_a, O) / (w_n + w)
         ),
-        None
+        None,
     ),
     "alpha_vel_ab": (
         (
             TransitionMoment(O, nabla_a, n) * TransitionMoment(n, nabla_b, O) / (w_n - w)
             + TransitionMoment(O, nabla_b, n) * TransitionMoment(n, nabla_a, O) / (w_n + w)
         ),
-        None
+        None,
     ),
     "beta": (
         (

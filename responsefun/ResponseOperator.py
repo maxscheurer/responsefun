@@ -148,7 +148,7 @@ class ResponseVector(ResponseOperator):
 
 
 class OneParticleOperator(ResponseOperator):
-    def __init__(self, comp, op_type, gauge_origin='origin'):
+    def __init__(self, comp, op_type):
         super().__init__(comp)
         if isinstance(op_type, Symbol):
             self._op_type = str(op_type)
@@ -157,10 +157,6 @@ class OneParticleOperator(ResponseOperator):
             self._op_type = op_type
         assert self._op_type in available_operators
 
-        if isinstance(gauge_origin, Symbol):
-            self._gauge_origin = str(gauge_origin)
-        else:
-            self._gauge_origin = gauge_origin
         self._symmetry = available_operators[self._op_type][1]
         self._dim = available_operators[self._op_type][2]
         if len(self._comp) != self._dim:
@@ -172,10 +168,6 @@ class OneParticleOperator(ResponseOperator):
     @property
     def op_type(self):
         return self._op_type
-
-    @property
-    def gauge_origin(self):
-        return self._gauge_origin
 
     @property
     def symmetry(self):

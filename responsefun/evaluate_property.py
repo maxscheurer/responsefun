@@ -125,6 +125,7 @@ def evaluate_property_isr(
     extra_terms=True,
     symmetric=False,
     excluded_states=None,
+    gauge_origin="origin",
     **solver_args,
 ):
     """Compute a molecular property with the ADC/ISR approach from its SOS expression.
@@ -173,6 +174,10 @@ def evaluate_property_isr(
         It is important to note that the ground state is represented by the SymPy symbol O,
         while the integer 0 represents the first excited state.
 
+    gauge_origin: str or list of int, optional
+        Select the gauge origin for the operator integrals imported from adcc.
+        Default: origin ([0,0,0]).
+
     Returns
     ----------
     <class 'numpy.ndarray'>
@@ -206,9 +211,8 @@ def evaluate_property_isr(
 
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
-    for op_type, gauge_origin in sos.operator_types_and_origin:
+    for op_type in sos.operator_types:
         adcc_prop[op_type] = AdccProperties(state, op_type, gauge_origin)
-        print(adcc_prop)
     all_omegas = omegas.copy()
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
@@ -358,9 +362,7 @@ def evaluate_property_isr(
                                     **solver_args,
                                 )
                         elif isinstance(rvec, RV):
-                            rhs = bmatrix_vector_product(
-                                property_method, mp, ops[c[:op_dim]], rvec
-                            )
+                            rhs = bmatrix_vector_product(property_method, mp, ops[c[:op_dim]], rvec)
                             if projection is not None:
                                 raise NotImplementedError(
                                     "Projecting out states from a response equation with a complex "
@@ -619,6 +621,7 @@ def evaluate_property_sos(
     extra_terms=True,
     symmetric=False,
     excluded_states=None,
+    gauge_origin="origin",
 ):
     """Compute a molecular property from its SOS expression.
 
@@ -666,6 +669,10 @@ def evaluate_property_sos(
         It is important to note that the ground state is represented by the SymPy symbol O,
         while the integer 0 represents the first excited state.
 
+    gauge_origin: str or list of int, optional
+        Select the gauge origin for the operator integrals imported from adcc.
+        Default: origin ([0,0,0]).
+
     Returns
     ----------
     <class 'numpy.ndarray'>
@@ -695,7 +702,7 @@ def evaluate_property_sos(
     )
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
-    for op_type, gauge_origin in sos.operator_types_and_origin:
+    for op_type in sos.operator_types:
         adcc_prop[op_type] = AdccProperties(state, op_type, gauge_origin)
 
     all_omegas = omegas.copy()
@@ -859,6 +866,7 @@ def evaluate_property_sos_fast(
     perm_pairs=None,
     extra_terms=True,
     excluded_states=None,
+    gauge_origin="origin",
 ):
     """Compute a molecular property from its SOS expression using the Einstein summation convention.
 
@@ -902,6 +910,10 @@ def evaluate_property_sos_fast(
         It is important to note that the ground state is represented by the SymPy symbol O,
         while the integer 0 represents the first excited state.
 
+    gauge_origin: str or list of int, optional
+        Select the gauge origin for the operator integrals imported from adcc.
+        Default: origin ([0,0,0]).
+
     Returns
     ----------
     <class 'numpy.ndarray'>
@@ -930,15 +942,15 @@ def evaluate_property_sos_fast(
     )
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
-    for op_type, gauge_origin in sos.operator_types_and_origin:
+    for op_type in sos.operator_types:
         adcc_prop[op_type] = AdccProperties(state, op_type, gauge_origin)
 
     subs_dict = {om_tup[0]: om_tup[1] for om_tup in omegas}
     if final_state:
         assert type(final_state) == tuple and len(final_state) == 2
-        subs_dict[
-            TransitionFrequency(final_state[0], real=True)
-        ] = state.excitation_energy_uncorrected[final_state[1]]
+        subs_dict[TransitionFrequency(final_state[0], real=True)] = (
+            state.excitation_energy_uncorrected[final_state[1]]
+        )
         for ies, exstate in enumerate(sos.excluded_states):
             if isinstance(exstate, int) and exstate == final_state[1]:
                 sos.excluded_states[ies] = final_state[0]
