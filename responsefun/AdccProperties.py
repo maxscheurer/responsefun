@@ -41,6 +41,7 @@ available_operators = {
     "dia_magnet": ("xi", 1, 2),
     "electric_quadrupole": ("Q", 1, 2),
     "electric_quadrupole_traceless": ("\\theta", 1, 2),
+    "electric_quadrupole_velocity": ("T", 2, 2),
     "nabla": ("\\nabla", 2, 1),
 }
 
@@ -101,7 +102,7 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
 # TODO: testing
 def gs_magnetic_dipole_moment(ground_state, level=2):
     magdips = ground_state.reference_state.operators.magnetic_dipole
-    ref_dipmom = np.array(
+    ref_dipmom = -1.0 * np.array(
         [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
     )
     if level == 1:
@@ -112,6 +113,25 @@ def gs_magnetic_dipole_moment(ground_state, level=2):
     else:
         raise NotImplementedError(
             "Only magnetic dipole moments for level 1 and 2" " are implemented."
+        )
+
+# TODO: testing
+def gs_nabla_moment(ground_state, level=2):
+    nabla = ground_state.reference_state.operators.nabla()
+    print(nabla)
+    ref_dipmom = -1.0 * np.array(
+        [product_trace(op, ground_state.reference_state.density) for op in nabla]
+    )
+    print(ref_dipmom)
+    if level == 1:
+        return ref_dipmom
+    elif level == 2:
+        mp2corr = -1.0 * np.array([product_trace(op, ground_state.mp2_diffdm) for op in nabla])
+        print(mp2corr)
+        return ref_dipmom + mp2corr
+    else:
+        raise NotImplementedError(
+            "Only nabla for level 1 and 2" " are implemented."
         )
 
 
@@ -174,6 +194,12 @@ class AdccProperties:
                     self._gauge_origin
                 )
             )
+        elif self._op_type == "electric_quadrupole_velocity":
+            return np.array(
+                self._state.reference_state.operators.electric_quadrupole_velocity(
+                    self._gauge_origin
+                )
+            )
         elif self._op_type == "nabla":
             return np.array(self._state.reference_state.operators.nabla(self._gauge_origin))
         else:
@@ -195,6 +221,8 @@ class AdccProperties:
                 gs_moment = self._state.ground_state.dipole_moment(pm_level)
             elif self._op_type == "magnetic":
                 gs_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
+            elif self._op_type == "nabla":
+                gs_moment = gs_nabla_moment(self._state.ground_state, pm_level)
             else:
                 raise NotImplementedError()
         return gs_moment

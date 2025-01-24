@@ -51,6 +51,13 @@ Q_cd = OneParticleOperator("CD", "electric_quadrupole")
 Q_de = OneParticleOperator("DE", "electric_quadrupole")
 Q_ef = OneParticleOperator("EF", "electric_quadrupole")
 
+# electric quadrupole velocity operator
+T_ab = OneParticleOperator("AB", "electric_quadrupole_velocity")
+T_bc = OneParticleOperator("BC", "electric_quadrupole_velocity")
+T_cd = OneParticleOperator("CD", "electric_quadrupole_velocity")
+T_de = OneParticleOperator("DE", "electric_quadrupole_velocity")
+T_ef = OneParticleOperator("EF", "electric_quadrupole_velocity")
+
 # traceless electric quadrupole operators
 theta_ab = OneParticleOperator("AB", "electric_quadrupole_traceless")
 theta_bc = OneParticleOperator("BC", "electric_quadrupole_traceless")
