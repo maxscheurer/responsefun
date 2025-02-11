@@ -79,9 +79,7 @@ SOS_expressions = {
     "rixs": (
         (
             TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j * gamma)
-            + TransitionMoment(f, op_b, n)
-            * TransitionMoment(n, op_a, O)
-            / (w_n + w - w_f + 1j * gamma)
+            + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j * gamma)
         ),
         None,
     ),
