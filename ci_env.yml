@@ -2,7 +2,7 @@ name: ci-env
 channels:
   - conda-forge
 dependencies:
-  - libblas =*=*mkl
+  - "libblas=*=*mkl"
   - adcc >=0.15.16
   - respondo >=0.0.5
   - numpy >=1.14
