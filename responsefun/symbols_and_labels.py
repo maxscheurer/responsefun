@@ -39,3 +39,36 @@ opm_e = OneParticleOperator("E", "magnetic")
 
 # ADC matrix (for internal use)
 M = Operator("M")
+
+# diamagnetic magnetizability operators
+xi_ab = OneParticleOperator("AB", "dia_magnet")
+xi_bc = OneParticleOperator("BC", "dia_magnet")
+xi_cd = OneParticleOperator("CD", "dia_magnet")
+
+# electric quadrupole operators
+Q_ab = OneParticleOperator("AB", "electric_quadrupole")
+Q_bc = OneParticleOperator("BC", "electric_quadrupole")
+Q_cd = OneParticleOperator("CD", "electric_quadrupole")
+Q_de = OneParticleOperator("DE", "electric_quadrupole")
+Q_ef = OneParticleOperator("EF", "electric_quadrupole")
+
+# electric quadrupole velocity operator
+T_ab = OneParticleOperator("AB", "electric_quadrupole_velocity")
+T_bc = OneParticleOperator("BC", "electric_quadrupole_velocity")
+T_cd = OneParticleOperator("CD", "electric_quadrupole_velocity")
+T_de = OneParticleOperator("DE", "electric_quadrupole_velocity")
+T_ef = OneParticleOperator("EF", "electric_quadrupole_velocity")
+
+# traceless electric quadrupole operators
+theta_ab = OneParticleOperator("AB", "electric_quadrupole_traceless")
+theta_bc = OneParticleOperator("BC", "electric_quadrupole_traceless")
+theta_cd = OneParticleOperator("CD", "electric_quadrupole_traceless")
+theta_de = OneParticleOperator("DE", "electric_quadrupole_traceless")
+theta_ef = OneParticleOperator("EF", "electric_quadrupole_traceless")
+
+# linear momentum operators
+nabla_a = OneParticleOperator("A", "nabla")
+nabla_b = OneParticleOperator("B", "nabla")
+nabla_c = OneParticleOperator("C", "nabla")
+nabla_d = OneParticleOperator("D", "nabla")
+nabla_e = OneParticleOperator("E", "nabla")

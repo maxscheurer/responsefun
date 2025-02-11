@@ -9,6 +9,8 @@ from cache import cases
 from static_data import xyz
 from tqdm import tqdm
 
+from responsefun.AdccProperties import transition_moments
+
 
 def main():
     for case in cases:
@@ -24,11 +26,15 @@ def main():
         )
         state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets)
         dips = state.reference_state.operators.electric_dipole
-        mdips = state.reference_state.operators.magnetic_dipole
+        mdips = state.reference_state.operators.magnetic_dipole("origin")
+        nabla = state.reference_state.operators.nabla("origin")
+        quads = np.array(state.reference_state.operators.electric_quadrupole("origin"))
 
         # state to state transition moments
         s2s_tdms = np.zeros((state.size, state.size, 3))
         s2s_tdms_mag = np.zeros((state.size, state.size, 3))
+        s2s_tdms_nabla = np.zeros((state.size, state.size, 3))
+        s2s_tdms_quad = np.zeros((state.size, state.size, 3, 3))
         for ee1 in tqdm(state.excitations):
             i = ee1.index
             for ee2 in state.excitations:
@@ -42,8 +48,15 @@ def main():
                 )
                 tdm_fn = np.array([product_trace(tdm, dip) for dip in dips])
                 tdm_mag = np.array([product_trace(tdm, mdip) for mdip in mdips])
+                tdm_nabla = np.array([product_trace(tdm, nabla1) for nabla1 in nabla])
+                tdm_quad = np.array(
+                    [[product_trace(tdm, quad1) for quad1 in quad] for quad in quads]
+                )
+
                 s2s_tdms[i, j] = tdm_fn
                 s2s_tdms_mag[i, j] = tdm_mag
+                s2s_tdms_nabla[i, j] = tdm_nabla
+                s2s_tdms_quad[i, j] = tdm_quad
 
         z = zarr.open(f"{case}.zarr", mode="w")
         z.create_group("excitation")
@@ -61,8 +74,12 @@ def main():
                 continue
             exci[key] = d
 
+        # TODO: remove line once my pull request for quadrupoles is merged
+        exci["transition_electric_quadrupole_moment"] = transition_moments(state, quads)
         exci["transition_dipole_moment_s2s"] = s2s_tdms
         exci["transition_magnetic_moment_s2s"] = s2s_tdms_mag
+        exci["transition_nabla_s2s"] = s2s_tdms_nabla
+        exci["transition_electric_quadrupole_moment_s2s"] = s2s_tdms_quad
         exci.attrs["kind"] = state.kind
         exci.attrs["method"] = state.method.name
         exci.attrs["property_method"] = state.property_method.name

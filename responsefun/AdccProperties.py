@@ -39,12 +39,16 @@ available_operators = {
     "electric": ("mu", 1, 1),
     "magnetic": ("m", 2, 1),
     "dia_magnet": ("xi", 1, 2),
+    "electric_quadrupole": ("Q", 1, 2),
+    "electric_quadrupole_traceless": ("\\theta", 1, 2),
+    "electric_quadrupole_velocity": ("T", 2, 2),
+    "nabla": ("\\nabla", 2, 1),
 }
 
 
 def transition_moments(state, operator):
     if state.property_method.level == 0:
-        warnings.warn("ADC(0) transition moments are known to be faulty in some cases.")
+        warnings.warn("ADC(0) transition moments are " "known to be faulty in some cases.")
 
     op_shape = np.shape(operator)
     iterables = [list(range(shape)) for shape in op_shape]
@@ -98,24 +102,44 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
 # TODO: testing
 def gs_magnetic_dipole_moment(ground_state, level=2):
     magdips = ground_state.reference_state.operators.magnetic_dipole
-    ref_dipmom = np.array(
+    ref_dipmom = -1.0 * np.array(
         [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
     )
     if level == 1:
         return ref_dipmom
     elif level == 2:
-        mp2corr = np.array([product_trace(dip, ground_state.mp2_diffdm) for dip in magdips])
+        mp2corr = -1.0 * np.array([product_trace(dip, ground_state.mp2_diffdm) for dip in magdips])
         return ref_dipmom + mp2corr
     else:
         raise NotImplementedError(
             "Only magnetic dipole moments for level 1 and 2" " are implemented."
         )
 
+# TODO: testing
+def gs_nabla_moment(ground_state, level=2):
+    nabla = ground_state.reference_state.operators.nabla()
+    print(nabla)
+    ref_dipmom = -1.0 * np.array(
+        [product_trace(op, ground_state.reference_state.density) for op in nabla]
+    )
+    print(ref_dipmom)
+    if level == 1:
+        return ref_dipmom
+    elif level == 2:
+        mp2corr = -1.0 * np.array([product_trace(op, ground_state.mp2_diffdm) for op in nabla])
+        print(mp2corr)
+        return ref_dipmom + mp2corr
+    else:
+        raise NotImplementedError(
+            "Only nabla for level 1 and 2" " are implemented."
+        )
+
 
 class AdccProperties:
-    """Class encompassing all properties that can be obtained from adcc for a given operator."""
+    """Class encompassing all properties that can be
+    obtained from adcc for a given operator."""
 
-    def __init__(self, state, op_type):
+    def __init__(self, state, op_type, gauge_origin="origin"):
         """
         Parameters
         ----------
@@ -128,15 +152,16 @@ class AdccProperties:
         """
         if op_type not in available_operators:
             raise NotImplementedError(
-                f"Only the following operators are available so far: {available_operators}."
+                "Only the following operators are " f"available so far: {available_operators}."
             )
         self._state = state
         self._state_size = len(state.excitation_energy_uncorrected)
-
         self._op_type = op_type
+        self._gauge_origin = gauge_origin
         self._op_dim = available_operators[op_type][2]
 
-        # to make things faster if not all state-to-state transition moments are needed
+        # to make things faster if not all state-to-state
+        # transition moments are needed
         # but only from or to a specific state
         self._s2s_tm_i = np.empty((self._state_size), dtype=object)
         self._s2s_tm_f = np.empty((self._state_size), dtype=object)
@@ -154,7 +179,29 @@ class AdccProperties:
         if self._op_type == "electric":
             return self._state.reference_state.operators.electric_dipole
         elif self._op_type == "magnetic":
-            return self._state.reference_state.operators.magnetic_dipole
+            return np.array(
+                self._state.reference_state.operators.magnetic_dipole(self._gauge_origin)
+            )
+        elif self._op_type == "dia_magnet":
+            return np.array(self._state.reference_state.operators.dia_magnet(self._gauge_origin))
+        elif self._op_type == "electric_quadrupole":
+            return np.array(
+                self._state.reference_state.operators.electric_quadrupole(self._gauge_origin)
+            )
+        elif self._op_type == "electric_quadrupole_traceless":
+            return np.array(
+                self._state.reference_state.operators.electric_quadrupole_traceless(
+                    self._gauge_origin
+                )
+            )
+        elif self._op_type == "electric_quadrupole_velocity":
+            return np.array(
+                self._state.reference_state.operators.electric_quadrupole_velocity(
+                    self._gauge_origin
+                )
+            )
+        elif self._op_type == "nabla":
+            return np.array(self._state.reference_state.operators.nabla(self._gauge_origin))
         else:
             raise NotImplementedError()
 
@@ -174,6 +221,8 @@ class AdccProperties:
                 gs_moment = self._state.ground_state.dipole_moment(pm_level)
             elif self._op_type == "magnetic":
                 gs_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
+            elif self._op_type == "nabla":
+                gs_moment = gs_nabla_moment(self._state.ground_state, pm_level)
             else:
                 raise NotImplementedError()
         return gs_moment
@@ -182,6 +231,8 @@ class AdccProperties:
     def transition_moment(self):
         if self.op_type == "electric":
             return self._state.transition_dipole_moment
+        elif self._op_type == "nabla":
+            return self._state.transition_dipole_moment_velocity
         # TODO: use commented code once PR #158 of adcc has been merged
         # elif self.op_type == "magnetic":
         #     return self._state.transition_magnetic_dipole_moment
@@ -189,6 +240,8 @@ class AdccProperties:
             if isinstance(self._state, MockExcitedStates):
                 if self.op_type == "magnetic":
                     return self._state.transition_magnetic_dipole_moment
+                elif self.op_type == "electric_quadrupole":
+                    return self._state.transition_electric_quadrupole_moment
                 else:
                     raise NotImplementedError()
             return transition_moments(self._state, self.operator)
@@ -200,6 +253,10 @@ class AdccProperties:
                 return self._state.transition_dipole_moment_s2s
             elif self.op_type == "magnetic":
                 return self._state.transition_magnetic_moment_s2s
+            elif self.op_type == "nabla":
+                return self._state.transition_nabla_s2s
+            elif self.op_type == "electric_quadrupole":
+                return self._state.transition_electric_quadrupole_moment_s2s
             else:
                 raise NotImplementedError()
         return state_to_state_transition_moments(self._state, self.operator)
