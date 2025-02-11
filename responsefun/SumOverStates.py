@@ -68,8 +68,8 @@ def _build_sos_via_permutation_single(term, perm_pairs):
         if perm_pairs has only one entry, the returned expression is equal to the entered one,
         and therefore of type <class 'sympy.core.mul.Mul'>.
     """
-    assert type(term) == Mul
-    assert type(perm_pairs) == list
+    assert isinstance(term, Mul)
+    assert isinstance(perm_pairs, list)
 
     # extract operators from the entered SOS term
     operators = [op for op in term.args if isinstance(op, OneParticleOperator)]
