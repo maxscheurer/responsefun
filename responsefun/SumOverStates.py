@@ -101,7 +101,7 @@ def _build_sos_via_permutation(term, perm_pairs):
         for arg in term.args:
             sos_expr += _build_sos_via_permutation_single(arg, perm_pairs)
     else:
-        sos_expr = _build_sos_via_permutation_single(arg, perm_pairs)
+        sos_expr = _build_sos_via_permutation_single(term, perm_pairs)
     return sos_expr
 
 
