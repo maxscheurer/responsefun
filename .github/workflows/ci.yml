@@ -24,7 +24,7 @@ jobs:
             auto-update-conda: true
             environment-file: ci_env.yml
             activate-environment: ci-env
-            miniforge-variant: Mambaforge
+            miniforge-variant: Miniforge3
             use-mamba: true
             miniforge-version: latest
             python-version: ${{ matrix.version }}
@@ -52,7 +52,7 @@ jobs:
             auto-update-conda: true
             environment-file: ci_env.yml
             activate-environment: ci-env
-            miniforge-variant: Mambaforge
+            miniforge-variant: Miniforge3
             use-mamba: true
             miniforge-version: latest
             python-version: 3.9
