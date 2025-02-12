@@ -21,8 +21,8 @@ from itertools import combinations_with_replacement, permutations, product
 
 import numpy as np
 from adcc import AmplitudeVector
-from adcc.IsrMatrix import IsrMatrix
 from adcc.adc_pp.modified_transition_moments import modified_transition_moments
+from adcc.IsrMatrix import IsrMatrix
 from adcc.workflow import construct_adcmatrix
 from respondo.cpp_algebra import ResponseVector as RV
 from respondo.solve_response import (
@@ -46,7 +46,7 @@ from responsefun.ResponseOperator import (
     ResponseVector,
     TransitionFrequency,
 )
-from responsefun.rvec_algebra import scalar_product, bmatrix_vector_product
+from responsefun.rvec_algebra import bmatrix_vector_product, scalar_product
 from responsefun.SumOverStates import SumOverStates
 from responsefun.symbols_and_labels import O, gamma
 
@@ -68,7 +68,7 @@ def find_remaining_indices(sos_expr, summation_indices):
 def replace_bra_op_ket(expr):
     """Replace Bra(to_state)*op*Ket(from_state) sequence in a SymPy term by an instance of <class
     'responsefun.ResponseOperator.Moment'>."""
-    assert type(expr) == Mul
+    assert isinstance(expr, Mul)
     subs_dict = {}
     for ia, a in enumerate(expr.args):
         if isinstance(a, OneParticleOperator):
@@ -191,7 +191,8 @@ def evaluate_property_isr(
     assert isinstance(symmetric, bool)
 
     # create SumOverStates object from input
-    correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
+    correlation_btw_freq = [tup for tup in omegas
+                            if isinstance(tup[1], Symbol) or isinstance(tup[1], Add)]
     sos = SumOverStates(
         sos_expr,
         summation_indices,
@@ -211,7 +212,7 @@ def evaluate_property_isr(
 
     all_omegas = omegas.copy()
     if final_state:
-        assert type(final_state) == tuple and len(final_state) == 2
+        assert isinstance(final_state, tuple) and len(final_state) == 2
         all_omegas.append(
             (
                 TransitionFrequency(final_state[0], real=True),
@@ -673,15 +674,16 @@ def evaluate_property_sos(
     """
     if omegas is None:
         omegas = []
-    elif type(omegas) == tuple:
+    elif isinstance(omegas, tuple):
         omegas = [omegas]
     else:
-        assert type(omegas) == list
-    assert type(extra_terms) == bool
-    assert type(symmetric) == bool
+        assert isinstance(omegas, list)
+    assert isinstance(extra_terms, bool)
+    assert isinstance(symmetric, bool)
 
     # create SumOverStates object from input
-    correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
+    correlation_btw_freq = [tup for tup in omegas
+                            if isinstance(tup[1], Symbol) or isinstance(tup[1], Add)]
     sos = SumOverStates(
         sos_expr,
         summation_indices,
@@ -700,7 +702,7 @@ def evaluate_property_sos(
 
     all_omegas = omegas.copy()
     if final_state:
-        assert type(final_state) == tuple and len(final_state) == 2
+        assert isinstance(final_state, tuple) and len(final_state) == 2
         all_omegas.append(
             (
                 TransitionFrequency(final_state[0], real=True),
@@ -909,14 +911,15 @@ def evaluate_property_sos_fast(
     """
     if omegas is None:
         omegas = []
-    elif type(omegas) == tuple:
+    elif isinstance(omegas, tuple):
         omegas = [omegas]
     else:
-        assert type(omegas) == list
-    assert type(extra_terms) == bool
+        assert isinstance(omegas, list)
+    assert isinstance(extra_terms, bool)
 
     # create SumOverStates object from input
-    correlation_btw_freq = [tup for tup in omegas if type(tup[1]) == Symbol or type(tup[1]) == Add]
+    correlation_btw_freq = [tup for tup in omegas
+                            if isinstance(tup[1], Symbol) or isinstance(tup[1], Add)]
     sos = SumOverStates(
         sos_expr,
         summation_indices,
@@ -935,7 +938,7 @@ def evaluate_property_sos_fast(
 
     subs_dict = {om_tup[0]: om_tup[1] for om_tup in omegas}
     if final_state:
-        assert type(final_state) == tuple and len(final_state) == 2
+        assert isinstance(final_state, tuple) and len(final_state) == 2
         subs_dict[
             TransitionFrequency(final_state[0], real=True)
         ] = state.excitation_energy_uncorrected[final_state[1]]

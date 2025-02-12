@@ -46,7 +46,7 @@ from responsefun.symbols_and_labels import M, O
 
 def extract_bra_op_ket(expr):
     """Return list of bra*op*ket sequences in a SymPy term."""
-    assert type(expr) == Mul
+    assert isinstance(expr, Mul)
     bok = [Bra, OneParticleOperator, Ket]
     expr_types = [type(term) for term in expr.args]
     ret = [
@@ -56,7 +56,7 @@ def extract_bra_op_ket(expr):
 
 
 def insert_single_moments(expr, summation_indices):
-    assert type(expr) == Mul
+    assert isinstance(expr, Mul)
     boks = extract_bra_op_ket(expr)
     subs_list = []
     for bok in boks:
@@ -88,7 +88,7 @@ def insert_single_moments(expr, summation_indices):
 
 def insert_matrix(expr, matrix=Operator("M")):
     """Insert inverse shifted ADC matrix expression."""
-    assert type(expr) == Mul
+    assert isinstance(expr, Mul)
     kb = [Ket, Bra]
     expr_types = [type(term) for term in expr.args]
     ketbra_match = {
@@ -156,7 +156,7 @@ def insert_matrix(expr, matrix=Operator("M")):
 def insert_isr_transition_moments(expr, operators):
     """Insert vector F of modified transition moments and matrix B of modified excited-states
     transition moments."""
-    assert type(expr) == Mul
+    assert isinstance(expr, Mul)
     assert isinstance(operators, list)
     ret = expr.copy()
     for op in operators:
@@ -175,7 +175,7 @@ def insert_isr_transition_moments(expr, operators):
 def to_isr_single_term(expr, operators=None):
     """Convert a single SOS term to its ADC/ISR formulation by inserting the corresponding ISR
     quantities."""
-    assert type(expr) == Mul
+    assert isinstance(expr, Mul)
     if not operators:
         operators = [op for op in expr.args if isinstance(op, OneParticleOperator)]
     i1 = insert_isr_transition_moments(expr, operators)
@@ -206,7 +206,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
         Dictionary containing SymPy expressions of computed extra terms
         with the corresponding case as key, e.g., ((n, 0), (m, 0)).
     """
-    assert type(expr) == Mul
+    assert isinstance(expr, Mul)
     if excluded_states is None:
         excluded_states = []
     bok_list = extract_bra_op_ket(expr)
@@ -273,11 +273,11 @@ def compute_remaining_terms(extra_terms, correlation_btw_freq=None):
     <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'> or 0
         SymPy expression of the extra terms that do not cancel out.
     """
-    assert type(extra_terms) == list
+    assert isinstance(extra_terms, list)
     if correlation_btw_freq is None:
         correlation_btw_freq = []
     else:
-        assert type(correlation_btw_freq) == list
+        assert isinstance(correlation_btw_freq, list)
     num_dict = {}
     for term in extra_terms:
         num = fraction(term)[0]
@@ -336,8 +336,8 @@ def compute_extra_terms(
     <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'> or 0
         SymPy expression of the extra terms that do not cancel out.
     """
-    assert type(summation_indices) == list
-    assert type(print_extra_term_dict) == bool
+    assert isinstance(summation_indices, list)
+    assert isinstance(print_extra_term_dict, bool)
 
     extra_terms_list = []
     if isinstance(expr, Add):
