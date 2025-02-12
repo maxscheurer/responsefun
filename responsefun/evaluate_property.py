@@ -105,13 +105,8 @@ def sign_change(no, rvecs_dict, sign=1):
     else:
         raise ValueError()
 
-    # return True if the sign must be changed
-    if sign == 1:
-        return False
-    elif sign == -1:
-        return True
-    else:
-        raise ValueError()
+    assert sign in [1, -1]
+    return sign
 
 
 def evaluate_property_isr(
@@ -487,12 +482,8 @@ def evaluate_property_isr(
                             comps_left_v = tuple(
                                 [comp_map[char] for char in list(lhs2.args[0].comp)]
                             )
-                            if sign_change(lhs2.args[0].no, rvecs_dict_tot):
-                                left_v = (
-                                    -1.0 * response_dict[equal_rvecs[lhs2.args[0].no]][comps_left_v]
-                                )
-                            else:
-                                left_v = response_dict[equal_rvecs[lhs2.args[0].no]][comps_left_v]
+                            sign = sign_change(lhs2.args[0].no, rvecs_dict_tot)
+                            left_v = sign * response_dict[equal_rvecs[lhs2.args[0].no]][comps_left_v]
                         elif isinstance(lhs2, Bra):  # <f| * B * X
                             assert lhs2.label[0] == final_state[0]
                             left_v = state.excitation_vector[final_state[1]]
@@ -530,20 +521,16 @@ def evaluate_property_isr(
                         lhs.args[0], ResponseVector
                     ):  # Dagger(X) * X
                         comps_left_v = tuple([comp_map[char] for char in list(lhs.args[0].comp)])
-                        if sign_change(lhs.args[0].no, rvecs_dict_tot):
-                            left_v = -1.0 * response_dict[equal_rvecs[lhs.args[0].no]][comps_left_v]
-                        else:
-                            left_v = response_dict[equal_rvecs[lhs.args[0].no]][comps_left_v]
+                        sign = sign_change(lhs.args[0].no, rvecs_dict_tot)
+                        left_v = sign * response_dict[equal_rvecs[lhs.args[0].no]][comps_left_v]
                         subs_dict[lhs * a] = scalar_product(left_v, right_v)
                     else:
                         raise ValueError("Expression cannot be evaluated.")
                 elif isinstance(oper_a, ResponseVector) and oper_a != a:  # Dagger(X) * vec
                     rhs = term.args[i + 1]
                     comps_left_v = tuple([comp_map[char] for char in list(oper_a.comp)])
-                    if sign_change(oper_a.no, rvecs_dict_tot):
-                        left_v = -1.0 * response_dict[equal_rvecs[oper_a.no]][comps_left_v]
-                    else:
-                        left_v = response_dict[equal_rvecs[oper_a.no]][comps_left_v]
+                    sign = sign_change(oper_a.no, rvecs_dict_tot)
+                    left_v = sign * response_dict[equal_rvecs[oper_a.no]][comps_left_v]
 
                     if isinstance(
                         rhs, S2S_MTM
