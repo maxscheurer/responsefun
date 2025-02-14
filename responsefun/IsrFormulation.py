@@ -157,7 +157,6 @@ def insert_isr_transition_moments(expr, operators):
     """Insert vector F of modified transition moments and matrix B of modified excited-states
     transition moments."""
     assert isinstance(expr, Mul)
-    assert isinstance(operators, list)
     ret = expr.copy()
     for op in operators:
         F = MTM(op.comp, op.op_type)
@@ -225,6 +224,17 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
     # remove excluded cases
     for state in excluded_states:
         special_cases[:] = [case for case in special_cases if case[1] != state]
+    # remove cases where operators are shifted
+    for bok in bok_list:
+        bra, ket = bok[0].label[0], bok[2].label[0]
+        op = bok[1]
+        if op.shifted:
+            case = (bra, ket)
+            case_rev = (ket, bra)
+            if case in special_cases:
+                special_cases.remove(case)
+            elif case_rev in special_cases:
+                special_cases.remove(case_rev)
 
     extra_terms = {}
     for tup in special_cases:
@@ -336,7 +346,7 @@ def compute_extra_terms(
     <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'> or 0
         SymPy expression of the extra terms that do not cancel out.
     """
-    assert isinstance(summation_indices, list)
+    # TODO: insert shifted operators?
     assert isinstance(print_extra_term_dict, bool)
 
     extra_terms_list = []

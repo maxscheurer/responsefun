@@ -1,5 +1,5 @@
 """
-Compute the excited-state polarizability for water using the STO-3G basis set.
+Compute the excited-state polarizability according to Eq. (6) in 10.1063/5.0012120.
 """
 
 import adcc

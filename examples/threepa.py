@@ -1,3 +1,6 @@
+"""
+Compute three-photon absorption matrix element according to Eq. (5.252) in 10.1002/9781118794821.
+"""
 import adcc
 import numpy as np
 from pyscf import gto, scf

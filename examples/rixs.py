@@ -1,5 +1,5 @@
 """
-Compute RIXS amplitudes according to 10.1021/acs.jctc.7b00636.
+Compute RIXS amplitudes according to Eq. (1) in 10.1021/acs.jctc.7b00636.
 """
 
 import adcc
@@ -51,6 +51,7 @@ rixs_rwa = evaluate_property_isr(
     omegas=[(w, ev2au(534.74))],
     gamma_val=ev2au(0.124),
     final_state=(f, 2),
+    conv_tol=1e-4,
 )
 
 # compute full RIXS tensor
@@ -62,6 +63,7 @@ rixs_full = evaluate_property_isr(
     omegas=[(w, ev2au(534.74)), (w_prime, w - w_f)],
     gamma_val=ev2au(0.124),
     final_state=(f, 2),
+    conv_tol=1e-4,
 )
 
 print(f"RIXS tensor within the rotating-wave approximation:\n{rixs_rwa}")

@@ -429,7 +429,7 @@ def evaluate_property_isr(
         print(f"X_{{{key}}}: {value}")
     if len(rvecs_dict_tot) > number_of_unique_rvecs:
         print(
-            "However, inserting the specified frequency values caused response "
+            "However, inserting the specified frequency values caused response"
             f" vectors to become equal, so that in the end only {number_of_unique_rvecs}"
             " response vectors had to be determined."
         )

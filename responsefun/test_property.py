@@ -102,7 +102,7 @@ SOS_expressions = {
     "beta_complex": (
         (
             TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, k)
+            * TransitionMoment(n, op_b, k, shifted=True)
             * TransitionMoment(k, op_c, O)
             / ((w_n - w_o - 1j * gamma) * (w_k - w_2 - 1j * gamma))
         ),
@@ -516,9 +516,9 @@ class TestIsrAgainstSosFast:
         refstate = adcc.ReferenceState(scfres)
         beta_expr, perm_pairs = SOS_expressions["beta_complex"]
         omega_list = [
-            [(w_o, w_1 + w_2 + 1j * gamma), (w_1, 0.05), (w_2, 0.05)],
-            [(w_o, w_1 + w_2 + 1j * gamma), (w_1, -0.05), (w_2, 0.05)],
-            [(w_o, w_1 + w_2 + 1j * gamma), (w_1, 0.04), (w_2, 0.06)],
+            [(w_o, w_1 + w_2), (w_1, 0.05), (w_2, 0.05)],
+            [(w_o, w_1 + w_2), (w_1, -0.05), (w_2, 0.05)],
+            [(w_o, w_1 + w_2), (w_1, 0.04), (w_2, 0.06)],
         ]
         gamma_val = 0.124 / Hartree
         mock_state = cache.data_fulldiag[case]
@@ -526,10 +526,10 @@ class TestIsrAgainstSosFast:
 
         for omegas in omega_list:
             beta_sos = evaluate_property_sos_fast(
-                mock_state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs
+                mock_state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs, excluded_states=O
             )
             beta_isr = evaluate_property_isr(
-                state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs
+                state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs, excluded_states=O
             )
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)
 

@@ -18,7 +18,7 @@ from responsefun.symbols_and_labels import (
 )
 
 beta_sos_term = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p)
+    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p, shifted=True)
     * TransitionMoment(p, op_c, O) / ((w_n - w_o) * (w_p - w_2))
 )
 
@@ -26,7 +26,8 @@ beta_sos = SumOverStates(
     beta_sos_term,  # first SOS term
     [n, p],  # indices of summation
     correlation_btw_freq=[(w_o, w_1+w_2)],  # correlation between the frequencies
-    perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)]  # tuples to be permuted
+    perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)],  # tuples to be permuted
+    excluded_states=O  # states excluded from the summations
 )
 
 print("number of terms: {}".format(beta_sos.number_of_terms))

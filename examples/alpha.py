@@ -1,5 +1,5 @@
 """
-Compute the linear polarizability in the static limit for water using the STO-3G basis set.
+Compute the linear polarizability in the static limit according to 10.1063/1.4977039.
 """
 import adcc
 import numpy as np
@@ -32,7 +32,7 @@ alpha_sos_expr = (
 )
 # compute polarizability
 alpha_tens = evaluate_property_isr(
-    state, alpha_sos_expr, [n], omegas=[(w, 0)], conv_tol=1e-5
+    state, alpha_sos_expr, [n], omegas=[(w, 0)], conv_tol=1e-4, excluded_states=O
 )
 print(alpha_tens)
 aver = (1/3) * np.trace(alpha_tens)

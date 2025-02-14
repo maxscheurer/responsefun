@@ -1,3 +1,7 @@
+"""
+Compute second-order nonlinear optical properties (see 10.1021/acs.jctc.3c00456)
+with an SOS expression for the first-order hyperpolarizability according to Eq. (5.187) in 10.1002/9781118794821.
+"""
 import adcc
 from pyscf import gto, scf
 
@@ -36,7 +40,7 @@ w_ruby = 0.0656
 state = adcc.adc2(scfres, n_singlets=5)
 # compute the first hyperpolarizability tensor
 beta_term = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p)
+    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p, shifted=True)
     * TransitionMoment(p, op_c, O) / ((w_n - w_o) * (w_p - w_2))
 )
 processes = {
@@ -47,7 +51,9 @@ for process, freqs in processes.items():
     beta_tens = evaluate_property_isr(
         state, beta_term, [n, p],
         omegas=[(w_o, w_1+w_2), (w_1, freqs[0]), (w_2, freqs[1])],
-        perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)]
+        perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)],
+        excluded_states=O,
+        conv_tol=1e-5
     )
     print(process)
     print(beta_tens)

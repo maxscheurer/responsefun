@@ -27,16 +27,20 @@ from responsefun.ResponseOperator import (
     OneParticleOperator,
     TransitionFrequency,
 )
+from responsefun.symbols_and_labels import O
 
 ABC = list(string.ascii_uppercase)
 
 
 class TransitionMoment:
-    """Class representing a transition moment Bra(from_state)*op*Ket(to_state) in a SymPy
+    """Class representing a transition moment Bra(to_state)*op*Ket(from_state) in a SymPy
     expression."""
 
-    def __init__(self, from_state, operator, to_state):
-        self.expr = Bra(from_state) * operator * Ket(to_state)
+    def __init__(self, to_state, operator, from_state, shifted=False):
+        if shifted and (from_state == O or to_state == O):
+            raise ValueError("Only excited-state-to-excited-state transition moments can be shifted.")
+        new_operator = operator.copy_with_new_shifted(shifted)
+        self.expr = Bra(to_state) * new_operator * Ket(from_state)
 
     def __rmul__(self, other):
         return other * self.expr
@@ -72,16 +76,29 @@ def _build_sos_via_permutation_single(term, perm_pairs):
     assert isinstance(perm_pairs, list)
 
     # extract operators from the entered SOS term
-    operators = [op for op in term.args if isinstance(op, OneParticleOperator)]
-    # check that the (op, freq) pairs are specified in the correct order
-    ordered_perm_pairs = []
+    operators = tuple([op for op in term.args if isinstance(op, OneParticleOperator)])
+    are_operators_shifted = tuple([op.shifted for op in operators])
+
+    # generate SOS term where all operators are unshifted
+    unshift_operators = []
     for op in operators:
+        if op.shifted:
+            op_unshifted = op.copy_with_new_shifted(False)
+            unshift_operators.append((op, op_unshifted))
+    term_unshifted = term.subs(unshift_operators, simultaneous=True)
+    operators_unshifted = tuple([op for op in term_unshifted.args if isinstance(op, OneParticleOperator)])
+
+    # make sure that the (op, freq) pairs are specified in the correct order
+    ordered_perm_pairs = []
+    for op in operators_unshifted:
         for pair in perm_pairs:
+            assert not pair[0].shifted
             if pair[0] == op:
                 ordered_perm_pairs.append(pair)
     assert len(ordered_perm_pairs) == len(perm_pairs)
+
     # generate permutations
-    perms = list(permutations(perm_pairs))
+    perms = list(permutations(ordered_perm_pairs))
     # successively build up the SOS expression
     sos_expr = term
     for i, p in enumerate(perms):
@@ -90,8 +107,20 @@ def _build_sos_via_permutation_single(term, perm_pairs):
             for j, pp in enumerate(p):
                 subs_list.append((perms[0][j][0], p[j][0]))
                 subs_list.append((perms[0][j][1], p[j][1]))
-            new_term = term.subs(subs_list, simultaneous=True)
+
+            new_term_unshifted = term_unshifted.subs(subs_list, simultaneous=True)
+            new_operators_unshifted = tuple([op for op in new_term_unshifted.args if isinstance(op, OneParticleOperator)])
+            shift_operators = []
+            for op, shifted in zip(new_operators_unshifted, are_operators_shifted):
+                if shifted:
+                    op_shifted = op.copy_with_new_shifted(True)
+                    shift_operators.append((op, op_shifted))
+            new_term = new_term_unshifted.subs(shift_operators, simultaneous=True)
+
             sos_expr += new_term
+            new_operators = tuple([op for op in new_term.args if isinstance(op, OneParticleOperator)])
+            are_new_operators_shifted = tuple([op.shifted for op in new_operators])
+            assert are_new_operators_shifted == are_operators_shifted
     return sos_expr
 
 
@@ -160,20 +189,24 @@ class SumOverStates:
             self.excluded_states = [excluded_states]
         else:
             self.excluded_states = excluded_states.copy()
-        assert isinstance(self.excluded_states, list)
         assert all(
             isinstance(state, Symbol) or isinstance(state, int) for state in self.excluded_states
         )
 
-        if isinstance(expr, Add):
-            self._operators = []
-            self._components = []
-            for arg in expr.args:
+        if perm_pairs:
+            self.expr = _build_sos_via_permutation(expr, perm_pairs)
+        else:
+            self.expr = expr
+
+        self._operators = set()
+        self._components = set()
+        if isinstance(self.expr, Add):
+            for arg in self.expr.args:
                 for a in arg.args:
-                    if isinstance(a, OneParticleOperator) and a not in self._operators:
-                        self._operators.append(a)
+                    if isinstance(a, OneParticleOperator):
+                        self._operators.add(a)
                         for c in a.comp:
-                            self._components.append(c)
+                            self._components.add(c)
                     if isinstance(a, Moment):
                         raise TypeError(
                             "SOS expression must not contain an instance of "
@@ -181,18 +214,16 @@ class SumOverStates:
                             "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences,"
                             "for example by means of 'responsefun.SumOverStates.TransitionMoment'>."
                         )
-            self._components.sort()
             for index in self._summation_indices:
-                for arg in expr.args:
+                for arg in self.expr.args:
                     if Bra(index) not in arg.args or Ket(index) not in arg.args:
                         raise ValueError("Given indices of summation are not correct.")
-        elif isinstance(expr, Mul):
-            self._operators = [a for a in expr.args if isinstance(a, OneParticleOperator)]
-            self._components = []
-            for a in expr.args:
+        elif isinstance(self.expr, Mul):
+            for a in self.expr.args:
                 if isinstance(a, OneParticleOperator):
+                    self._operators.add(a)
                     for c in a.comp:
-                        self._components.append(c)
+                        self._components.add(c)
                 elif isinstance(a, Moment):
                     raise TypeError(
                         "SOS expression must not contain an instance of "
@@ -200,15 +231,14 @@ class SumOverStates:
                         "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences,"
                         "for example by means of 'responsefun.SumOverStates.TransitionMoment'."
                     )
-            self._components.sort()
             for index in self._summation_indices:
-                if Bra(index) not in expr.args or Ket(index) not in expr.args:
+                if Bra(index) not in self.expr.args or Ket(index) not in self.expr.args:
                     raise ValueError("Given indices of summation are not correct.")
         else:
             raise TypeError("SOS expression must be either of type Mul or Add.")
 
         self._order = len(self._components)
-        if self._components != ABC[: self._order]:
+        if self._components.difference(ABC[: self._order]):
             raise ValueError(
                 f"It is important that the Cartesian components of an order {self._order} tensor "
                 f"be specified as {ABC[:self._order]}."
@@ -219,10 +249,6 @@ class SumOverStates:
         ]
         self.correlation_btw_freq = correlation_btw_freq
 
-        if perm_pairs:
-            self.expr = _build_sos_via_permutation(expr, perm_pairs)
-        else:
-            self.expr = expr
         self.expr = self.expr.doit()
 
     def __repr__(self):
@@ -279,7 +305,12 @@ class SumOverStates:
     def latex(self):
         ret = "\\sum_{"
         for index in self._summation_indices:
-            ret += str(index) + ","
+            ret += f"{index},"
+        ret = ret[:-1]
+        if self.excluded_states:
+            ret += "\\neq"
+            for state in self.excluded_states:
+                ret += f" {state},"
         ret = ret[:-1]
         ret += "} " + latex(self.expr)
         return ret

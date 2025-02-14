@@ -1,5 +1,6 @@
 import sympy.physics.quantum.operator as qmoperator
 from sympy import Symbol
+from sympy.logic.boolalg import Boolean
 
 from responsefun.AdccProperties import available_operators
 
@@ -15,18 +16,20 @@ for op_type, tup in available_operators.items():
 class ResponseOperator(qmoperator.Operator):
     """Base class for (state-to-state) modified transition moments and response vectors."""
 
-    def __init__(self, comp):
+    def __new__(cls, comp, *args, **kwargs):
         """
         Parameters
         ----------
         comp: str
             Cartesian component.
         """
+        obj = qmoperator.Operator.__new__(cls, comp, *args, **kwargs)
         if isinstance(comp, Symbol):
-            self._comp = str(comp)
+            obj._comp = str(comp)
         else:
             assert isinstance(comp, str)
-            self._comp = comp
+            obj._comp = comp
+        return obj
 
     @property
     def comp(self):
@@ -37,21 +40,22 @@ class ResponseOperator(qmoperator.Operator):
 
 
 class MTM(ResponseOperator):
-    def __init__(self, comp, op_type):
-        super().__init__(comp)
+    def __new__(cls, comp, op_type):
+        obj = ResponseOperator.__new__(cls, comp, op_type)
         if isinstance(op_type, Symbol):
-            self._op_type = str(op_type)
+            obj._op_type = str(op_type)
         else:
             assert isinstance(op_type, str)
-            self._op_type = op_type
-        assert self._op_type in available_operators
-        self._symmetry = available_operators[self._op_type][1]
-        self._dim = available_operators[self._op_type][2]
-        if len(self._comp) != self._dim:
+            obj._op_type = op_type
+        assert obj._op_type in available_operators
+        obj._symmetry = available_operators[obj._op_type][1]
+        obj._dim = available_operators[obj._op_type][2]
+        if len(obj._comp) != obj._dim:
             raise ValueError(
-                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                f"The operator is {obj._dim}-dimensional, but {len(obj._comp)} "
                 "components were specified."
             )
+        return obj
 
     @property
     def op_type(self):
@@ -77,22 +81,23 @@ class MTM(ResponseOperator):
 
 
 class S2S_MTM(ResponseOperator):
-    def __init__(self, comp, op_type):
-        super().__init__(comp)
+    def __new__(cls, comp, op_type):
+        obj = ResponseOperator.__new__(cls, comp, op_type)
         if isinstance(op_type, Symbol):
-            self._op_type = str(op_type)
+            obj._op_type = str(op_type)
         else:
             assert isinstance(op_type, str)
-            self._op_type = op_type
-        assert self._op_type in available_operators
+            obj._op_type = op_type
+        assert obj._op_type in available_operators
 
-        self._symmetry = available_operators[self._op_type][1]
-        self._dim = available_operators[self._op_type][2]
-        if len(self._comp) != self._dim:
+        obj._symmetry = available_operators[obj._op_type][1]
+        obj._dim = available_operators[obj._op_type][2]
+        if len(obj._comp) != obj._dim:
             raise ValueError(
-                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                f"The operator is {obj._dim}-dimensional, but {len(obj._comp)} "
                 "components were specified."
             )
+        return obj
 
     @property
     def op_type(self):
@@ -118,15 +123,16 @@ class S2S_MTM(ResponseOperator):
 
 
 class ResponseVector(ResponseOperator):
-    def __init__(self, comp, no=None, mtm_type=None, symmetry=None):
+    def __new__(cls, comp, no, mtm_type, symmetry):
         if mtm_type:
             assert mtm_type in ["MTM", "S2S_MTM"]
         if symmetry:
             assert symmetry in [0, 1, 2]
-        super().__init__(comp)
-        self._no = no
-        self._mtm_type = mtm_type
-        self._symmetry = symmetry
+        obj = ResponseOperator.__new__(cls, comp, no, mtm_type, symmetry)
+        obj._no = no
+        obj._mtm_type = mtm_type
+        obj._symmetry = symmetry
+        return obj
 
     @property
     def no(self):
@@ -148,22 +154,28 @@ class ResponseVector(ResponseOperator):
 
 
 class OneParticleOperator(ResponseOperator):
-    def __init__(self, comp, op_type):
-        super().__init__(comp)
+    def __new__(cls, comp, op_type, shifted, *args, **kwargs):
+        obj = ResponseOperator.__new__(cls, comp, op_type, shifted, *args, **kwargs)
         if isinstance(op_type, Symbol):
-            self._op_type = str(op_type)
+            obj._op_type = str(op_type)
         else:
             assert isinstance(op_type, str)
-            self._op_type = op_type
-        assert self._op_type in available_operators
+            obj._op_type = op_type
+        assert obj._op_type in available_operators
 
-        self._symmetry = available_operators[self._op_type][1]
-        self._dim = available_operators[self._op_type][2]
-        if len(self._comp) != self._dim:
+        obj._symmetry = available_operators[obj._op_type][1]
+        obj._dim = available_operators[obj._op_type][2]
+        if len(obj._comp) != obj._dim:
             raise ValueError(
-                f"The operator is {self._dim}-dimensional, but {len(self._comp)} "
+                f"The operator is {obj._dim}-dimensional, but {len(obj._comp)} "
                 "components were specified."
             )
+        assert isinstance(shifted, bool) or isinstance(shifted, Boolean)
+        obj._shifted = shifted
+        return obj
+
+    def copy_with_new_shifted(self, shifted):
+        return OneParticleOperator(self.comp, self.op_type, shifted)
 
     @property
     def op_type(self):
@@ -177,19 +189,29 @@ class OneParticleOperator(ResponseOperator):
     def dim(self):
         return self._dim
 
+    @property
+    def shifted(self):
+        return self._shifted
+
     def _print_contents(self, printer):
         op = available_operators[self._op_type][0]
-        return "{}_{}".format(op, self._comp)
+        if self.shifted:
+            return "{}_{}_bar".format(op, self._comp)
+        else:
+            return "{}_{}".format(op, self._comp)
 
     def _print_contents_latex(self, printer):
         op = available_operators[self._op_type][0]
         if len(op) > 1:
             op = "\\" + op
-        return "{}_{{{}}}".format(op, self._comp)
+        if self.shifted:
+            return "\\hat{{\\overline{{{}}}}}_{{{}}}".format(op, self._comp)
+        else:
+            return "\\hat{{{}}}_{{{}}}".format(op, self._comp)
 
 
 class Moment(Symbol):
-    def __new__(self, comp, from_state, to_state, op_type, **assumptions):
+    def __new__(cls, comp, from_state, to_state, op_type, **assumptions):
         assert isinstance(comp, str)
         assert isinstance(from_state, Symbol)
         assert isinstance(to_state, Symbol)
@@ -197,7 +219,7 @@ class Moment(Symbol):
         name = "{}_{}^{}".format(
             available_operators[op_type][0], comp, str(from_state) + str(to_state)
         )
-        obj = Symbol.__new__(self, name, **assumptions)
+        obj = Symbol.__new__(cls, name, **assumptions)
         obj._comp = comp
         obj._from_state = from_state
         obj._to_state = to_state

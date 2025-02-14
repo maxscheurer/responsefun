@@ -24,18 +24,18 @@ w_p = TransitionFrequency(p, real=True)
 w_k = TransitionFrequency(k, real=True)
 
 # electric dipole operators
-op_a = OneParticleOperator("A", "electric")
-op_b = OneParticleOperator("B", "electric")
-op_c = OneParticleOperator("C", "electric")
-op_d = OneParticleOperator("D", "electric")
-op_e = OneParticleOperator("E", "electric")
+op_a = OneParticleOperator("A", "electric", False)
+op_b = OneParticleOperator("B", "electric", False)
+op_c = OneParticleOperator("C", "electric", False)
+op_d = OneParticleOperator("D", "electric", False)
+op_e = OneParticleOperator("E", "electric", False)
 
 # magnetic dipole operators
-opm_a = OneParticleOperator("A", "magnetic")
-opm_b = OneParticleOperator("B", "magnetic")
-opm_c = OneParticleOperator("C", "magnetic")
-opm_d = OneParticleOperator("D", "magnetic")
-opm_e = OneParticleOperator("E", "magnetic")
+opm_a = OneParticleOperator("A", "magnetic", False)
+opm_b = OneParticleOperator("B", "magnetic", False)
+opm_c = OneParticleOperator("C", "magnetic", False)
+opm_d = OneParticleOperator("D", "magnetic", False)
+opm_e = OneParticleOperator("E", "magnetic", False)
 
 # ADC matrix (for internal use)
 M = Operator("M")
