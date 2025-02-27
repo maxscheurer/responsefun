@@ -1,7 +1,6 @@
 import adcc
 import numpy as np
 import pytest
-from scipy.constants import physical_constants
 
 from responsefun.evaluate_property import evaluate_property_isr
 from responsefun.SumOverStates import TransitionMoment
@@ -20,8 +19,6 @@ from responsefun.symbols_and_labels import (
 )
 from responsefun.testdata import cache
 from responsefun.testdata.static_data import xyz
-
-Hartree = physical_constants["hartree-electron volt relationship"][0]
 
 
 def run_scf(molecule, basis, backend="pyscf"):

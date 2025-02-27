@@ -10,13 +10,13 @@ from respondo.polarizability import (
 )
 from respondo.rixs import rixs
 from respondo.tpa import tpa_resonant
-from scipy.constants import physical_constants
 
 from responsefun.evaluate_property import (
     evaluate_property_isr,
     evaluate_property_sos,
     evaluate_property_sos_fast,
 )
+from responsefun.misc import ev2au
 from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
@@ -44,8 +44,6 @@ from responsefun.symbols_and_labels import (
 )
 from responsefun.testdata import cache
 from responsefun.testdata.static_data import xyz
-
-Hartree = physical_constants["hartree-electron volt relationship"][0]
 
 
 def run_scf(molecule, basis, backend="pyscf"):
@@ -174,7 +172,7 @@ class TestIsrAgainstRespondo:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         omega = 0.05
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         alpha_ref = complex_polarizability(refstate, method=method, omega=omega, gamma=gamma_val)
 
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
@@ -191,7 +189,7 @@ class TestIsrAgainstRespondo:
         omega = 0.05
         freqs_in = (w, omega)
         freqs_out=(w_prime, w-w_f)
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         rixs_expr = SOS_expressions["rixs_short"][0]
 
         for ee in state.excitations:
@@ -214,7 +212,7 @@ class TestIsrAgainstRespondo:
         omega = 0.05
         freqs_in = (w, omega)
         freqs_out=(w_prime, w-w_f)
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         rixs_expr = SOS_expressions["rixs"][0]
 
         for ee in state.excitations:
@@ -254,7 +252,7 @@ class TestIsrAgainstSos:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         alpha_expr = SOS_expressions["alpha_complex"][0]
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         # static, real and complex polarizability
         value_list = [((w, 0.0), 0.0), ((w, 0.05), 0.0), ((w, 0.03), gamma_val)]
         mock_state = cache.data_fulldiag[case]
@@ -279,7 +277,7 @@ class TestIsrAgainstSos:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         rixs_expr = SOS_expressions["rixs_short"][0]
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         value_list = [((w, 0.0), 0.0), ((w, 0.05), 0.0), ((w, 1), 0), ((w, 0.03), gamma_val)]
         freqs_out = (w_prime, w-w_f)
         mock_state = cache.data_fulldiag[case]
@@ -320,7 +318,7 @@ class TestIsrAgainstSos:
         rixs_expr = SOS_expressions["rixs"][0]
         freqs_in = (w, 0.05)
         freqs_out = (w_prime, w-w_f)
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         final_state = 2
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
@@ -384,7 +382,7 @@ class TestIsrAgainstSosFast:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         alpha_expr = SOS_expressions["alpha_complex"][0]
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         # static, real and complex polarizability
         value_list = [((w, 0.0), 0.0), ((w, 0.05), 0.0), ((w, 0.03), gamma_val)]
         mock_state = cache.data_fulldiag[case]
@@ -410,7 +408,7 @@ class TestIsrAgainstSosFast:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         rixs_expr = SOS_expressions["rixs_short"][0]
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         value_list = [((w, 0.0), 0.0), ((w, 0.05), 0.0), ((w, 1), 0), ((w, 0.03), gamma_val)]
         freqs_out = (w_prime, w-w_f)
         mock_state = cache.data_fulldiag[case]
@@ -451,7 +449,7 @@ class TestIsrAgainstSosFast:
         rixs_expr = SOS_expressions["rixs"][0]
         freqs_in = (w, 0.05)
         freqs_out = (w_prime, w-w_f)
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         final_state = 2
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
@@ -551,7 +549,7 @@ class TestIsrAgainstSosFast:
             [(w_o, w_1 + w_2), (w_1, -0.05), (w_2, 0.05)],
             [(w_o, w_1 + w_2), (w_1, 0.04), (w_2, 0.06)],
         ]
-        gamma_val = 0.124 / Hartree
+        gamma_val = ev2au(0.124)
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 

@@ -30,7 +30,6 @@ from respondo.solve_response import (
     transition_polarizability,
     transition_polarizability_complex,
 )
-from scipy.constants import physical_constants
 from sympy import Add, Float, I, Integer, Mul, Pow, Symbol, adjoint, im, zoo, Number, sympify
 from sympy.physics.quantum.state import Bra, Ket
 from tqdm import tqdm
@@ -51,7 +50,7 @@ from responsefun.rvec_algebra import bmatrix_vector_product, scalar_product
 from responsefun.SumOverStates import SumOverStates
 from responsefun.symbols_and_labels import O, gamma
 
-Hartree = physical_constants["hartree-electron volt relationship"][0]
+
 ABC = list(string.ascii_uppercase)
 
 

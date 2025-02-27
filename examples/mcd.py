@@ -7,6 +7,7 @@ import numpy as np
 from pyscf import gto, scf
 
 from responsefun.evaluate_property import evaluate_property_isr
+from responsefun.misc import epsilon
 from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import O, j, k, op_a, op_b, opm_c, w_j, w_k
 
@@ -47,11 +48,6 @@ mcd_tens2 = evaluate_property_isr(
     excluded_states=[O,j], excited_state=final_state,
     conv_tol=1e-4,
 )
-
-# Levi-Civita tensor
-epsilon = np.zeros((3, 3, 3))
-epsilon[0, 1, 2] = epsilon[1, 2, 0] = epsilon[2, 0, 1] = 1
-epsilon[2, 1, 0] = epsilon[0, 2, 1] = epsilon[1, 0, 2] = -1
 
 # the minus sign is needed, because the negative charge is not yet included in the operator definitions
 # TODO: remove minus after adc-connect/adcc#190 is merged
