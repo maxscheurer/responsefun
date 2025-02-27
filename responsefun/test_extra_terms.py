@@ -65,11 +65,14 @@ class TestExtraTerms:
 
         beta1_expr, perm_pairs = SOS_expressions["beta1"]
         beta2_expr = SOS_expressions["beta2"][0]
-        omegas = [(w_o, w_1 + w_2), (w_1, 0.05), (w_2, 0.05)]
+        incoming_freqs = [(w_1, 0.05), (w_2, 0.05)]
+        outgoing_freqs = (w_o, w_1 + w_2)
         beta1_tens = evaluate_property_isr(
-            state, beta1_expr, [n, k], omegas, perm_pairs=perm_pairs
+            state, beta1_expr, [n, k], perm_pairs=perm_pairs,
+            incoming_freqs=incoming_freqs, outgoing_freqs=outgoing_freqs,
         )
         beta2_tens = evaluate_property_isr(
-            state, beta2_expr, [n, k], omegas, perm_pairs=perm_pairs, excluded_states=O
+            state, beta2_expr, [n, k], perm_pairs=perm_pairs, excluded_states=O,
+            incoming_freqs=incoming_freqs, outgoing_freqs=outgoing_freqs,
         )
         np.testing.assert_allclose(beta1_tens, beta2_tens, atol=1e-7)

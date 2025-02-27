@@ -50,7 +50,7 @@ def transition_moments(state, operator):
     iterables = [list(range(shape)) for shape in op_shape]
     components = list(product(*iterables))
     moments = np.zeros((state.size, *op_shape))
-    for i, ee in enumerate(tqdm(state.excitations)):
+    for i, ee in enumerate(state.excitations):
         tdm = transition_dm(state.property_method, state.ground_state, ee.excitation_vector)
         tms = np.zeros(op_shape)
         for c in components:
@@ -98,17 +98,19 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
 # TODO: testing
 def gs_magnetic_dipole_moment(ground_state, level=2):
     magdips = ground_state.reference_state.operators.magnetic_dipole
-    ref_dipmom = np.array(
+    # the minus sign is needed, because the negative charge is not yet included in the operator definitions
+    # TODO: remove minus after adc-connect/adcc#190 is merged
+    ref_dipmom = -1.0 * np.array(
         [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
     )
     if level == 1:
         return ref_dipmom
     elif level == 2:
-        mp2corr = np.array([product_trace(dip, ground_state.mp2_diffdm) for dip in magdips])
+        mp2corr = -1.0 * np.array([product_trace(dip, ground_state.mp2_diffdm) for dip in magdips])
         return ref_dipmom + mp2corr
     else:
         raise NotImplementedError(
-            "Only magnetic dipole moments for level 1 and 2" " are implemented."
+            "Only magnetic dipole moments for level 1 and 2 are implemented."
         )
 
 

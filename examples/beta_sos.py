@@ -25,10 +25,14 @@ beta_sos_term = (
 beta_sos = SumOverStates(
     beta_sos_term,  # first SOS term
     [n, p],  # indices of summation
-    correlation_btw_freq=[(w_o, w_1+w_2)],  # correlation between the frequencies
+    incoming_freqs=[w_1, w_2],  # frequencies of incident photons
+    outgoing_freqs=w_o,  # frequency of resulting photon
     perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)],  # tuples to be permuted
     excluded_states=O  # states excluded from the summations
 )
 
 print("number of terms: {}".format(beta_sos.number_of_terms))
-print(beta_sos.latex)
+print(beta_sos)
+print(f"energy balance: {beta_sos.energy_balance()}")
+print(f"found correlation between frequencies: {beta_sos.correlation_btw_freq}")
+print(f"For Latex:\n{beta_sos.latex}")

@@ -40,19 +40,8 @@ from responsefun.ResponseOperator import (
     OneParticleOperator,
     TransitionFrequency,
 )
-from responsefun.SumOverStates import SumOverStates
+from responsefun.SumOverStates import SumOverStates, extract_bra_op_ket
 from responsefun.symbols_and_labels import M, O
-
-
-def extract_bra_op_ket(expr):
-    """Return list of bra*op*ket sequences in a SymPy term."""
-    assert isinstance(expr, Mul)
-    bok = [Bra, OneParticleOperator, Ket]
-    expr_types = [type(term) for term in expr.args]
-    ret = [
-        list(expr.args[i : i + 3]) for i, k in enumerate(expr_types) if expr_types[i : i + 3] == bok
-    ]
-    return ret
 
 
 def insert_single_moments(expr, summation_indices):
@@ -208,12 +197,12 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
     assert isinstance(expr, Mul)
     if excluded_states is None:
         excluded_states = []
-    bok_list = extract_bra_op_ket(expr)
+    boks = extract_bra_op_ket(expr)
     special_cases = []
     # find special cases
     for index in summation_indices:
         special_cases.append((index, O))
-        for bok in bok_list:
+        for bok in boks:
             bra, ket = bok[0].label[0], bok[2].label[0]
             if bra == index and (bra, ket) not in special_cases and (ket, bra) not in special_cases:
                 special_cases.append((bra, ket))
@@ -225,7 +214,7 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
     for state in excluded_states:
         special_cases[:] = [case for case in special_cases if case[1] != state]
     # remove cases where operators are shifted
-    for bok in bok_list:
+    for bok in boks:
         bra, ket = bok[0].label[0], bok[2].label[0]
         op = bok[1]
         if op.shifted:

@@ -36,7 +36,7 @@ mol = gto.M(
     H        0.000000    0.000000   -0.833107
     """,
     unit="Angstrom",
-    basis="augccpvdz"
+    basis="augccpvdz",
 )
 scfres = scf.RHF(mol)
 scfres.kernel()
@@ -51,14 +51,14 @@ threepa_term = (
 )
 
 for es in range(5):
-    omega_f = state.excitation_energy_uncorrected[es]
     print(f"===== State {es} ===== ")
-    omegas = [(w_1, omega_f/3), (w_2, omega_f/3),
-              (w_3, omega_f/3), (w_1, w_f-w_2-w_3)]
-    threepa_tens = evaluate_property_isr(
-        state, threepa_term, [n, m], omegas=omegas,
+    # the minus sign is needed, because the negative charge is not yet included in the operator definitions
+    # TODO: remove minus after adc-connect/adcc#190 is merged
+    threepa_tens = -1.0 * evaluate_property_isr(
+        state, threepa_term, [n, m],
         perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)],
-        conv_tol=1e-5, final_state=(f, es)
+        incoming_freqs=[(w_1, w_f/3), (w_2, w_f/3), (w_3, w_f/3)],
+        excited_state=es, conv_tol=1e-5,
     )
     threepa_strength = threepa_average(threepa_tens)
     print(f"Transition strength (a.u.): {threepa_strength:.6f}")

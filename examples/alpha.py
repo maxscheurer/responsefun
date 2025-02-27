@@ -32,7 +32,9 @@ alpha_sos_expr = (
 )
 # compute polarizability
 alpha_tens = evaluate_property_isr(
-    state, alpha_sos_expr, [n], omegas=[(w, 0)], conv_tol=1e-4, excluded_states=O
+    state, alpha_sos_expr, [n], excluded_states=O,
+    incoming_freqs=(w, 0), outgoing_freqs=(w, 0),
+    conv_tol=1e-4, 
 )
 print(alpha_tens)
 aver = (1/3) * np.trace(alpha_tens)

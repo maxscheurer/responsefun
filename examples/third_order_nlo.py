@@ -4,6 +4,7 @@ with an SOS expression for the second-order hyperpolarizability according to Eq.
 """
 import adcc
 from pyscf import gto, scf
+import numpy as np
 
 from responsefun.evaluate_property import evaluate_property_isr
 from responsefun.SumOverStates import TransitionMoment
@@ -25,6 +26,12 @@ from responsefun.symbols_and_labels import (
     w_p,
 )
 
+
+def compute_gamma_average(gamma_tens):
+    gamma_aver = (1/15) * (np.einsum("iijj->", gamma_tens) + np.einsum("ijij", gamma_tens) + np.einsum("ijji", gamma_tens))
+    return gamma_aver
+
+
 # run SCF in PySCF
 mol = gto.M(
     atom="""
@@ -33,7 +40,7 @@ mol = gto.M(
     H        0.000000   -0.767545   -0.460329
     """,
     unit="Angstrom",
-    basis="aug-cc-pvdz"
+    basis="aug-cc-pvdz",
 )
 scfres = scf.RHF(mol)
 scfres.kernel()
@@ -60,16 +67,21 @@ processes = {
     "ESHG": (w_ruby, w_ruby, 0.0), "THG": (w_ruby, w_ruby, w_ruby)
 }
 for process, freqs in processes.items():
-    omegas = [(w_o, w_1+w_2+w_3), (w_1, freqs[0]),
-              (w_2, freqs[1]), (w_3, freqs[2])]
+    incoming_freqs = [(w_1, freqs[0]), (w_2, freqs[1]), (w_3, freqs[2])]
+    outgoing_freqs = (w_o, w_1+w_2+w_3)
     gamma_tens_I = evaluate_property_isr(
-        state, gamma_term_I, [n, m, p], omegas=omegas,
-        perm_pairs=perm_pairs, excluded_states=O, conv_tol=1e-5
+        state, gamma_term_I, [n, m, p],
+        perm_pairs=perm_pairs, excluded_states=O,
+        incoming_freqs=incoming_freqs, outgoing_freqs=outgoing_freqs,
+        conv_tol=1e-5,
     )
     gamma_tens_II = evaluate_property_isr(
-        state, gamma_term_II, [n, m], omegas=omegas,
-        perm_pairs=perm_pairs, excluded_states=O, conv_tol=1e-5
+        state, gamma_term_II, [n, m],
+        perm_pairs=perm_pairs, excluded_states=O,
+        incoming_freqs=incoming_freqs, outgoing_freqs=outgoing_freqs,
+        conv_tol=1e-5,
     )
     gamma_tens = gamma_tens_I - gamma_tens_II
     print(process)
     print(gamma_tens)
+    print(f"gamma_average = {compute_gamma_average(gamma_tens):.2f} a.u.")

@@ -31,6 +31,7 @@ from responsefun.symbols_and_labels import (
     op_d,
     p,
     w,
+    w_prime,
     w_1,
     w_2,
     w_3,
@@ -140,7 +141,7 @@ SOS_expressions = {
     ),
 }
 
-
+# TODO: add mcd test as soon as gator-program/respondo#15 is merged
 @pytest.mark.parametrize("case", cache.cases)
 class TestIsrAgainstRespondo:
     def test_static_polarizability(self, case):
@@ -151,7 +152,8 @@ class TestIsrAgainstRespondo:
 
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         alpha_expr = SOS_expressions["alpha"][0]
-        alpha = evaluate_property_isr(state, alpha_expr, [n], (w, 0.0), symmetric=True)
+        freq = (w, 0.0)
+        alpha = evaluate_property_isr(state, alpha_expr, [n], incoming_freqs=freq, outgoing_freqs=freq, symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
     def test_real_polarizability(self, case):
@@ -163,7 +165,8 @@ class TestIsrAgainstRespondo:
 
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         alpha_expr = SOS_expressions["alpha_complex"][0]
-        alpha = evaluate_property_isr(state, alpha_expr, [n], (w, omega), symmetric=True)
+        freq = (w, omega)
+        alpha = evaluate_property_isr(state, alpha_expr, [n], incoming_freqs=freq, outgoing_freqs=freq, symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
     def test_complex_polarizability(self, case):
@@ -176,7 +179,8 @@ class TestIsrAgainstRespondo:
 
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         alpha_expr = SOS_expressions["alpha_complex"][0]
-        alpha = evaluate_property_isr(state, alpha_expr, [n], (w, omega), gamma_val, symmetric=True)
+        freq = (w, omega)
+        alpha = evaluate_property_isr(state, alpha_expr, [n], incoming_freqs=freq, outgoing_freqs=freq, damping=gamma_val, symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
     def test_rixs_short(self, case):
@@ -185,6 +189,8 @@ class TestIsrAgainstRespondo:
         refstate = adcc.ReferenceState(scfres)
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         omega = 0.05
+        freqs_in = (w, omega)
+        freqs_out=(w_prime, w-w_f)
         gamma_val = 0.124 / Hartree
         rixs_expr = SOS_expressions["rixs_short"][0]
 
@@ -194,7 +200,7 @@ class TestIsrAgainstRespondo:
 
             rixs_ref = rixs(excited_state, omega, gamma_val)
             rixs_short = evaluate_property_isr(
-                state, rixs_expr, [n], (w, omega), gamma_val, final_state=(f, final_state)
+                state, rixs_expr, [n], incoming_freqs=freqs_in, outgoing_freqs=freqs_out, damping=gamma_val, excited_state=final_state
             )
             np.testing.assert_allclose(
                 rixs_short, rixs_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state)
@@ -206,6 +212,8 @@ class TestIsrAgainstRespondo:
         refstate = adcc.ReferenceState(scfres)
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         omega = 0.05
+        freqs_in = (w, omega)
+        freqs_out=(w_prime, w-w_f)
         gamma_val = 0.124 / Hartree
         rixs_expr = SOS_expressions["rixs"][0]
 
@@ -215,7 +223,7 @@ class TestIsrAgainstRespondo:
 
             rixs_ref = rixs(excited_state, omega, gamma_val, rotating_wave=False)
             rixs_tens = evaluate_property_isr(
-                state, rixs_expr, [n], (w, omega), gamma_val, final_state=(f, final_state)
+                state, rixs_expr, [n], incoming_freqs=freqs_in, outgoing_freqs=freqs_out, damping=gamma_val, excited_state=final_state
             )
             np.testing.assert_allclose(
                 rixs_tens, rixs_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state)
@@ -233,7 +241,7 @@ class TestIsrAgainstRespondo:
             excited_state = Excitation(state, final_state, method)
 
             tpa_ref = tpa_resonant(excited_state)
-            tpa = evaluate_property_isr(state, tpa_expr, [n], final_state=(f, final_state))
+            tpa = evaluate_property_isr(state, tpa_expr, [n], excited_state=final_state)
             np.testing.assert_allclose(
                 tpa, tpa_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state)
             )
@@ -254,10 +262,10 @@ class TestIsrAgainstSos:
 
         for tup in value_list:
             alpha_sos = evaluate_property_sos(
-                mock_state, alpha_expr, [n], tup[0], tup[1], symmetric=True
+                mock_state, alpha_expr, [n], incoming_freqs=tup[0], outgoing_freqs=tup[0], damping=tup[1], symmetric=True
             )
             alpha_isr = evaluate_property_isr(
-                state, alpha_expr, [n], tup[0], tup[1], symmetric=True
+                state, alpha_expr, [n], incoming_freqs=tup[0], outgoing_freqs=tup[0], damping=tup[1], symmetric=True
             )
             np.testing.assert_allclose(
                 alpha_isr,
@@ -273,6 +281,7 @@ class TestIsrAgainstSos:
         rixs_expr = SOS_expressions["rixs_short"][0]
         gamma_val = 0.124 / Hartree
         value_list = [((w, 0.0), 0.0), ((w, 0.05), 0.0), ((w, 1), 0), ((w, 0.03), gamma_val)]
+        freqs_out = (w_prime, w-w_f)
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
@@ -282,18 +291,22 @@ class TestIsrAgainstSos:
                 if tup[0][1] == 0.0 and tup[1] == 0.0:
                     with pytest.raises(ZeroDivisionError):
                         evaluate_property_sos(
-                            mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                            mock_state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                            damping=tup[1], excited_state=final_state
                         )
                     with pytest.raises(ZeroDivisionError):
                         evaluate_property_isr(
-                            state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                            state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                            damping=tup[1], excited_state=final_state
                         )
                 else:
                     rixs_sos = evaluate_property_sos(
-                        mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                        mock_state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                        damping=tup[1], excited_state=final_state
                     )
                     rixs_isr = evaluate_property_isr(
-                        state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                        state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                        damping=tup[1], excited_state=final_state
                     )
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(
                         tup[0][1], tup[1], final_state
@@ -305,17 +318,18 @@ class TestIsrAgainstSos:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         rixs_expr = SOS_expressions["rixs"][0]
-        omega = (w, 0.05)
+        freqs_in = (w, 0.05)
+        freqs_out = (w_prime, w-w_f)
         gamma_val = 0.124 / Hartree
         final_state = 2
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
         rixs_sos = evaluate_property_sos(
-            mock_state, rixs_expr, [n], omega, gamma_val, final_state=(f, final_state)
+            mock_state, rixs_expr, [n], incoming_freqs=freqs_in, outgoing_freqs=freqs_out, damping=gamma_val, excited_state=final_state
         )
         rixs_isr = evaluate_property_isr(
-            state, rixs_expr, [n], omega, gamma_val, final_state=(f, final_state)
+            state, rixs_expr, [n], incoming_freqs=freqs_in, outgoing_freqs=freqs_out, damping=gamma_val, excited_state=final_state
         )
         assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7)
 
@@ -328,8 +342,8 @@ class TestIsrAgainstSos:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-        tpa_sos = evaluate_property_sos(mock_state, tpa_expr, [n], final_state=(f, final_state))
-        tpa_isr = evaluate_property_isr(state, tpa_expr, [n], final_state=(f, final_state))
+        tpa_sos = evaluate_property_sos(mock_state, tpa_expr, [n], excited_state=final_state)
+        tpa_isr = evaluate_property_isr(state, tpa_expr, [n], excited_state=final_state)
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
@@ -377,9 +391,12 @@ class TestIsrAgainstSosFast:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
         for tup in value_list:
-            alpha_sos = evaluate_property_sos_fast(mock_state, alpha_expr, [n], tup[0], tup[1])
+            alpha_sos = evaluate_property_sos_fast(
+                mock_state, alpha_expr, [n], incoming_freqs=tup[0], outgoing_freqs=tup[0], damping=tup[1]
+            )
             alpha_isr = evaluate_property_isr(
-                state, alpha_expr, [n], tup[0], tup[1], symmetric=True
+                state, alpha_expr, [n], incoming_freqs=tup[0], outgoing_freqs=tup[0],
+                damping=tup[1], symmetric=True
             )
             np.testing.assert_allclose(
                 alpha_isr,
@@ -395,6 +412,7 @@ class TestIsrAgainstSosFast:
         rixs_expr = SOS_expressions["rixs_short"][0]
         gamma_val = 0.124 / Hartree
         value_list = [((w, 0.0), 0.0), ((w, 0.05), 0.0), ((w, 1), 0), ((w, 0.03), gamma_val)]
+        freqs_out = (w_prime, w-w_f)
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
@@ -404,18 +422,22 @@ class TestIsrAgainstSosFast:
                 if tup[0][1] == 0.0 and tup[1] == 0.0:
                     with pytest.raises(ZeroDivisionError):
                         evaluate_property_sos_fast(
-                            mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                            mock_state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                            damping=tup[1], excited_state=final_state
                         )
                     with pytest.raises(ZeroDivisionError):
                         evaluate_property_isr(
-                            state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                            state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                            damping=tup[1], excited_state=final_state
                         )
                 else:
                     rixs_sos = evaluate_property_sos_fast(
-                        mock_state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                        mock_state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                        damping=tup[1], excited_state=final_state
                     )
                     rixs_isr = evaluate_property_isr(
-                        state, rixs_expr, [n], tup[0], tup[1], final_state=(f, final_state)
+                        state, rixs_expr, [n], incoming_freqs=tup[0], outgoing_freqs=freqs_out,
+                        damping=tup[1], excited_state=final_state
                     )
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(
                         tup[0][1], tup[1], final_state
@@ -427,17 +449,20 @@ class TestIsrAgainstSosFast:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         rixs_expr = SOS_expressions["rixs"][0]
-        omega = (w, 0.05)
+        freqs_in = (w, 0.05)
+        freqs_out = (w_prime, w-w_f)
         gamma_val = 0.124 / Hartree
         final_state = 2
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
         rixs_sos = evaluate_property_sos_fast(
-            mock_state, rixs_expr, [n], omega, gamma_val, final_state=(f, final_state)
+            mock_state, rixs_expr, [n], incoming_freqs=freqs_in, outgoing_freqs=freqs_out,
+            damping=gamma_val, excited_state=final_state
         )
         rixs_isr = evaluate_property_isr(
-            state, rixs_expr, [n], omega, gamma_val, final_state=(f, final_state)
+            state, rixs_expr, [n], incoming_freqs=freqs_in, outgoing_freqs=freqs_out,
+            damping=gamma_val, excited_state=final_state
         )
         assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7)
 
@@ -463,9 +488,9 @@ class TestIsrAgainstSosFast:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
         tpa_sos = evaluate_property_sos_fast(
-            mock_state, tpa_expr, [n], final_state=(f, final_state)
+            mock_state, tpa_expr, [n], excited_state=final_state
         )
-        tpa_isr = evaluate_property_isr(state, tpa_expr, [n], final_state=(f, final_state))
+        tpa_isr = evaluate_property_isr(state, tpa_expr, [n], excited_state=final_state)
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
@@ -495,20 +520,26 @@ class TestIsrAgainstSosFast:
 
         for omegas in omega_list:
             beta_sos = evaluate_property_sos_fast(
-                mock_state, beta_expr, [n, k], omegas, perm_pairs=perm_pairs
+                mock_state, beta_expr, [n, k], incoming_freqs=omegas[1:],
+                outgoing_freqs=omegas[0], perm_pairs=perm_pairs
             )
             beta_isr = evaluate_property_isr(
-                state, beta_expr, [n, k], omegas, perm_pairs=perm_pairs
+                state, beta_expr, [n, k], incoming_freqs=omegas[1:],
+                outgoing_freqs=omegas[0], perm_pairs=perm_pairs
             )
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)
 
         # give wrong indices of summation
         with pytest.raises(ValueError):
             evaluate_property_sos_fast(
-                mock_state, beta_expr, [n, p], omega_list[0], perm_pairs=perm_pairs
+                mock_state, beta_expr, [n, p], incoming_freqs=omega_list[0][1:],
+                outgoing_freqs=omega_list[0][0], perm_pairs=perm_pairs
             )
         with pytest.raises(ValueError):
-            evaluate_property_isr(state, beta_expr, [n, p], omega_list[0], perm_pairs=perm_pairs)
+            evaluate_property_isr(
+                state, beta_expr, [n, p], incoming_freqs=omega_list[0][1:],
+                outgoing_freqs=omega_list[0][0], perm_pairs=perm_pairs
+            )
 
     def test_complex_first_hyperpolarizability(self, case):
         molecule, basis, method = case.split("_")
@@ -526,10 +557,12 @@ class TestIsrAgainstSosFast:
 
         for omegas in omega_list:
             beta_sos = evaluate_property_sos_fast(
-                mock_state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs, excluded_states=O
+                mock_state, beta_expr, [n, k], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                damping=gamma_val, perm_pairs=perm_pairs, excluded_states=O
             )
             beta_isr = evaluate_property_isr(
-                state, beta_expr, [n, k], omegas, gamma_val, perm_pairs=perm_pairs, excluded_states=O
+                state, beta_expr, [n, k], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                damping=gamma_val, perm_pairs=perm_pairs, excluded_states=O
             )
             np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-7)
 
@@ -549,26 +582,20 @@ class TestIsrAgainstSosFast:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         for omegas in omega_list:
             gamma_sos = evaluate_property_sos_fast(
-                mock_state, gamma_expr, [n, m, p], omegas, perm_pairs=perm_pairs, extra_terms=False
+                mock_state, gamma_expr, [n, m, p], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                perm_pairs=perm_pairs, extra_terms=False
             )
             gamma_isr = evaluate_property_isr(
-                state, gamma_expr, [n, m, p], omegas, perm_pairs=perm_pairs, extra_terms=False
+                state, gamma_expr, [n, m, p], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                perm_pairs=perm_pairs, extra_terms=False
             )
             gamma_sos_extra = evaluate_property_sos_fast(
-                mock_state,
-                gamma_expr_extra,
-                [n, m],
-                omegas,
-                perm_pairs=perm_pairs_extra,
-                extra_terms=False,
+                mock_state, gamma_expr_extra, [n, m], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                perm_pairs=perm_pairs_extra, extra_terms=False
             )
             gamma_isr_extra = evaluate_property_isr(
-                state,
-                gamma_expr_extra,
-                [n, m],
-                omegas,
-                perm_pairs=perm_pairs_extra,
-                extra_terms=False,
+                state, gamma_expr_extra, [n, m], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                perm_pairs=perm_pairs_extra, extra_terms=False
             )
             gamma_isr_tot = gamma_isr - gamma_isr_extra
             gamma_sos_tot = gamma_sos - gamma_sos_extra
@@ -592,22 +619,21 @@ class TestIsrAgainstSosFast:
             if omegas[1][1] == 0.0 and omegas[2][1] == 0.0:
                 with pytest.raises(ZeroDivisionError):
                     evaluate_property_sos_fast(
-                        mock_state,
-                        gamma_expr,
-                        [n, m],
-                        omegas,
-                        perm_pairs=perm_pairs,
-                        extra_terms=False,
+                        mock_state, gamma_expr, [n, m], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                        perm_pairs=perm_pairs, extra_terms=False
                     )
                 with pytest.raises(ZeroDivisionError):
                     evaluate_property_isr(
-                        state, gamma_expr, [n, m], omegas, perm_pairs=perm_pairs, extra_terms=False
+                        state, gamma_expr, [n, m], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                        perm_pairs=perm_pairs, extra_terms=False
                     )
             else:
                 gamma_sos = evaluate_property_sos_fast(
-                    mock_state, gamma_expr, [n, m], omegas, perm_pairs=perm_pairs, extra_terms=False
+                    mock_state, gamma_expr, [n, m], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                        perm_pairs=perm_pairs, extra_terms=False
                 )
                 gamma_isr = evaluate_property_isr(
-                    state, gamma_expr, [n, m], omegas, perm_pairs=perm_pairs, extra_terms=False
+                    state, gamma_expr, [n, m], incoming_freqs=omegas[1:], outgoing_freqs=omegas[0],
+                        perm_pairs=perm_pairs, extra_terms=False
                 )
                 np.testing.assert_allclose(gamma_isr, gamma_sos, atol=1e-7)

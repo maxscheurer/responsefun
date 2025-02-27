@@ -48,9 +48,10 @@ rixs_rwa = evaluate_property_isr(
     state,
     rixs_sos_rwa,
     [n],
-    omegas=[(w, ev2au(534.74))],
-    gamma_val=ev2au(0.124),
-    final_state=(f, 2),
+    incoming_freqs=(w, ev2au(534.74)),
+    outgoing_freqs=(w_prime, w-w_f),
+    damping=ev2au(0.124),
+    excited_state=2,
     conv_tol=1e-4,
 )
 
@@ -60,9 +61,10 @@ rixs_full = evaluate_property_isr(
     rixs_sos_rwa,
     [n],
     perm_pairs=[(op_a, w + 1j * gamma), (op_b, -w_prime - 1j * gamma)],
-    omegas=[(w, ev2au(534.74)), (w_prime, w - w_f)],
-    gamma_val=ev2au(0.124),
-    final_state=(f, 2),
+    incoming_freqs=(w, ev2au(534.74)),
+    outgoing_freqs=(w_prime, w-w_f),
+    damping=ev2au(0.124),
+    excited_state=2,
     conv_tol=1e-4,
 )
 

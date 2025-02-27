@@ -13,7 +13,8 @@ gamma = symbols("gamma", real=True)
 n, m, p, k = symbols("n, m, p, k", real=True)
 
 # external frequencies
-w, w_o, w_1, w_2, w_3, w_prime = symbols("w, w_o, w_1, w_2, w_3, w'", real=True)
+w, w_o, w_1, w_2, w_3, w_4, w_prime = symbols("w, w_o, w_1, w_2, w_3, w_4, w'", real=True)
+w_a, w_b, w_c = symbols("w_a, w_b, w_c", real=True)
 
 # transition frequencies
 w_f = TransitionFrequency(f, real=True)
