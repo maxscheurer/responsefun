@@ -244,8 +244,8 @@ class SumOverStates:
         expr,
         summation_indices,
         *,
-        incoming_freqs=None,
-        outgoing_freqs=None,
+        freqs_in=None,
+        freqs_out=None,
         perm_pairs=None,
         excluded_states=None,
         symmetric=False,
@@ -261,10 +261,10 @@ class SumOverStates:
         summation_indices: list of <class 'sympy.core.symbol.Symbol'>
             List of indices of summation.
 
-        incoming_freqs: list of <class 'sympy.core.symbol.Symbol'>
+        freqs_in: list of <class 'sympy.core.symbol.Symbol'>
             List of incoming frequencies.
 
-        outgoing_freqs: list of <class 'sympy.core.symbol.Symbol'>
+        freqs_out: list of <class 'sympy.core.symbol.Symbol'>
             List of outgoing frequencies.
 
         perm_pairs: list of tuples, optional
@@ -291,25 +291,25 @@ class SumOverStates:
             self._summation_indices = summation_indices.copy()
         assert all(isinstance(index, Symbol) for index in self._summation_indices)
         
-        if incoming_freqs is None:
-            self._incoming_freqs = []
-        elif not isinstance(incoming_freqs, list):
-            self._incoming_freqs = [incoming_freqs]
+        if freqs_in is None:
+            self._freqs_in = []
+        elif not isinstance(freqs_in, list):
+            self._freqs_in = [freqs_in]
         else:
-            self._incoming_freqs = incoming_freqs.copy()
-        assert all(isinstance(freq, Symbol) for freq in self._incoming_freqs)
+            self._freqs_in = freqs_in.copy()
+        assert all(isinstance(freq, Symbol) for freq in self._freqs_in)
 
-        if outgoing_freqs is None:
-            self._outgoing_freqs = []
-        elif not isinstance(outgoing_freqs, list):
-            self._outgoing_freqs = [outgoing_freqs]
+        if freqs_out is None:
+            self._freqs_out = []
+        elif not isinstance(freqs_out, list):
+            self._freqs_out = [freqs_out]
         else:
-            self._outgoing_freqs = outgoing_freqs.copy()
-        assert all(isinstance(freq, Symbol) for freq in self._outgoing_freqs)
+            self._freqs_out = freqs_out.copy()
+        assert all(isinstance(freq, Symbol) for freq in self._freqs_out)
 
         # no frequency should be specified twice
-        assert len(self._incoming_freqs) == len(set(self._incoming_freqs))
-        assert len(self._outgoing_freqs) == len(set(self._outgoing_freqs))
+        assert len(self._freqs_in) == len(set(self._freqs_in))
+        assert len(self._freqs_out) == len(set(self._freqs_out))
 
         if excluded_states is None:
             self.excluded_states = []
@@ -403,17 +403,17 @@ class SumOverStates:
         return TransitionFrequency(self.final_state, real=True) - TransitionFrequency(self.initial_state, real=True)
 
     @property
-    def incoming_freqs(self):
-        return self._incoming_freqs
+    def freqs_in(self):
+        return self._freqs_in
 
     @property
-    def outgoing_freqs(self):
-        return self._outgoing_freqs
+    def freqs_out(self):
+        return self._freqs_out
 
     @property
     def energy_balance(self):
-        sum_in = sum(self.incoming_freqs)
-        sum_out = sum(self.outgoing_freqs)
+        sum_in = sum(self.freqs_in)
+        sum_out = sum(self.freqs_out)
         if self._is_reversed:
             balance = sum_in - sum_out + self.system_energy
         else:

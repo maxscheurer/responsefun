@@ -69,8 +69,8 @@ for process, freqs in processes.items():
     beta_tens = -1.0 * evaluate_property_isr(
         state, beta_term, [n, p],
         perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)],
-        incoming_freqs=[(w_1, freqs[0]), (w_2, freqs[1])],
-        outgoing_freqs=(w_o, w_1+w_2),
+        freqs_in=[(w_1, freqs[0]), (w_2, freqs[1])],
+        freqs_out=(w_o, w_1+w_2),
         excluded_states=O,
         conv_tol=1e-5,
     )

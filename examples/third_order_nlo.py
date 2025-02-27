@@ -67,18 +67,18 @@ processes = {
     "ESHG": (w_ruby, w_ruby, 0.0), "THG": (w_ruby, w_ruby, w_ruby)
 }
 for process, freqs in processes.items():
-    incoming_freqs = [(w_1, freqs[0]), (w_2, freqs[1]), (w_3, freqs[2])]
-    outgoing_freqs = (w_o, w_1+w_2+w_3)
+    freqs_in = [(w_1, freqs[0]), (w_2, freqs[1]), (w_3, freqs[2])]
+    freqs_out = (w_o, w_1+w_2+w_3)
     gamma_tens_I = evaluate_property_isr(
         state, gamma_term_I, [n, m, p],
         perm_pairs=perm_pairs, excluded_states=O,
-        incoming_freqs=incoming_freqs, outgoing_freqs=outgoing_freqs,
+        freqs_in=freqs_in, freqs_out=freqs_out,
         conv_tol=1e-5,
     )
     gamma_tens_II = evaluate_property_isr(
         state, gamma_term_II, [n, m],
         perm_pairs=perm_pairs, excluded_states=O,
-        incoming_freqs=incoming_freqs, outgoing_freqs=outgoing_freqs,
+        freqs_in=freqs_in, freqs_out=freqs_out,
         conv_tol=1e-5,
     )
     gamma_tens = gamma_tens_I - gamma_tens_II

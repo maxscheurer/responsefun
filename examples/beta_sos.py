@@ -25,8 +25,8 @@ beta_sos_term = (
 beta_sos = SumOverStates(
     beta_sos_term,  # first SOS term
     [n, p],  # indices of summation
-    incoming_freqs=[w_1, w_2],  # frequencies of incident photons
-    outgoing_freqs=w_o,  # frequency of resulting photon
+    freqs_in=[w_1, w_2],  # frequencies of incident photons
+    freqs_out=w_o,  # frequency of resulting photon
     perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)],  # tuples to be permuted
     excluded_states=O  # states excluded from the summations
 )

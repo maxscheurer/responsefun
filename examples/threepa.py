@@ -57,7 +57,7 @@ for es in range(5):
     threepa_tens = -1.0 * evaluate_property_isr(
         state, threepa_term, [n, m],
         perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)],
-        incoming_freqs=[(w_1, w_f/3), (w_2, w_f/3), (w_3, w_f/3)],
+        freqs_in=[(w_1, w_f/3), (w_2, w_f/3), (w_3, w_f/3)],
         excited_state=es, conv_tol=1e-5,
     )
     threepa_strength = threepa_average(threepa_tens)

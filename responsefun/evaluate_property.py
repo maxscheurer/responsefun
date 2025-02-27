@@ -111,8 +111,8 @@ def sign_change(no, rvecs_dict, sign=1):
 
 
 def _initialize_arguments(
-    incoming_freqs,
-    outgoing_freqs,
+    freqs_in,
+    freqs_out,
     damping,
     excited_state,
     extra_terms,
@@ -124,10 +124,10 @@ def _initialize_arguments(
     if omegas is not None:
         warnings.warn(
             "The omegas keyword is deprecated and will be replaced "
-            "by the incoming_freqs and outgoing_freqs keywords.",
+            "by the freqs_in and freqs_out keywords.",
             DeprecationWarning,
         )
-        assert incoming_freqs is None and outgoing_freqs is None
+        assert freqs_in is None and freqs_out is None
         if isinstance(omegas, tuple):
             external_freqs = [omegas]
         else:
@@ -152,23 +152,23 @@ def _initialize_arguments(
     if extra_terms is not True:
         print("Please note that the extra_terms keyword is only intended for testing.")
 
-    if incoming_freqs is None:
-        incoming_freqs = []
-    elif isinstance(incoming_freqs, tuple):
-        incoming_freqs = [incoming_freqs]
+    if freqs_in is None:
+        freqs_in = []
+    elif isinstance(freqs_in, tuple):
+        freqs_in = [freqs_in]
     else:
-        assert isinstance(incoming_freqs, list)
+        assert isinstance(freqs_in, list)
 
-    if outgoing_freqs is None:
-        outgoing_freqs = []
-    elif isinstance(outgoing_freqs, tuple):
-        outgoing_freqs = [outgoing_freqs]
+    if freqs_out is None:
+        freqs_out = []
+    elif isinstance(freqs_out, tuple):
+        freqs_out = [freqs_out]
     else:
-        assert isinstance(outgoing_freqs, list)
+        assert isinstance(freqs_out, list)
 
-    external_freqs += incoming_freqs
-    for freq in outgoing_freqs:
-        if freq not in incoming_freqs:
+    external_freqs += freqs_in
+    for freq in freqs_out:
+        if freq not in freqs_in:
             external_freqs.append(freq)
     if len(external_freqs) != len(set([freq[0] for freq in external_freqs])):
         raise ValueError("Every external frequency should only be specified once.")
@@ -186,8 +186,8 @@ def _initialize_arguments(
         assert isinstance(excited_state, int)
 
     return (
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         damping,
         excited_state,
         extra_terms,
@@ -199,8 +199,8 @@ def _initialize_arguments(
 def _initialize_sos(
     sos_expr,
     summation_indices,
-    incoming_freqs,
-    outgoing_freqs,
+    freqs_in,
+    freqs_out,
     perm_pairs,
     excluded_states,
     symmetric,
@@ -213,8 +213,8 @@ def _initialize_sos(
     sos = SumOverStates(
         sos_expr,
         summation_indices,
-        incoming_freqs=[freq[0] for freq in incoming_freqs],
-        outgoing_freqs=[freq[0] for freq in outgoing_freqs],
+        freqs_in=[freq[0] for freq in freqs_in],
+        freqs_out=[freq[0] for freq in freqs_out],
         perm_pairs=perm_pairs,
         excluded_states=excluded_states,
         symmetric=symmetric,
@@ -260,8 +260,8 @@ def evaluate_property_isr(
     *,
     perm_pairs=None,
     excluded_states=None,
-    incoming_freqs=None,
-    outgoing_freqs=None,
+    freqs_in=None,
+    freqs_out=None,
     damping=None,
     excited_state=None,
     symmetric=False,
@@ -297,13 +297,13 @@ def evaluate_property_isr(
         It is important to note that the ground state is represented by the SymPy symbol O,
         while the integer 0 represents the first excited state.
     
-    incoming_freqs: list of tuples, optional
+    freqs_in: list of tuples, optional
         List of (symbol, value) pairs for the incoming frequencies;
         (symbol, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.add.Add'>
         or <class 'sympy.core.mul.Mul'> or <class 'sympy.core.symbol.Symbol'> or float),
         e.g., [(w_1, 0.5), (w_2, 0.5)] or [(w_1, w_f/2), (w_2, w_f/2)].
 
-    outgoing_freqs: list of tuples, optional
+    freqs_out: list of tuples, optional
         List of (symbol, value) pairs for the outgoing frequencies;
         (symbol, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.add.Add'>
         or <class 'sympy.core.mul.Mul'> or <class 'sympy.core.symbol.Symbol'> or float),
@@ -339,16 +339,16 @@ def evaluate_property_isr(
         Resulting tensor with components ABC....
     """
     (
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         damping,
         excited_state,
         extra_terms,
         external_freqs,
         correlation_btw_freq,
     ) = _initialize_arguments(
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         damping,
         excited_state,
         extra_terms,
@@ -360,8 +360,8 @@ def evaluate_property_isr(
     sos, all_freqs, excited_state = _initialize_sos(
         sos_expr,
         summation_indices,
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         perm_pairs,
         excluded_states,
         symmetric,
@@ -764,8 +764,8 @@ def evaluate_property_sos(
     *,
     perm_pairs=None,
     excluded_states=None,
-    incoming_freqs=None,
-    outgoing_freqs=None,
+    freqs_in=None,
+    freqs_out=None,
     damping=None,
     excited_state=None,
     symmetric=False,
@@ -800,13 +800,13 @@ def evaluate_property_sos(
         It is important to note that the ground state is represented by the SymPy symbol O,
         while the integer 0 represents the first excited state.
     
-    incoming_freqs: list of tuples, optional
+    freqs_in: list of tuples, optional
         List of (symbol, value) pairs for the incoming frequencies;
         (symbol, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.add.Add'>
         or <class 'sympy.core.mul.Mul'> or <class 'sympy.core.symbol.Symbol'> or float),
         e.g., [(w_1, 0.5), (w_2, 0.5)] or [(w_1, w_f/2), (w_2, w_f/2)].
 
-    outgoing_freqs: list of tuples, optional
+    freqs_out: list of tuples, optional
         List of (symbol, value) pairs for the outgoing frequencies;
         (symbol, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.add.Add'>
         or <class 'sympy.core.mul.Mul'> or <class 'sympy.core.symbol.Symbol'> or float),
@@ -842,16 +842,16 @@ def evaluate_property_sos(
         Resulting tensor with components ABC....
     """
     (
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         damping,
         excited_state,
         extra_terms,
         external_freqs,
         correlation_btw_freq,
     ) = _initialize_arguments(
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         damping,
         excited_state,
         extra_terms,
@@ -863,8 +863,8 @@ def evaluate_property_sos(
     sos, all_freqs, excited_state = _initialize_sos(
         sos_expr,
         summation_indices,
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         perm_pairs,
         excluded_states,
         symmetric,
@@ -1023,8 +1023,8 @@ def evaluate_property_sos_fast(
     *,
     perm_pairs=None,
     excluded_states=None,
-    incoming_freqs=None,
-    outgoing_freqs=None,
+    freqs_in=None,
+    freqs_out=None,
     damping=None,
     excited_state=None,
     extra_terms=True,
@@ -1058,13 +1058,13 @@ def evaluate_property_sos_fast(
         It is important to note that the ground state is represented by the SymPy symbol O,
         while the integer 0 represents the first excited state.
     
-    incoming_freqs: list of tuples, optional
+    freqs_in: list of tuples, optional
         List of (symbol, value) pairs for the incoming frequencies;
         (symbol, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.add.Add'>
         or <class 'sympy.core.mul.Mul'> or <class 'sympy.core.symbol.Symbol'> or float),
         e.g., [(w_1, 0.5), (w_2, 0.5)] or [(w_1, w_f/2), (w_2, w_f/2)].
 
-    outgoing_freqs: list of tuples, optional
+    freqs_out: list of tuples, optional
         List of (symbol, value) pairs for the outgoing frequencies;
         (symbol, value): (<class 'sympy.core.symbol.Symbol'>, <class 'sympy.core.add.Add'>
         or <class 'sympy.core.mul.Mul'> or <class 'sympy.core.symbol.Symbol'> or float),
@@ -1096,16 +1096,16 @@ def evaluate_property_sos_fast(
         Resulting tensor with components ABC....
     """
     (
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         damping,
         excited_state,
         extra_terms,
         external_freqs,
         correlation_btw_freq,
     ) = _initialize_arguments(
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         damping,
         excited_state,
         extra_terms,
@@ -1117,8 +1117,8 @@ def evaluate_property_sos_fast(
     sos, all_freqs, excited_state = _initialize_sos(
         sos_expr,
         summation_indices,
-        incoming_freqs,
-        outgoing_freqs,
+        freqs_in,
+        freqs_out,
         perm_pairs,
         excluded_states,
         False,

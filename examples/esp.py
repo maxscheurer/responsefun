@@ -36,8 +36,8 @@ tens = evaluate_property_isr(
     sos_expr,  # symbolic SOS expression
     [n],  # indices of summation
     excluded_states=f,  # state excluded from summation for convergence in the static limit
-    incoming_freqs=[(w, 0.1)],  # incident frequencies
-    outgoing_freqs=[(w, 0.1)],  # incident frequencies
+    freqs_in=[(w, 0.1)],  # incident frequencies
+    freqs_out=[(w, 0.1)],  # incident frequencies
     damping=0.001,  # damping parameter
     excited_state=0,  # excited state f (0 corresponds to the first excited state)
     conv_tol=1e-4,

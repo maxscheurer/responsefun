@@ -51,7 +51,7 @@ beta_term = (
 beta_tens = -1.0 * evaluate_property_isr(
     state, beta_term, [n, p],
     perm_pairs=[(op_b, w_1), (op_c, w_2)], excluded_states=O,
-    incoming_freqs=[(w_1, 0.5), (w_2, 0.5)], outgoing_freqs=(w_o, w_1+w_2),
+    freqs_in=[(w_1, 0.5), (w_2, 0.5)], freqs_out=(w_o, w_1+w_2),
     damping=0.01, conv_tol=1e-4,
 )
 

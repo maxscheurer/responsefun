@@ -51,7 +51,7 @@ for es in range(1):
     tpa_tens = evaluate_property_isr(
         state, tpa_term, [n],
         perm_pairs=[(op_a, w_1), (op_b, w_2)],
-        incoming_freqs=[(w_1, w_f/2), (w_2, w_f/2)],
+        freqs_in=[(w_1, w_f/2), (w_2, w_f/2)],
         excited_state=es, conv_tol=1e-4,
     )
     tpa_strength = tpa_average(tpa_tens)

@@ -222,8 +222,8 @@ class TestAlphaLike:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         freq = (w, 0.5)
-        alpha_sos = evaluate_property_sos_fast(mock_state, expr, [n], incoming_freqs=freq, outgoing_freqs=freq)
-        alpha_isr = evaluate_property_isr(state, expr, [n], incoming_freqs=freq, outgoing_freqs=freq)
+        alpha_sos = evaluate_property_sos_fast(mock_state, expr, [n], freqs_in=freq, freqs_out=freq)
+        alpha_isr = evaluate_property_isr(state, expr, [n], freqs_in=freq, freqs_out=freq)
         np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-8)
 
 
@@ -242,10 +242,10 @@ class TestBetaLike:
 
         freqs_in = [(w_1, 0.5), (w_2, 0.5)]
         freqs_out = (w_o, 1)
-        beta_sos = evaluate_property_sos_fast(mock_state, expr, [n, k], incoming_freqs=freqs_in,
-                                              outgoing_freqs=freqs_out, extra_terms=False)
-        beta_isr = evaluate_property_isr(state, expr, [n, k], incoming_freqs=freqs_in,
-                                         outgoing_freqs=freqs_out, extra_terms=False)
+        beta_sos = evaluate_property_sos_fast(mock_state, expr, [n, k], freqs_in=freqs_in,
+                                              freqs_out=freqs_out, extra_terms=False)
+        beta_isr = evaluate_property_isr(state, expr, [n, k], freqs_in=freqs_in,
+                                         freqs_out=freqs_out, extra_terms=False)
         np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-8)
 
 
@@ -266,11 +266,11 @@ class TestGammaLike:
         freqs_in = [(w_1, 0.0), (w_2, 0.5), (w_3, 0.5)]
         freqs_out = (w_o, 1)
         gamma_sos = evaluate_property_sos_fast(
-            mock_state, expr, [n, m, p], incoming_freqs=freqs_in,
-            outgoing_freqs=freqs_out, extra_terms=False
+            mock_state, expr, [n, m, p], freqs_in=freqs_in,
+            freqs_out=freqs_out, extra_terms=False
         )
-        gamma_isr = evaluate_property_isr(state, expr, [n, m, p], incoming_freqs=freqs_in,
-                                          outgoing_freqs=freqs_out, extra_terms=False)
+        gamma_isr = evaluate_property_isr(state, expr, [n, m, p], freqs_in=freqs_in,
+                                          freqs_out=freqs_out, extra_terms=False)
         np.testing.assert_allclose(gamma_isr, gamma_sos, atol=1e-8)
 
 
@@ -291,11 +291,11 @@ class TestDeltaLike:
         freqs_in = [(w_1, 0.2), (w_2, 0.5), (w_3, 0.3), (w_4, 0.0)]
         freqs_out = (w_o, 1)
         delta_sos = evaluate_property_sos_fast(
-            mock_state, expr, [n, m, p, k], incoming_freqs=freqs_in,
-            outgoing_freqs=freqs_out, extra_terms=False
+            mock_state, expr, [n, m, p, k], freqs_in=freqs_in,
+            freqs_out=freqs_out, extra_terms=False
         )
-        delta_isr = evaluate_property_isr(state, expr, [n, m, p, k], incoming_freqs=freqs_in,
-                                          outgoing_freqs=freqs_out, extra_terms=False)
+        delta_isr = evaluate_property_isr(state, expr, [n, m, p, k], freqs_in=freqs_in,
+                                          freqs_out=freqs_out, extra_terms=False)
         np.testing.assert_allclose(delta_isr, delta_sos, atol=1e-8)
 
 
@@ -325,9 +325,9 @@ class TestCottonMoutonPara:
         freqs_out = (w_o, 0.5)
         for t in sos.expr.args:
             cm_para_sos = evaluate_property_sos_fast(
-                mock_state, t, [n, m, p], incoming_freqs=freqs_in,
-                outgoing_freqs=freqs_out, extra_terms=False
+                mock_state, t, [n, m, p], freqs_in=freqs_in,
+                freqs_out=freqs_out, extra_terms=False
             )
-            cm_para_isr = evaluate_property_isr(state, t, [n, m, p], incoming_freqs=freqs_in,
-                                                outgoing_freqs=freqs_out, extra_terms=False)
+            cm_para_isr = evaluate_property_isr(state, t, [n, m, p], freqs_in=freqs_in,
+                                                freqs_out=freqs_out, extra_terms=False)
             np.testing.assert_allclose(cm_para_isr, cm_para_sos, atol=1e-8, err_msg=f"{t}")
