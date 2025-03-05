@@ -33,7 +33,8 @@ from sympy import (
 from sympy.physics.quantum.operator import Operator
 from sympy.physics.quantum.state import Bra, Ket
 
-from responsefun.ResponseOperator import (
+from responsefun.operators import (
+    M,
     MTM,
     S2S_MTM,
     Moment,
@@ -41,7 +42,7 @@ from responsefun.ResponseOperator import (
     TransitionFrequency,
 )
 from responsefun.SumOverStates import SumOverStates, extract_bra_op_ket
-from responsefun.symbols_and_labels import M, O
+from responsefun.symbols_and_labels import O
 
 
 def insert_single_moments(expr, summation_indices):

@@ -17,6 +17,7 @@
 #
 
 import string
+import warnings
 from itertools import combinations_with_replacement, permutations, product
 
 import numpy as np
@@ -30,15 +31,31 @@ from respondo.solve_response import (
     transition_polarizability,
     transition_polarizability_complex,
 )
-from sympy import Add, Float, I, Integer, Mul, Pow, Symbol, adjoint, im, zoo, Number, sympify
+from sympy import (
+    Add,
+    Float,
+    I,
+    Integer,
+    Mul,
+    Number,
+    Pow,
+    Symbol,
+    adjoint,
+    im,
+    sympify,
+    zoo,
+)
 from sympy.physics.quantum.state import Bra, Ket
 from tqdm import tqdm
-import warnings
 
-from responsefun.AdccProperties import AdccProperties, available_operators
+from responsefun.AdccProperties import (
+    Symmetry,
+    build_adcc_properties,
+    get_operator_by_name,
+)
 from responsefun.build_tree import build_tree
 from responsefun.IsrFormulation import IsrFormulation, compute_extra_terms
-from responsefun.ResponseOperator import (
+from responsefun.operators import (
     MTM,
     S2S_MTM,
     Moment,
@@ -67,7 +84,7 @@ def find_remaining_indices(sos_expr, summation_indices):
 
 def replace_bra_op_ket(expr):
     """Replace Bra(to_state)*op*Ket(from_state) sequence in a SymPy term by an instance of <class
-    'responsefun.ResponseOperator.Moment'>."""
+    'responsefun.operators.Moment'>."""
     assert isinstance(expr, Mul)
     subs_dict = {}
     for ia, a in enumerate(expr.args):
@@ -81,30 +98,18 @@ def replace_bra_op_ket(expr):
 
 def sign_change(no, rvecs_dict, sign=1):
     rvec_tup = rvecs_dict[no]
-    symmetry = available_operators[rvec_tup[1]][1]
-    if rvec_tup[0] == "MTM":
-        if symmetry == 1:  # Hermitian operators
-            pass
-        elif symmetry == 2:  # anti-Hermitian operators
-            sign *= -1
-        else:
-            raise NotImplementedError(
-                "Only Hermitian and anti-Hermitian operators are implemented."
-            )
-    elif rvec_tup[0] == "S2S_MTM":
-        if symmetry == 1:  # Hermitian operators
-            pass
-        elif symmetry == 2:  # anti-Hermitian operators
-            sign *= -1
-        else:
-            raise NotImplementedError(
-                "Only Hermitian and anti-Hermitian operators are implemented."
-            )
-        if rvec_tup[4] == "ResponseVector":
-            return sign_change(rvec_tup[5], rvecs_dict, sign)
+    symmetry = get_operator_by_name(rvec_tup[1]).symmetry
+    assert rvec_tup[0] in ["MTM", "S2S_MTM"]
+    if symmetry == Symmetry.HERMITIAN:
+        pass
+    elif symmetry == Symmetry.ANTIHERMITIAN:
+        sign *= -1
     else:
-        raise ValueError()
-
+        raise NotImplementedError(
+            "Only Hermitian and anti-Hermitian operators are implemented."
+        )
+    if rvec_tup[0] == "S2S_MTM" and rvec_tup[4] == "ResponseVector":
+        return sign_change(rvec_tup[5], rvecs_dict, sign)
     assert sign in [1, -1]
     return sign
 
@@ -287,7 +292,7 @@ def evaluate_property_isr(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
@@ -417,7 +422,7 @@ def evaluate_property_isr(
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
     for op_type in sos.operator_types:
-        adcc_prop[op_type] = AdccProperties(state, op_type)
+        adcc_prop[op_type] = build_adcc_properties(state, op_type)
 
     rvecs_dict_tot = {}
     response_dict = {}
@@ -451,7 +456,7 @@ def evaluate_property_isr(
         for key, value in rvecs_dict_mod.items():
             op_type = key[1]
             if key[0] == "MTM":
-                op = adcc_prop[op_type].operator
+                op = adcc_prop[op_type].integrals
                 rhss_shape = np.shape(op)
                 response = np.empty(rhss_shape, dtype=object)
                 iterables = [list(range(shape)) for shape in rhss_shape]
@@ -479,7 +484,7 @@ def evaluate_property_isr(
                         )
                 response_dict[value] = response
             elif key[0] == "S2S_MTM":
-                ops = np.array(adcc_prop[op_type].operator)
+                ops = np.array(adcc_prop[op_type].integrals)
                 op_dim = adcc_prop[op_type].op_dim
                 if key[4] == "ResponseVector":
                     no = key[5]
@@ -631,7 +636,7 @@ def evaluate_property_isr(
 
                     lhs = term.args[i - 1]
                     if isinstance(lhs, S2S_MTM):  # vec * B * X --> transition polarizability
-                        ops = np.array(adcc_prop[lhs.op_type].operator)
+                        ops = np.array(adcc_prop[lhs.op_type].integrals)
                         lhs2 = term.args[i - 2]
                         key = lhs2 * lhs * a
                         if isinstance(lhs2, adjoint) and isinstance(
@@ -666,11 +671,11 @@ def evaluate_property_isr(
                         comps_left_v = tuple([comp_map[char] for char in list(lhs.args[0].comp)])
                         # list indices must be integers (1-D operators)
                         comps_left_v = comps_left_v[0] if len(comps_left_v) == 1 else comps_left_v
-                        op = adcc_prop[lhs.args[0].op_type].operator[comps_left_v]
+                        op = adcc_prop[lhs.args[0].op_type].integrals[comps_left_v]
                         mtm = modified_transition_moments(property_method, mp, op)
-                        if lhs.args[0].symmetry == 1:  # Hermitian operators
+                        if lhs.args[0].symmetry == Symmetry.HERMITIAN:
                             left_v = mtm
-                        elif lhs.args[0].symmetry == 2:  # anti-Hermitian operators
+                        elif lhs.args[0].symmetry == Symmetry.ANTIHERMITIAN:
                             left_v = -1.0 * mtm
                         else:
                             raise NotImplementedError(
@@ -695,7 +700,7 @@ def evaluate_property_isr(
                     if isinstance(
                         rhs, S2S_MTM
                     ):  # Dagger(X) * B * vec --> transition polarizability
-                        ops = np.array(adcc_prop[rhs.op_type].operator)
+                        ops = np.array(adcc_prop[rhs.op_type].integrals)
                         rhs2 = term.args[i + 2]
                         key = a * rhs * rhs2
                         if isinstance(
@@ -725,7 +730,7 @@ def evaluate_property_isr(
                         comps_right_v = (
                             comps_right_v[0] if len(comps_right_v) == 1 else comps_right_v
                         )
-                        op = adcc_prop[rhs.op_type].operator[comps_right_v]
+                        op = adcc_prop[rhs.op_type].integrals[comps_right_v]
                         right_v = modified_transition_moments(property_method, mp, op)
                         subs_dict[a * rhs] = scalar_product(left_v, right_v)
                     elif isinstance(rhs, ResponseVector):  # Dagger(X) * X (taken care of above)
@@ -790,7 +795,7 @@ def evaluate_property_sos(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
@@ -939,7 +944,7 @@ def evaluate_property_sos(
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
     for op_type in sos.operator_types:
-        adcc_prop[op_type] = AdccProperties(state, op_type)
+        adcc_prop[op_type] = build_adcc_properties(state, op_type)
 
     print(f"Summing over {len(state.excitation_energy_uncorrected)} excited states ...")
     for term_dict in tqdm(term_list):
@@ -981,9 +986,9 @@ def evaluate_property_sos(
                     elif a.to_state == O:
                         index = state_map[a.from_state]
                         tdms = adcc_prop[a.op_type].transition_moment
-                        if a.symmetry == 1:  # Hermitian operators
+                        if a.symmetry == Symmetry.HERMITIAN:
                             subs_dict[a] = tdms[index][comps_dipmom]
-                        elif a.symmetry == 2:  # anti-Hermitian operators
+                        elif a.symmetry == Symmetry.ANTIHERMITIAN:
                             subs_dict[a] = -1.0 * tdms[index][comps_dipmom]  # TODO: correct sign?
                         else:
                             raise NotImplementedError(
@@ -996,10 +1001,10 @@ def evaluate_property_sos(
                             s2s_tdms = adcc_prop[a.op_type].state_to_state_transition_moment
                             subs_dict[a] = s2s_tdms[index1, index2][comps_dipmom]
                         elif a.from_state in sum_ind:  # e.g., <f|op|n>
-                            s2s_tdms_f = adcc_prop[a.op_type].s2s_tm(final_state=index2)
+                            s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(final_state=index2)
                             subs_dict[a] = s2s_tdms_f[index1][comps_dipmom]
                         elif a.to_state in sum_ind:  # e.g., <n|op|f>
-                            s2s_tdms_f = adcc_prop[a.op_type].s2s_tm(initial_state=index1)
+                            s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(initial_state=index1)
                             subs_dict[a] = s2s_tdms_f[index2][comps_dipmom]
                         else:
                             raise ValueError()
@@ -1048,7 +1053,7 @@ def evaluate_property_sos_fast(
 
     perm_pairs: list of tuples, optional
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
@@ -1172,7 +1177,7 @@ def evaluate_property_sos_fast(
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
     for op_type in sos.operator_types:
-        adcc_prop[op_type] = AdccProperties(state, op_type)
+        adcc_prop[op_type] = build_adcc_properties(state, op_type)
 
     for it, term in enumerate(term_list):
         einsum_list = []
@@ -1190,9 +1195,9 @@ def evaluate_property_sos_fast(
                     else:  # e.g., <f|op|0>
                         einsum_list.append(("", a.comp, tdms[excited_state[1]]))
                 elif a.to_state == O:
-                    if a.symmetry == 1:  # Hermitian operators
+                    if a.symmetry == Symmetry.HERMITIAN:
                         tdms = adcc_prop[a.op_type].transition_moment
-                    elif a.symmetry == 2:  # anti-Hermitian operators
+                    elif a.symmetry == Symmetry.ANTIHERMITIAN:
                         tdms = -1.0 * adcc_prop[a.op_type].transition_moment  # TODO: correct sign?
                     else:
                         raise NotImplementedError(
@@ -1212,12 +1217,12 @@ def evaluate_property_sos_fast(
                     elif (
                         a.from_state in sos.summation_indices and a.to_state == excited_state[0]
                     ):  # e.g., <f|op|n>
-                        s2s_tdms_f = adcc_prop[a.op_type].s2s_tm(final_state=excited_state[1])
+                        s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(final_state=excited_state[1])
                         einsum_list.append((str(a.from_state), a.comp, s2s_tdms_f))
                     elif (
                         a.to_state in sos.summation_indices and a.from_state == excited_state[0]
                     ):  # e.g., <n|op|f>
-                        s2s_tdms_f = adcc_prop[a.op_type].s2s_tm(initial_state=excited_state[1])
+                        s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(initial_state=excited_state[1])
                         einsum_list.append((str(a.to_state), a.comp, s2s_tdms_f))
                     else:
                         raise ValueError()

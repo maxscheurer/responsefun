@@ -1,7 +1,6 @@
 from sympy import symbols
-from sympy.physics.quantum.operator import Operator
 
-from responsefun.ResponseOperator import OneParticleOperator, TransitionFrequency
+from responsefun.operators import OneParticleOperator, TransitionFrequency
 
 # ground state and excited state f
 O, f, j = symbols("O, f, j", real=True)
@@ -25,18 +24,15 @@ w_p = TransitionFrequency(p, real=True)
 w_k = TransitionFrequency(k, real=True)
 
 # electric dipole operators
-op_a = OneParticleOperator("A", "electric", False)
-op_b = OneParticleOperator("B", "electric", False)
-op_c = OneParticleOperator("C", "electric", False)
-op_d = OneParticleOperator("D", "electric", False)
-op_e = OneParticleOperator("E", "electric", False)
+op_a = OneParticleOperator("A", "electric_dipole", False)
+op_b = OneParticleOperator("B", "electric_dipole", False)
+op_c = OneParticleOperator("C", "electric_dipole", False)
+op_d = OneParticleOperator("D", "electric_dipole", False)
+op_e = OneParticleOperator("E", "electric_dipole", False)
 
 # magnetic dipole operators
-opm_a = OneParticleOperator("A", "magnetic", False)
-opm_b = OneParticleOperator("B", "magnetic", False)
-opm_c = OneParticleOperator("C", "magnetic", False)
-opm_d = OneParticleOperator("D", "magnetic", False)
-opm_e = OneParticleOperator("E", "magnetic", False)
-
-# ADC matrix (for internal use)
-M = Operator("M")
+opm_a = OneParticleOperator("A", "magnetic_dipole", False)
+opm_b = OneParticleOperator("B", "magnetic_dipole", False)
+opm_c = OneParticleOperator("C", "magnetic_dipole", False)
+opm_d = OneParticleOperator("D", "magnetic_dipole", False)
+opm_e = OneParticleOperator("E", "magnetic_dipole", False)

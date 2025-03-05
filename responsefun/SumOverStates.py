@@ -23,7 +23,7 @@ from sympy import Add, Mul, Symbol, latex, solve
 from sympy.physics.quantum.state import Bra, Ket
 import warnings
 
-from responsefun.ResponseOperator import (
+from responsefun.operators import (
     Moment,
     OneParticleOperator,
     TransitionFrequency,
@@ -67,12 +67,12 @@ class TransitionMoment:
 def _validate_expr(expr):
     if isinstance(expr, Add):
         for arg in expr.args:
-            return _validate_expr(arg)
+            _validate_expr(arg)
     elif isinstance(expr, Mul):
         if not all(not isinstance(arg, Moment) for arg in expr.args):
             raise TypeError(
                 "SOS expression must not contain an instance of "
-                "<class 'responsefun.ResponseOperator.Moment'>. All transition "
+                "<class 'responsefun.operators.Moment'>. All transition "
                 "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences,"
                 "for example by means of 'responsefun.SumOverStates.TransitionMoment'."
             )
@@ -167,7 +167,7 @@ def _build_sos_via_permutation(term, perm_pairs):
         a single term from which the full expression can be generated via permutation.
     perm_pairs: list of tuples
         List of (op, freq) pairs whose permutation yields the full SOS expression;
-        (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+        (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
         e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 
@@ -269,7 +269,7 @@ class SumOverStates:
 
         perm_pairs: list of tuples, optional
             List of (op, freq) pairs whose permutation yields the full SOS expression;
-            (op, freq): (<class 'responsefun.ResponseOperator.OneParticleOperator'>,
+            (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
             <class 'sympy.core.symbol.Symbol'>),
             e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
 

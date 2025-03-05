@@ -203,6 +203,14 @@ SOS_delta_like = {
         * TransitionMoment(k, opm_e, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
     ),
+    "abcde": (
+        TransitionMoment(O, opm_a, n)
+        * TransitionMoment(n, opm_b, m)
+        * TransitionMoment(m, opm_c, p)
+        * TransitionMoment(p, opm_d, k)
+        * TransitionMoment(k, opm_e, O)
+        / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
+    ),
 }
 
 
@@ -285,8 +293,8 @@ class TestDeltaLike:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-        freqs_in = [(w_1, 0.2), (w_2, 0.5), (w_3, 0.3), (w_4, 0.0)]
-        freqs_out = (w_o, 1)
+        freqs_in = [(w_1, 0.0), (w_2, 0.0), (w_3, 0.0), (w_4, 0.0)]
+        freqs_out = (w_o, 0.0)
         delta_sos = evaluate_property_sos_fast(
             mock_state, expr, [n, m, p, k], freqs_in=freqs_in,
             freqs_out=freqs_out, extra_terms=False
