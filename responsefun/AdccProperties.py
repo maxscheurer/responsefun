@@ -21,6 +21,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass
 from enum import Enum
 from itertools import product
+from typing import Union
 
 import adcc
 import numpy as np
@@ -132,7 +133,8 @@ def compute_state_to_state_transition_moments(state, integrals, initial_state=No
 class AdccProperties(ABC):
     """Abstract base class encompassing all properties that can be obtained from adcc for a given operator."""
 
-    def __init__(self, state: adcc.ExcitedStates | MockExcitedStates, gauge_origin: str | list[float] = None):
+    def __init__(self, state: Union[adcc.ExcitedStates, MockExcitedStates],
+                 gauge_origin: Union[str, tuple[float, float, float], None] = None):
         self._state = state
         self._state_size = len(state.excitation_energy_uncorrected)
         if isinstance(self._state, MockExcitedStates):
@@ -142,7 +144,8 @@ class AdccProperties(ABC):
 
         self._gauge_origin = gauge_origin
 
-        # to make things faster if not all state-to-state transition moments are needed but only from or to a specific state
+        # to make things faster if not all state-to-state transition moments are needed
+        # but only from or to a specific state
         self._s2s_tm_i = np.empty((self._state_size), dtype=object)
         self._s2s_tm_f = np.empty((self._state_size), dtype=object)
 
@@ -221,8 +224,11 @@ class AdccProperties(ABC):
             return s2s_tm
 
 
-def build_adcc_properties(state: adcc.ExcitedStates | MockExcitedStates, op_type: str,
-                          gauge_origin: str | list[float] = None) -> AdccProperties:
+def build_adcc_properties(
+    state: Union[adcc.ExcitedStates, MockExcitedStates],
+    op_type: str,
+    gauge_origin: Union[str, tuple[float, float, float], None] = None
+) -> AdccProperties:
     if op_type == "electric_dipole":
         return ElectricDipole(state, gauge_origin)
     elif op_type == "magnetic_dipole":
