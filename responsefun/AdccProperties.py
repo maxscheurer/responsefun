@@ -21,14 +21,21 @@ from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass
 from enum import Enum
 from itertools import product
-from typing import Union
+from typing import Any, Union
 
 import adcc
 import numpy as np
+from adcc.adc_pp.modified_transition_moments import modified_transition_moments
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.adc_pp.transition_dm import transition_dm
+from adcc.IsrMatrix import IsrMatrix
 from adcc.OneParticleOperator import product_trace
 from cached_property import cached_property
+from respondo.cpp_algebra import ResponseVector as RV
+from respondo.solve_response import (
+    transition_polarizability,
+    transition_polarizability_complex,
+)
 from tqdm import tqdm
 
 from responsefun.testdata.mock import MockExcitedStates
@@ -137,6 +144,7 @@ class AdccProperties(ABC):
                  gauge_origin: Union[str, tuple[float, float, float], None] = None):
         self._state = state
         self._state_size = len(state.excitation_energy_uncorrected)
+        self._property_method = self._state.property_method
         if isinstance(self._state, MockExcitedStates):
             self._pm_level = self._state.property_method.replace("adc", "")
         else:
@@ -169,32 +177,27 @@ class AdccProperties(ABC):
     def gs_moment(self) -> np.ndarray:
         pass
 
-    @cached_property
-    def transition_moment(self) -> np.ndarray:
-        return self._transition_moment()
-
-    @abstractmethod
-    def _transition_moment(self) -> np.ndarray:
-        pass
-
-    @property
-    def transition_moment_reverse(self) -> np.ndarray:
+    def revert_transition_moment(self, moment: Any) -> Any:
         if self.op_symmetry == Symmetry.HERMITIAN:
-            return self.transition_moment
+            return moment
         elif self.op_symmetry == Symmetry.ANTIHERMITIAN:
-            return -1.0 * self.transition_moment
+            return -1.0 * moment
         else:
             raise NotImplementedError(
                 "Only Hermitian and anti-Hermitian operators are implemented."
             )
 
     @cached_property
+    def transition_moment(self) -> np.ndarray:
+        return self._transition_moment()
+
+    @property
+    def transition_moment_reverse(self) -> np.ndarray:
+        return self.revert_transition_moment(self.transition_moment)
+
+    @cached_property
     def state_to_state_transition_moment(self) -> np.ndarray:
         return self._state_to_state_transition_moment()
-
-    @abstractmethod
-    def _state_to_state_transition_moment(self) -> np.ndarray:
-        pass
     
     def s2s_tm_view(self, initial_state=None, final_state=None):
         if initial_state is None and final_state is None:
@@ -222,6 +225,67 @@ class AdccProperties(ABC):
                 self._state, self.integrals, initial_state, final_state
             )
             return s2s_tm
+
+    @abstractmethod
+    def _transition_moment(self) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def _state_to_state_transition_moment(self) -> np.ndarray:
+        pass
+
+    def modified_transition_moments(
+        self, comp: Union[int, None] = None
+    ) -> Union[adcc.AmplitudeVector, list[adcc.AmplitudeVector]]:
+        if comp is None:
+            op = self.integrals
+        else:
+            op = self.integrals[comp]
+        mtms = modified_transition_moments(
+            self._property_method, self._state.ground_state, op
+        )
+        return mtms
+
+    def modified_transition_moments_reverse(
+        self, comp: Union[int, None] = None
+    ) -> Union[adcc.AmplitudeVector, list[adcc.AmplitudeVector]]:
+        return self.revert_transition_moment(self.modified_transition_moments(comp))
+
+    def isr_matrix(self, comp: Union[int, None] = None) -> adcc.IsrMatrix:
+        if comp is None:
+            op = self.integrals
+        else:
+            op = np.array(self.integrals)[comp]
+        return IsrMatrix(self._property_method, self._state.ground_state, op)
+
+    def transition_polarizability(
+        self,
+        to_vec: Union[adcc.AmplitudeVector, RV],
+        from_vec: Union[adcc.AmplitudeVector, RV],
+        comp: Union[int, None] = None
+        ) -> np.ndarray:
+        if comp is None:
+            op = self.integrals
+        else:
+            op = np.array(self.integrals)[comp]
+        # note that initial and final states are defined differently
+        # in the respondo functions than here
+        if isinstance(to_vec, adcc.AmplitudeVector) \
+            and isinstance(from_vec, adcc.AmplitudeVector):
+            ret = transition_polarizability(
+                self._property_method, self._state.ground_state,
+                from_vec, op, to_vec
+            )
+        else:
+            if isinstance(to_vec, adcc.AmplitudeVector):
+                to_vec = RV(to_vec)
+            if isinstance(from_vec, adcc.AmplitudeVector):
+                from_vec = RV(from_vec)
+            ret = transition_polarizability_complex(
+                self._property_method, self._state.ground_state,
+                from_vec, op, to_vec
+            )
+        return ret
 
 
 def build_adcc_properties(

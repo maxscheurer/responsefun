@@ -22,15 +22,9 @@ from itertools import combinations_with_replacement, permutations, product
 
 import numpy as np
 from adcc import AmplitudeVector
-from adcc.adc_pp.modified_transition_moments import modified_transition_moments
-from adcc.IsrMatrix import IsrMatrix
 from adcc.workflow import construct_adcmatrix
 from respondo.cpp_algebra import ResponseVector as RV
-from respondo.solve_response import (
-    solve_response,
-    transition_polarizability,
-    transition_polarizability_complex,
-)
+from respondo.solve_response import solve_response
 from sympy import (
     Add,
     Float,
@@ -66,7 +60,6 @@ from responsefun.operators import (
 from responsefun.rvec_algebra import bmatrix_vector_product, scalar_product
 from responsefun.SumOverStates import SumOverStates
 from responsefun.symbols_and_labels import O, gamma
-
 
 ABC = list(string.ascii_uppercase)
 
@@ -416,8 +409,6 @@ def evaluate_property_isr(
         projection = None
 
     matrix = construct_adcmatrix(state.matrix)
-    property_method = state.property_method
-    mp = matrix.ground_state
 
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
@@ -455,28 +446,27 @@ def evaluate_property_isr(
         # solve response equations
         for key, value in rvecs_dict_mod.items():
             op_type = key[1]
+            adcop = adcc_prop[op_type]
             if key[0] == "MTM":
-                op = adcc_prop[op_type].integrals
-                rhss_shape = np.shape(op)
+                rhss_shape = np.shape(adcop.integrals)
                 response = np.empty(rhss_shape, dtype=object)
                 iterables = [list(range(shape)) for shape in rhss_shape]
                 components = list(product(*iterables))
+                rhs = adcop.modified_transition_moments()
                 if key[3] == 0.0:
                     for c in components:
                         # list indices must be integers (1-D operators)
                         c = c[0] if len(c) == 1 else c
-                        rhs = modified_transition_moments(property_method, mp, op[c])
                         response[c] = solve_response(
-                            matrix, rhs, -key[2], gamma=0.0, projection=projection, **solver_args
+                            matrix, rhs[c], -key[2], gamma=0.0, projection=projection, **solver_args
                         )
                 else:
                     for c in components:
                         # list indices must be integers (1-D operators)
                         c = c[0] if len(c) == 1 else c
-                        rhs = modified_transition_moments(property_method, mp, op[c])
                         response[c] = solve_response(
                             matrix,
-                            RV(rhs),
+                            RV(rhs[c]),
                             -key[2],
                             gamma=-key[3],
                             projection=projection,
@@ -484,8 +474,7 @@ def evaluate_property_isr(
                         )
                 response_dict[value] = response
             elif key[0] == "S2S_MTM":
-                ops = np.array(adcc_prop[op_type].integrals)
-                op_dim = adcc_prop[op_type].op_dim
+                op_dim = adcop.op_dim
                 if key[4] == "ResponseVector":
                     no = key[5]
                     rvecs = response_dict[equal_rvecs[no]]
@@ -496,7 +485,7 @@ def evaluate_property_isr(
                     for c in components:
                         rvec = rvecs[c[op_dim:]]
                         if isinstance(rvec, AmplitudeVector):
-                            bmatrix = IsrMatrix(property_method, mp, ops[c[:op_dim]])
+                            bmatrix = adcop.isr_matrix(c[:op_dim])
                             rhs = bmatrix @ rvec
                             if projection is not None:
                                 rhs -= projection(rhs)
@@ -519,7 +508,8 @@ def evaluate_property_isr(
                                     **solver_args,
                                 )
                         elif isinstance(rvec, RV):
-                            rhs = bmatrix_vector_product(property_method, mp, ops[c[:op_dim]], rvec)
+                            bmatrix = adcop.isr_matrix(c[:op_dim])
+                            rhs = bmatrix_vector_product(bmatrix, rvec)
                             if projection is not None:
                                 raise NotImplementedError(
                                     "Projecting out states from a response equation with a complex "
@@ -551,7 +541,7 @@ def evaluate_property_isr(
                     response = np.empty(rhss_shape, dtype=object)
                     if key[3] == 0.0:
                         for c in components:
-                            bmatrix = IsrMatrix(property_method, mp, ops[c])
+                            bmatrix = adcop.isr_matrix(c)
                             rhs = bmatrix @ state.excitation_vector[excited_state[1]]
                             if projection is not None:
                                 rhs -= projection(rhs)
@@ -565,7 +555,7 @@ def evaluate_property_isr(
                             )
                     else:
                         for c in components:
-                            bmatrix = IsrMatrix(property_method, mp, ops[c])
+                            bmatrix = adcop.isr_matrix(c)
                             rhs = bmatrix @ state.excitation_vector[excited_state[1]]
                             if projection is not None:
                                 rhs -= projection(rhs)
@@ -636,12 +626,11 @@ def evaluate_property_isr(
 
                     lhs = term.args[i - 1]
                     if isinstance(lhs, S2S_MTM):  # vec * B * X --> transition polarizability
-                        ops = np.array(adcc_prop[lhs.op_type].integrals)
+                        adcop = adcc_prop[lhs.op_type]
                         lhs2 = term.args[i - 2]
                         key = lhs2 * lhs * a
-                        if isinstance(lhs2, adjoint) and isinstance(
-                            lhs2.args[0], ResponseVector
-                        ):  # Dagger(X) * B * X
+                        if isinstance(lhs2, adjoint) and \
+                            isinstance(lhs2.args[0], ResponseVector):  # Dagger(X) * B * X
                             comps_left_v = tuple(
                                 [comp_map[char] for char in list(lhs2.args[0].comp)]
                             )
@@ -655,36 +644,16 @@ def evaluate_property_isr(
                         else:
                             raise ValueError("Expression cannot be evaluated.")
                         comps_dip = tuple([comp_map[char] for char in list(lhs.comp)])
-                        if isinstance(left_v, AmplitudeVector) and isinstance(
-                            right_v, AmplitudeVector
-                        ):
-                            subs_dict[key] = transition_polarizability(
-                                property_method, mp, right_v, ops[comps_dip], left_v
-                            )
-                        else:
-                            if isinstance(left_v, AmplitudeVector):
-                                left_v = RV(left_v)
-                            subs_dict[key] = transition_polarizability_complex(
-                                property_method, mp, right_v, ops[comps_dip], left_v
-                            )
+                        subs_dict[key] = adcop.transition_polarizability(left_v, right_v, comps_dip)
                     elif isinstance(lhs, adjoint) and isinstance(lhs.args[0], MTM):  # Dagger(F) * X
+                        adcop = adcc_prop[lhs.args[0].op_type]
                         comps_left_v = tuple([comp_map[char] for char in list(lhs.args[0].comp)])
                         # list indices must be integers (1-D operators)
                         comps_left_v = comps_left_v[0] if len(comps_left_v) == 1 else comps_left_v
-                        op = adcc_prop[lhs.args[0].op_type].integrals[comps_left_v]
-                        mtm = modified_transition_moments(property_method, mp, op)
-                        if lhs.args[0].symmetry == Symmetry.HERMITIAN:
-                            left_v = mtm
-                        elif lhs.args[0].symmetry == Symmetry.ANTIHERMITIAN:
-                            left_v = -1.0 * mtm
-                        else:
-                            raise NotImplementedError(
-                                "Only Hermitian and anti-Hermitian operators are implemented."
-                            )
+                        left_v = adcop.modified_transition_moments_reverse(comps_left_v)
                         subs_dict[lhs * a] = scalar_product(left_v, right_v)
-                    elif isinstance(lhs, adjoint) and isinstance(
-                        lhs.args[0], ResponseVector
-                    ):  # Dagger(X) * X
+                    elif isinstance(lhs, adjoint) and \
+                        isinstance(lhs.args[0], ResponseVector):  # Dagger(X) * X
                         comps_left_v = tuple([comp_map[char] for char in list(lhs.args[0].comp)])
                         sign = sign_change(lhs.args[0].no, rvecs_dict_tot)
                         left_v = sign * response_dict[equal_rvecs[lhs.args[0].no]][comps_left_v]
@@ -700,7 +669,7 @@ def evaluate_property_isr(
                     if isinstance(
                         rhs, S2S_MTM
                     ):  # Dagger(X) * B * vec --> transition polarizability
-                        ops = np.array(adcc_prop[rhs.op_type].integrals)
+                        adcop = adcc_prop[rhs.op_type]
                         rhs2 = term.args[i + 2]
                         key = a * rhs * rhs2
                         if isinstance(
@@ -713,25 +682,15 @@ def evaluate_property_isr(
                         else:
                             raise ValueError("Expression cannot be evaluated.")
                         comps_dip = tuple([comp_map[char] for char in list(rhs.comp)])
-                        if isinstance(left_v, AmplitudeVector) and isinstance(
-                            right_v, AmplitudeVector
-                        ):
-                            subs_dict[key] = transition_polarizability(
-                                property_method, mp, right_v, ops[comps_dip], left_v
-                            )
-                        else:
-                            right_v = RV(right_v)
-                            subs_dict[key] = transition_polarizability_complex(
-                                property_method, mp, right_v, ops[comps_dip], left_v
-                            )
+                        subs_dict[key] = adcop.transition_polarizability(left_v, right_v, comps_dip)
                     elif isinstance(rhs, MTM):  # Dagger(X) * F
+                        adcop = adcc_prop[rhs.op_type]
                         comps_right_v = tuple([comp_map[char] for char in list(rhs.comp)])
                         # list indices must be integers (1-D operators)
                         comps_right_v = (
                             comps_right_v[0] if len(comps_right_v) == 1 else comps_right_v
                         )
-                        op = adcc_prop[rhs.op_type].integrals[comps_right_v]
-                        right_v = modified_transition_moments(property_method, mp, op)
+                        right_v = adcop.modified_transition_moments(comps_right_v)
                         subs_dict[a * rhs] = scalar_product(left_v, right_v)
                     elif isinstance(rhs, ResponseVector):  # Dagger(X) * X (taken care of above)
                         continue
@@ -739,12 +698,13 @@ def evaluate_property_isr(
                         raise ValueError("Expression cannot be evaluated.")
 
                 elif isinstance(a, Moment):
+                    adcop = adcc_prop[a.op_type]
                     comps_dipmom = tuple([comp_map[char] for char in list(a.comp)])
                     if a.from_state == O and a.to_state == O:
-                        gs_moment = adcc_prop[a.op_type].gs_moment
+                        gs_moment = adcop.gs_moment
                         subs_dict[a] = gs_moment[comps_dipmom]
                     elif a.from_state == O and a.to_state == excited_state[0]:
-                        tdms = adcc_prop[a.op_type].transition_moment
+                        tdms = adcop.transition_moment
                         subs_dict[a] = tdms[excited_state[1]][comps_dipmom]
                     else:
                         raise ValueError("Unknown transition moment.")
@@ -975,36 +935,30 @@ def evaluate_property_sos(
                     subs_dict[tf] = state.excitation_energy_uncorrected[state_map[si]]
 
                 for a in dip_mom_list:
+                    adcop = adcc_prop[a.op_type]
                     comps_dipmom = tuple([comp_map[char] for char in list(a.comp)])
                     if a.from_state == O and a.to_state == O:
-                        gs_moment = adcc_prop[a.op_type].gs_moment
+                        gs_moment = adcop.gs_moment
                         subs_dict[a] = gs_moment[comps_dipmom]
                     elif a.from_state == O:
                         index = state_map[a.to_state]
-                        tdms = adcc_prop[a.op_type].transition_moment
+                        tdms = adcop.transition_moment
                         subs_dict[a] = tdms[index][comps_dipmom]
                     elif a.to_state == O:
                         index = state_map[a.from_state]
-                        tdms = adcc_prop[a.op_type].transition_moment
-                        if a.symmetry == Symmetry.HERMITIAN:
-                            subs_dict[a] = tdms[index][comps_dipmom]
-                        elif a.symmetry == Symmetry.ANTIHERMITIAN:
-                            subs_dict[a] = -1.0 * tdms[index][comps_dipmom]  # TODO: correct sign?
-                        else:
-                            raise NotImplementedError(
-                                "Only Hermitian and anti-Hermitian operators are implemented."
-                            )
+                        tdms = adcop.transition_moment_reverse
+                        subs_dict[a] = tdms[index][comps_dipmom]
                     else:
                         index1 = state_map[a.from_state]
                         index2 = state_map[a.to_state]
                         if a.from_state in sum_ind and a.to_state in sum_ind:  # e.g., <n|op|m>
-                            s2s_tdms = adcc_prop[a.op_type].state_to_state_transition_moment
+                            s2s_tdms = adcop.state_to_state_transition_moment
                             subs_dict[a] = s2s_tdms[index1, index2][comps_dipmom]
                         elif a.from_state in sum_ind:  # e.g., <f|op|n>
-                            s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(final_state=index2)
+                            s2s_tdms_f = adcop.s2s_tm_view(final_state=index2)
                             subs_dict[a] = s2s_tdms_f[index1][comps_dipmom]
                         elif a.to_state in sum_ind:  # e.g., <n|op|f>
-                            s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(initial_state=index1)
+                            s2s_tdms_f = adcop.s2s_tm_view(initial_state=index1)
                             subs_dict[a] = s2s_tdms_f[index2][comps_dipmom]
                         else:
                             raise ValueError()
@@ -1185,24 +1139,18 @@ def evaluate_property_sos_fast(
         divergences = []
         for a in term.args:
             if isinstance(a, Moment):
+                adcop = adcc_prop[a.op_type]
                 if a.from_state == O and a.to_state == O:  # <0|op|0>
-                    gs_moment = adcc_prop[a.op_type].gs_moment
+                    gs_moment = adcop.gs_moment
                     einsum_list.append(("", a.comp, gs_moment))
                 elif a.from_state == O:
-                    tdms = adcc_prop[a.op_type].transition_moment  # TODO: correct sign?
+                    tdms = adcop.transition_moment  # TODO: correct sign?
                     if a.to_state in sos.summation_indices:  # e.g., <n|op|0>
                         einsum_list.append((str(a.to_state), a.comp, tdms))
                     else:  # e.g., <f|op|0>
                         einsum_list.append(("", a.comp, tdms[excited_state[1]]))
                 elif a.to_state == O:
-                    if a.symmetry == Symmetry.HERMITIAN:
-                        tdms = adcc_prop[a.op_type].transition_moment
-                    elif a.symmetry == Symmetry.ANTIHERMITIAN:
-                        tdms = -1.0 * adcc_prop[a.op_type].transition_moment  # TODO: correct sign?
-                    else:
-                        raise NotImplementedError(
-                            "Only Hermitian and anti-Hermitian operators are implemented."
-                        )
+                    tdms = adcop.transition_moment_reverse
                     if a.from_state in sos.summation_indices:  # e.g., <0|op|n>
                         einsum_list.append((str(a.from_state), a.comp, tdms))
                     else:  # e.g., <0|op|f>
@@ -1212,17 +1160,17 @@ def evaluate_property_sos_fast(
                         a.from_state in sos.summation_indices
                         and a.to_state in sos.summation_indices
                     ):  # e.g., <n|op|m>
-                        s2s_tdms = adcc_prop[a.op_type].state_to_state_transition_moment
+                        s2s_tdms = adcop.state_to_state_transition_moment
                         einsum_list.append((str(a.from_state) + str(a.to_state), a.comp, s2s_tdms))
                     elif (
                         a.from_state in sos.summation_indices and a.to_state == excited_state[0]
                     ):  # e.g., <f|op|n>
-                        s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(final_state=excited_state[1])
+                        s2s_tdms_f = adcop.s2s_tm_view(final_state=excited_state[1])
                         einsum_list.append((str(a.from_state), a.comp, s2s_tdms_f))
                     elif (
                         a.to_state in sos.summation_indices and a.from_state == excited_state[0]
                     ):  # e.g., <n|op|f>
-                        s2s_tdms_f = adcc_prop[a.op_type].s2s_tm_view(initial_state=excited_state[1])
+                        s2s_tdms_f = adcop.s2s_tm_view(initial_state=excited_state[1])
                         einsum_list.append((str(a.to_state), a.comp, s2s_tdms_f))
                     else:
                         raise ValueError()
