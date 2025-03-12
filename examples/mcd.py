@@ -6,9 +6,8 @@ import adcc
 import numpy as np
 from pyscf import gto, scf
 
-from responsefun.evaluate_property import evaluate_property_isr
+from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.misc import epsilon
-from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import O, j, k, op_a, op_b, opm_c, w_j, w_k
 
 # run SCF in PySCF

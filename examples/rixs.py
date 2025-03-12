@@ -5,9 +5,8 @@ Compute RIXS amplitudes according to Eq. (1) in 10.1021/acs.jctc.7b00636.
 import adcc
 from pyscf import gto, scf
 
-from responsefun.evaluate_property import evaluate_property_isr
+from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.misc import ev2au
-from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     f,

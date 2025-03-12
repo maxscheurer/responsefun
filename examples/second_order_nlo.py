@@ -7,8 +7,7 @@ import adcc
 from pyscf import gto, scf
 import numpy as np
 
-from responsefun.evaluate_property import evaluate_property_isr
-from responsefun.SumOverStates import TransitionMoment
+from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     n,

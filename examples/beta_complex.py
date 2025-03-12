@@ -4,8 +4,7 @@ Compute first-order hyperpolarizability according to Eq. (5.310) in 10.1002/9781
 import adcc
 from pyscf import gto, scf
 
-from responsefun.evaluate_property import evaluate_property_isr
-from responsefun.SumOverStates import TransitionMoment
+from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     gamma,
