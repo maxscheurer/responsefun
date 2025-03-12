@@ -77,8 +77,10 @@ SOS_expressions = {
     ),
     "rixs": (
         (
-            TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j * gamma)
-            + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w - w_f + 1j * gamma)
+            (TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O)
+            / (w_n - w - 1j * gamma))
+            + (TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O)
+            / (w_n + w - w_f + 1j * gamma))
         ),
         None,
     ),
@@ -151,7 +153,8 @@ class TestIsrAgainstRespondo:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         alpha_expr = SOS_expressions["alpha"][0]
         freq = (w, 0.0)
-        alpha = evaluate_property_isr(state, alpha_expr, [n], freqs_in=freq, freqs_out=freq, symmetric=True)
+        alpha = evaluate_property_isr(state, alpha_expr, [n], freqs_in=freq,
+                                      freqs_out=freq, symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
     def test_real_polarizability(self, case):
@@ -164,7 +167,8 @@ class TestIsrAgainstRespondo:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         alpha_expr = SOS_expressions["alpha_complex"][0]
         freq = (w, omega)
-        alpha = evaluate_property_isr(state, alpha_expr, [n], freqs_in=freq, freqs_out=freq, symmetric=True)
+        alpha = evaluate_property_isr(state, alpha_expr, [n], freqs_in=freq,
+                                      freqs_out=freq, symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
     def test_complex_polarizability(self, case):
@@ -178,7 +182,8 @@ class TestIsrAgainstRespondo:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
         alpha_expr = SOS_expressions["alpha_complex"][0]
         freq = (w, omega)
-        alpha = evaluate_property_isr(state, alpha_expr, [n], freqs_in=freq, freqs_out=freq, damping=gamma_val, symmetric=True)
+        alpha = evaluate_property_isr(state, alpha_expr, [n], freqs_in=freq, freqs_out=freq,
+                                      damping=gamma_val, symmetric=True)
         np.testing.assert_allclose(alpha, alpha_ref, atol=1e-7)
 
     def test_rixs_short(self, case):
@@ -198,7 +203,8 @@ class TestIsrAgainstRespondo:
 
             rixs_ref = rixs(excited_state, omega, gamma_val)
             rixs_short = evaluate_property_isr(
-                state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out, damping=gamma_val, excited_state=final_state
+                state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out,
+                damping=gamma_val, excited_state=final_state
             )
             np.testing.assert_allclose(
                 rixs_short, rixs_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state)
@@ -221,7 +227,8 @@ class TestIsrAgainstRespondo:
 
             rixs_ref = rixs(excited_state, omega, gamma_val, rotating_wave=False)
             rixs_tens = evaluate_property_isr(
-                state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out, damping=gamma_val, excited_state=final_state
+                state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out,
+                damping=gamma_val, excited_state=final_state
             )
             np.testing.assert_allclose(
                 rixs_tens, rixs_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state)
@@ -260,10 +267,12 @@ class TestIsrAgainstSos:
 
         for tup in value_list:
             alpha_sos = evaluate_property_sos(
-                mock_state, alpha_expr, [n], freqs_in=tup[0], freqs_out=tup[0], damping=tup[1], symmetric=True
+                mock_state, alpha_expr, [n], freqs_in=tup[0], freqs_out=tup[0],
+                damping=tup[1], symmetric=True
             )
             alpha_isr = evaluate_property_isr(
-                state, alpha_expr, [n], freqs_in=tup[0], freqs_out=tup[0], damping=tup[1], symmetric=True
+                state, alpha_expr, [n], freqs_in=tup[0], freqs_out=tup[0],
+                damping=tup[1], symmetric=True
             )
             np.testing.assert_allclose(
                 alpha_isr,
@@ -324,10 +333,12 @@ class TestIsrAgainstSos:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
         rixs_sos = evaluate_property_sos(
-            mock_state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out, damping=gamma_val, excited_state=final_state
+            mock_state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out,
+            damping=gamma_val, excited_state=final_state
         )
         rixs_isr = evaluate_property_isr(
-            state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out, damping=gamma_val, excited_state=final_state
+            state, rixs_expr, [n], freqs_in=freqs_in, freqs_out=freqs_out,
+            damping=gamma_val, excited_state=final_state
         )
         assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7)
 

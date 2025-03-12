@@ -51,7 +51,9 @@ class TransitionMoment:
 
     def __init__(self, to_state, operator, from_state, shifted=False):
         if shifted and (from_state == O or to_state == O):
-            raise ValueError("Only excited-state-to-excited-state transition moments can be shifted.")
+            raise ValueError(
+                "Only excited-state-to-excited-state transition moments can be shifted."
+            )
         new_operator = operator.copy_with_new_shifted(shifted)
         self.expr = Bra(to_state) * new_operator * Ket(from_state)
 
@@ -199,7 +201,9 @@ def _build_sos_via_permutation(term, perm_pairs):
             op_unshifted = op.copy_with_new_shifted(False)
             unshift_operators.append((op, op_unshifted))
     term_unshifted = term.subs(unshift_operators, simultaneous=True)
-    operators_unshifted = tuple([op for op in term_unshifted.args if isinstance(op, OneParticleOperator)])
+    operators_unshifted = tuple([op for op
+                                 in term_unshifted.args
+                                 if isinstance(op, OneParticleOperator)])
 
     # make sure that the (op, freq) pairs are specified in the correct order
     ordered_perm_pairs = []
@@ -222,7 +226,9 @@ def _build_sos_via_permutation(term, perm_pairs):
                 subs_list.append((perms[0][j][1], p[j][1]))
 
             new_term_unshifted = term_unshifted.subs(subs_list, simultaneous=True)
-            new_operators_unshifted = tuple([op for op in new_term_unshifted.args if isinstance(op, OneParticleOperator)])
+            new_operators_unshifted = tuple([op for op
+                                             in new_term_unshifted.args
+                                             if isinstance(op, OneParticleOperator)])
             shift_operators = []
             for op, shifted in zip(new_operators_unshifted, are_operators_shifted):
                 if shifted:
@@ -231,7 +237,9 @@ def _build_sos_via_permutation(term, perm_pairs):
             new_term = new_term_unshifted.subs(shift_operators, simultaneous=True)
 
             sos_expr += new_term
-            new_operators = tuple([op for op in new_term.args if isinstance(op, OneParticleOperator)])
+            new_operators = tuple([op for op
+                                   in new_term.args
+                                   if isinstance(op, OneParticleOperator)])
             are_new_operators_shifted = tuple([op.shifted for op in new_operators])
             assert are_new_operators_shifted == are_operators_shifted
     return sos_expr
@@ -349,7 +357,9 @@ class SumOverStates:
                 f"It is important that the Cartesian components of an order {self._order} tensor "
                 f"be specified as {ABC[:self._order]}."
             )
-        self._initial_state, self._final_state = extract_initial_final_from_sos(self.expr, self.summation_indices)
+        self._initial_state, self._final_state = extract_initial_final_from_sos(
+            self.expr, self.summation_indices
+        )
         self._transition_frequencies = [
             TransitionFrequency(index, real=True) for index in self._summation_indices
         ]
@@ -396,7 +406,9 @@ class SumOverStates:
             if state != O:
                 excited_states.add(state)
         if len(excited_states) > 1:
-            raise NotImplementedError("Only one excited state that is not a summation index can be contained.")
+            raise NotImplementedError(
+                "Only one excited state that is not a summation index can be contained."
+            )
         if len(excited_states) == 0:
             return None
         else:
@@ -404,7 +416,11 @@ class SumOverStates:
 
     @property
     def system_energy(self):
-        return TransitionFrequency(self.final_state, real=True) - TransitionFrequency(self.initial_state, real=True)
+        ret = (
+            TransitionFrequency(self.final_state, real=True)
+            - TransitionFrequency(self.initial_state, real=True)
+        )
+        return ret
 
     @property
     def freqs_in(self):
@@ -491,7 +507,8 @@ class SumOverStates:
         if self.is_hermitian:
             print("Inserting all frequencies does not give zero.\n"
                   "However, since all operators are Hermitian, the process can also be considered "
-                  f"in the opposite direction: from state {self.final_state} to state {self.initial_state}.")
+                  f"in the opposite direction: from state {self.final_state} "
+                  f"to state {self.initial_state}.")
             self._is_reversed = True
             energy_balance = self.energy_balance
             print(f"For this process, the energy balance is {energy_balance}.")

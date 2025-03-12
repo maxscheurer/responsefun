@@ -29,8 +29,8 @@ state = adcc.adc2(scfres, n_singlets=5)
 
 # define symbolic SOS expressions
 mcd_sos_expr1 = (
-        TransitionMoment(O, opm_c, k) * TransitionMoment(k, op_b, j, shifted=True) * TransitionMoment(j, op_a, O)
-        / w_k
+        TransitionMoment(O, opm_c, k) * TransitionMoment(k, op_b, j, shifted=True)
+        * TransitionMoment(j, op_a, O) / w_k
 )
 mcd_sos_expr2 = (
         TransitionMoment(O, op_b, k) * TransitionMoment(k, opm_c, j) * TransitionMoment(j, op_a, O)
@@ -49,7 +49,8 @@ mcd_tens2 = evaluate_property_isr(
     conv_tol=1e-4,
 )
 
-# the minus sign is needed, because the negative charge is not yet included in the operator definitions
+# the minus sign is needed, because the negative charge is not yet included
+# in the operator definitions
 # TODO: remove minus after adc-connect/adcc#190 is merged
 bterm = -1.0 * np.einsum("abc,abc->", epsilon, mcd_tens1 + mcd_tens2)
 print(f"The MCD Faraday B term for excited state {final_state} is {bterm:.2f} (a.u.).")

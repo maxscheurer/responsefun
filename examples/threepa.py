@@ -52,7 +52,8 @@ threepa_term = (
 
 for es in range(5):
     print(f"===== State {es} ===== ")
-    # the minus sign is needed, because the negative charge is not yet included in the operator definitions
+    # the minus sign is needed, because the negative charge is not yet included
+    # in the operator definitions
     # TODO: remove minus after adc-connect/adcc#190 is merged
     threepa_tens = -1.0 * evaluate_property_isr(
         state, threepa_term, [n, m],

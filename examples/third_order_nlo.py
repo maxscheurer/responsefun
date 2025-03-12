@@ -1,6 +1,7 @@
 """
 Compute third-order nonlinear optical properties (see 10.1021/acs.jctc.3c00456)
-with an SOS expression for the second-order hyperpolarizability according to Eq. (5.201) in 10.1002/9781118794821.
+with an SOS expression for the second-order hyperpolarizability according to
+Eq. (5.201) in 10.1002/9781118794821.
 """
 import adcc
 from pyscf import gto, scf
@@ -28,7 +29,11 @@ from responsefun.symbols_and_labels import (
 
 
 def compute_gamma_average(gamma_tens):
-    gamma_aver = (1/15) * (np.einsum("iijj->", gamma_tens) + np.einsum("ijij", gamma_tens) + np.einsum("ijji", gamma_tens))
+    gamma_aver = (1/15) * (
+        np.einsum("iijj->", gamma_tens)
+        + np.einsum("ijij", gamma_tens)
+        + np.einsum("ijji", gamma_tens)
+    )
     return gamma_aver
 
 

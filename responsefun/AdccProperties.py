@@ -103,7 +103,8 @@ def compute_transition_moments(state, integrals):
     return np.squeeze(moments)
 
 
-def compute_state_to_state_transition_moments(state, integrals, initial_state=None, final_state=None):
+def compute_state_to_state_transition_moments(state, integrals, initial_state=None,
+                                              final_state=None):
     istates = state.size
     excitations1 = state.excitations
     if initial_state is not None:
@@ -138,7 +139,8 @@ def compute_state_to_state_transition_moments(state, integrals, initial_state=No
 
 
 class AdccProperties(ABC):
-    """Abstract base class encompassing all properties that can be obtained from adcc for a given operator."""
+    """Abstract base class encompassing all properties that can be obtained
+    from adcc for a given operator."""
 
     def __init__(self, state: Union[adcc.ExcitedStates, MockExcitedStates],
                  gauge_origin: Union[str, tuple[float, float, float], None] = None):
@@ -338,7 +340,8 @@ class MagneticDipole(AdccProperties):
 
     @property
     def gs_moment(self) -> np.ndarray:
-        # the minus sign is needed, because the negative charge is not yet included in the operator definitions
+        # the minus sign is needed, because the negative charge is not yet included
+        # in the operator definitions
         # TODO: remove minus after adc-connect/adcc#190 is merged
         ref_dipmom = -1.0 * np.array(
             [product_trace(dip, self._state.ground_state.reference_state.density)

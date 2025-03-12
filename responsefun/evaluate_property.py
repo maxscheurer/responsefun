@@ -142,7 +142,8 @@ def _initialize_arguments(
         damping = gamma_val
     if final_state is not None:
         warnings.warn(
-            "The final_state keyword is deprecated and will be replaced by the excited_state keyword.",
+            "The final_state keyword is deprecated and will be replaced "
+            "by the excited_state keyword.",
             DeprecationWarning,
         )
         assert excited_state is None
@@ -269,7 +270,8 @@ def determine_rvecs(rvecs_dict_list, input_subs, adcc_prop,
     print("Solving response equations ...")
     for tup in rvecs_dict_list:
         rvecs_dict = tup[1]
-        # check if response equations become equal after inserting values for external_freqs and gamma
+        # check if response equations become equal
+        # after inserting values for external_freqs and gamma
         rvecs_dict_mod = {}
         for key, value in rvecs_dict.items():
             om = float(key[2].subs(input_subs.all_freqs))
@@ -1182,12 +1184,14 @@ def evaluate_property_sos_fast(
                         s2s_tdms = adcop.state_to_state_transition_moment
                         einsum_list.append((str(a.from_state) + str(a.to_state), a.comp, s2s_tdms))
                     elif (
-                        a.from_state in sos.summation_indices and a.to_state ==input_subs. excited_state[0]
+                        a.from_state in sos.summation_indices and \
+                            a.to_state == input_subs.excited_state[0]
                     ):  # e.g., <f|op|n>
                         s2s_tdms_f = adcop.s2s_tm_view(final_state=input_subs.excited_state[1])
                         einsum_list.append((str(a.from_state), a.comp, s2s_tdms_f))
                     elif (
-                        a.to_state in sos.summation_indices and a.from_state == input_subs.excited_state[0]
+                        a.to_state in sos.summation_indices and \
+                            a.from_state == input_subs.excited_state[0]
                     ):  # e.g., <n|op|f>
                         s2s_tdms_f = adcop.s2s_tm_view(initial_state=input_subs.excited_state[1])
                         einsum_list.append((str(a.to_state), a.comp, s2s_tdms_f))

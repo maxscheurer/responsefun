@@ -1,6 +1,7 @@
 """
 Compute second-order nonlinear optical properties (see 10.1021/acs.jctc.3c00456)
-with an SOS expression for the first-order hyperpolarizability according to Eq. (5.187) in 10.1002/9781118794821.
+with an SOS expression for the first-order hyperpolarizability according to
+Eq. (5.187) in 10.1002/9781118794821.
 """
 import adcc
 from pyscf import gto, scf
@@ -64,7 +65,8 @@ processes = {
     "EOPE": (w_ruby, 0.0), "SHG": (w_ruby, w_ruby)
 }
 for process, freqs in processes.items():
-    # the minus sign is needed, because the negative charge is not yet included in the operator definitions
+    # the minus sign is needed, because the negative charge is not yet included
+    # in the operator definitions
     # TODO: remove minus after adc-connect/adcc#190 is merged
     beta_tens = -1.0 * evaluate_property_isr(
         state, beta_term, [n, p],
