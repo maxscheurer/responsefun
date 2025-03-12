@@ -23,6 +23,7 @@ from sympy import Add, Mul, Symbol, latex, solve
 from sympy.physics.quantum.state import Bra, Ket
 import warnings
 
+from responsefun.AdccProperties import Symmetry
 from responsefun.operators import (
     Moment,
     OneParticleOperator,
@@ -396,7 +397,10 @@ class SumOverStates:
                 excited_states.add(state)
         if len(excited_states) > 1:
             raise NotImplementedError("Only one excited state that is not a summation index can be contained.")
-        return excited_states.pop()
+        if len(excited_states) == 0:
+            return None
+        else:
+            return excited_states.pop()
 
     @property
     def system_energy(self):
@@ -466,7 +470,7 @@ class SumOverStates:
 
     @property
     def is_hermitian(self):
-        return all(op.symmetry == 1 for op in self.operators)
+        return all(op.symmetry == Symmetry.HERMITIAN for op in self.operators)
 
     def check_energy_conservation(self, all_freqs):
         def passed_statement():
@@ -483,7 +487,7 @@ class SumOverStates:
         if abs(energy_balance) < 1e-12:
             passed_statement()
             return True
-        
+
         if self.is_hermitian:
             print("Inserting all frequencies does not give zero.\n"
                   "However, since all operators are Hermitian, the process can also be considered "

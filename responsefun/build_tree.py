@@ -216,6 +216,7 @@ def build_tree(isr_expression, matrix=M, rvecs_list=None, no=1):
             continue
         # if the leaf node is an instance of the ResponseNode class, a tuple will be defined
         # that uniquely describes the resulting response vector
+        # TODO: rewrite code, maybe ResponseEquation frozen dataclass instead of tuples?
         old_expr = leaf.expr
         oper_rhs = leaf.rhs
         with_dagger = None
