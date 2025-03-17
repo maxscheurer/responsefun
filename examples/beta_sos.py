@@ -33,6 +33,6 @@ beta_sos = SumOverStates(
 
 print("number of terms: {}".format(beta_sos.number_of_terms))
 print(beta_sos)
-print(f"energy balance: {beta_sos.energy_balance()}")
+print(f"energy balance: {beta_sos.energy_balance}")
 print(f"found correlation between frequencies: {beta_sos.correlation_btw_freq}")
 print(f"For Latex:\n{beta_sos.latex}")

@@ -76,7 +76,7 @@ def _validate_expr(expr):
             raise TypeError(
                 "SOS expression must not contain an instance of "
                 "<class 'responsefun.operators.Moment'>. All transition "
-                "moments must be entered as Bra(from_state)*op*Ket(to_state) sequences,"
+                "moments must be entered as Bra(to_state)*op*Ket(from_state) sequences,"
                 "for example by means of 'responsefun.SumOverStates.TransitionMoment'."
             )
     else:
@@ -245,6 +245,44 @@ def _build_sos_via_permutation(term, perm_pairs):
     return sos_expr
 
 
+def _sort_boks_in_expr(term, initial_state, final_state):
+    if isinstance(term, Add):
+        sos_expr = 0
+        for arg in term.args:
+            sos_expr += _sort_boks_in_expr(arg, initial_state, final_state)
+        return sos_expr
+    assert isinstance(term, Mul)
+    boks = extract_bra_op_ket(term)
+    
+    def find_bok_with_bra(boks, bra_label):
+        for bok in boks:
+            if bok[0].label[0] == bra_label:
+                return bok
+        return None
+
+    sorted_boks_term = 1
+    bra_label = final_state
+    for _ in range(len(boks)):
+        bok = find_bok_with_bra(boks, bra_label)
+        if bok is None:
+            raise ValueError(
+                "Invalid SOS expression. Check that all transition "
+                "moments are defined in the correct direction."
+            )
+        sorted_boks_term *= bok[0] * bok[1] * bok[2]
+        bra_label = bok[2].label[0]
+    if bra_label != initial_state:
+        print("Initial/final states cannot be determined with certainty.")
+        print(f"initial: {initial_state}, final: {final_state}")
+    
+    subs_list = [(arg, 1) for bok in boks for arg in bok]
+    first_subs = subs_list.pop(0)
+    subs_list.append((first_subs[0], sorted_boks_term))
+    sorted_term = term.subs(subs_list)
+    assert len(sorted_term.args) == len(term.args)
+    return sorted_term
+
+
 class SumOverStates:
     """Class representing a sum-over-states (SOS) expression."""
 
@@ -363,6 +401,11 @@ class SumOverStates:
         self._transition_frequencies = [
             TransitionFrequency(index, real=True) for index in self._summation_indices
         ]
+
+        sorted_expr = _sort_boks_in_expr(self.expr, self.initial_state, self.final_state)
+        if sorted_expr != self.expr:
+            print("The transition moments in the SOS expression were sorted.")
+            self.expr = sorted_expr
         self.expr = self.expr.doit()
         self._is_reversed = False
 

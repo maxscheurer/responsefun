@@ -347,7 +347,7 @@ class MagneticDipole(AdccProperties):
             [product_trace(dip, self._state.ground_state.reference_state.density)
              for dip in self.integrals]
         )
-        if self._pm_level == 1:
+        if self._pm_level in [0, 1]:
             return ref_dipmom
         elif self._pm_level == 2:
             mp2corr = -1.0 * np.array([product_trace(dip, self._state.ground_state.mp2_diffdm)

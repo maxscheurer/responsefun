@@ -225,7 +225,7 @@ def _initialize_sos(
         correlation_btw_freq=correlation_btw_freq,
     )
     print(
-        "\nThe following SOS expression was entered/generated. "
+        "The following SOS expression was entered/generated. "
         f"It consists of {sos.number_of_terms} term(s):\n{sos}\n"
     )
 
