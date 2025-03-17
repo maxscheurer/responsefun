@@ -150,7 +150,7 @@ class ResponseVector(GeneralOperator):
 
 
 class Moment(Symbol):
-    def __new__(cls, comp, from_state, to_state, op_type, **assumptions):
+    def __new__(cls, comp, from_state, to_state, op_type):
         assert isinstance(comp, str)
         assert isinstance(from_state, Symbol)
         assert isinstance(to_state, Symbol)
@@ -158,7 +158,7 @@ class Moment(Symbol):
         name = "{}_{}^{}".format(
             operator.symbol, comp, str(from_state) + str(to_state)
         )
-        obj = Symbol.__new__(cls, name, **assumptions)
+        obj = Symbol.__new__(cls, name)
         obj._operator = operator
         obj._comp = comp
         obj._from_state = from_state
@@ -190,10 +190,25 @@ class Moment(Symbol):
     @property
     def symmetry(self):
         return self._operator.symmetry
-    
+
     @property
     def dim(self):
         return self._operator.dim
+
+    def revert(self):
+        if self.symmetry == Symmetry.NOSYMMETRY:
+            from_state = self.from_state
+            to_state = self.to_state
+            sign = 1.0
+        else:
+            from_state = self.to_state
+            to_state = self.from_state
+            if self.symmetry == Symmetry.HERMITIAN:
+                sign = 1.0
+            else:
+                assert self.symmetry == Symmetry.ANTIHERMITIAN
+                sign = -1.0
+        return sign * Moment(self.comp, from_state, to_state, self.op_type)
 
 
 class TransitionFrequency(Symbol):

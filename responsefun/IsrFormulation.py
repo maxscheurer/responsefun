@@ -53,25 +53,15 @@ def insert_single_moments(expr, summation_indices):
         # initial state on the ket side and final state on the bra side
         bra, ket = bok[0].label[0], bok[2].label[0]
         op = bok[1]
-        if ket == O and bra not in summation_indices:
-            from_state = ket
-            to_state = bra
-            sign = 1.0
-        elif bra == O and ket not in summation_indices:
-            if op.symmetry == 0:
-                from_state = ket
-                to_state = bra
-                sign = 1.0
-            else:
-                from_state = bra
-                to_state = ket
-                if op.symmetry == 1:
-                    sign = 1.0
-                else:
-                    sign = -1.0
+        from_state = ket
+        to_state = bra
+        moment = Moment(op.comp, from_state, to_state, op.op_type)
+        if from_state == O and to_state not in summation_indices:
+            mu_symbol = moment
+        elif to_state == O and from_state not in summation_indices:
+            mu_symbol = moment.revert()
         else:
             continue
-        mu_symbol = sign * Moment(op.comp, from_state, to_state, op.op_type)
         subs_list.append((bok[0] * bok[1] * bok[2], mu_symbol))
     return expr.subs(subs_list)
 
