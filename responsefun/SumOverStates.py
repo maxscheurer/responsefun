@@ -531,6 +531,11 @@ class SumOverStates:
     def is_hermitian(self):
         return all(op.symmetry == Symmetry.HERMITIAN for op in self.operators)
 
+    @property
+    def complex_factor(self):
+        n_imag_ops = [op.is_imag for op in self._operators_unshifted].count(True)
+        return 1j**n_imag_ops
+
     def check_energy_conservation(self, all_freqs):
         def passed_statement():
             print("Passed energy conservation check.")

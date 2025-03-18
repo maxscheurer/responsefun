@@ -441,6 +441,20 @@ def determine_rvecs(rvecs_dict_list, input_subs, adcc_prop,
     return rvecs_dict_tot, rvecs_solution, rvecs_mapping
 
 
+def process_complex_factor(sos, tensor):
+    factor = sos.complex_factor
+    print("Taking into account imaginary operators:")
+    if factor.imag == 0:
+        print("The real part of the property is returned.")
+        print(f"It was multiplied with a factor of {factor.real}.")
+        return factor.real * tensor
+    else:
+        assert factor.real == 0
+        print("The imaginary part of the property is returned.")
+        print(f"It was multiplied with a factor of {factor.imag}.")
+        return factor.imag * tensor
+
+
 def evaluate_property_isr(
     state,
     sos_expr,
@@ -736,6 +750,7 @@ def evaluate_property_isr(
             perms = list(permutations(c))  # if tensor is symmetric
             for pe in perms:
                 res_tens[pe] = res_tens[c]
+    res_tens = process_complex_factor(sos, res_tens)
     print("========== The requested tensor was formed. ==========")
     return res_tens
 
@@ -990,6 +1005,7 @@ def evaluate_property_sos(
                     perms = list(permutations(c))  # if tensor is symmetric
                     for pe in perms:
                         res_tens[pe] = res_tens[c]
+    res_tens = process_complex_factor(sos, res_tens)
     print("========== The requested tensor was formed. ==========")
     return res_tens
 
@@ -1293,5 +1309,6 @@ def evaluate_property_sos_fast(
         )
         res_tens += factor * np.einsum(einsum_string, *array_list)
 
+    res_tens = process_complex_factor(sos, res_tens)
     print("========== The requested tensor was formed. ==========")
     return res_tens

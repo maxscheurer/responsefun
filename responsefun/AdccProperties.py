@@ -53,6 +53,7 @@ class Operator:
     symbol: str  # used for printing
     symmetry: Symmetry  # 0: no symmetry, 1: hermitian, 2: anti-hermitian
     dim: int  # dimensionality
+    is_imag: bool
 
 
 available_operators = [
@@ -60,19 +61,22 @@ available_operators = [
         name="electric_dipole",
         symbol="mu",
         symmetry=Symmetry.HERMITIAN,
-        dim=1
+        dim=1,
+        is_imag=False,
     ),
     Operator(
         name="magnetic_dipole",
         symbol="m",
         symmetry=Symmetry.ANTIHERMITIAN,
-        dim=1
+        dim=1,
+        is_imag=True,
     ),
     Operator(
         name="diamagnetic_magnetizability",
         symbol="xi",
         symmetry=Symmetry.HERMITIAN,
-        dim=2
+        dim=2,
+        is_imag=False,
     ),
 ]
 

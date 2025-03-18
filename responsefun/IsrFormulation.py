@@ -336,7 +336,7 @@ def compute_extra_terms(
         terms_list = [expr]
     else:
         raise TypeError("SOS expression must be either of type Mul or Add.")
-    for it, single_term in enumerate(terms_list):
+    for single_term in terms_list:
         term_dict = extra_terms_single_sos(single_term, summation_indices, excluded_states)
         extra_terms_list.append(term_dict)
 

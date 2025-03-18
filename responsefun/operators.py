@@ -62,7 +62,11 @@ class PropertyOperator(GeneralOperator):
 
     @property
     def dim(self):
-        return self._dim
+        return self._operator.dim
+
+    @property
+    def is_imag(self):
+        return self._operator.is_imag
 
 
 class OneParticleOperator(PropertyOperator):
