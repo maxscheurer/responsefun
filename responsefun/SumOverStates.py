@@ -395,12 +395,12 @@ class SumOverStates:
         validate_summation_indices(self.expr, self.summation_indices)
 
         self._operators, self._operators_unshifted = extract_operators_from_sos(self.expr)
-        self._components = {op.comp for op in self._operators}
+        self._components = {op_char for op in self._operators for op_char in op.comp}
         self._order = len(self._components)
         if self._components.difference(ABC[: self._order]):
             raise ValueError(
                 f"It is important that the Cartesian components of an order {self._order} tensor "
-                f"be specified as {ABC[:self._order]}."
+                f"be specified as {ABC[:self._order]} and not {self._components}."
             )
         self._initial_state, self._final_state, self._excited_state = \
             extract_initial_final_excited_from_sos(self.expr, self.summation_indices)

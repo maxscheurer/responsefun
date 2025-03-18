@@ -161,22 +161,28 @@ def compute_state_to_state_transition_moments(state, integrals, initial_state=No
 
 
 def compute_ground_state_moment(state, integrals, pm_level,
-                                nuclear_contribution = None) -> np.ndarray:
+                                nuclear_contribution=None) -> np.ndarray:
     """
     Computes the ground state moments. 
     """
-    # Note that the charge adcc/PR#190 must already be contained in the integrals
+    # Note that the charge (see adcc/PR#190) must already be contained in the integrals
     # passed to this function.
     
-    ref_mom = np.array(
-        [product_trace(ints, state.ground_state.reference_state.density)
-         for ints in integrals]
-    )
+    # convert integrals to np.array (tuples are not allowed as indices for lists)
+    integrals = np.array(integrals)
+    op_shape = np.shape(integrals)
+    iterables = [list(range(shape)) for shape in op_shape]
+    components = list(product(*iterables))
+    ref_mom = np.zeros(op_shape)
+    for c in components:
+        ref_mom[c] = product_trace(integrals[c], state.ground_state.reference_state.density)
+
     if pm_level == 1:
         gs_mom = ref_mom
     elif pm_level == 2:
-        mp2corr = -1.0 * np.array([product_trace(ints, state.ground_state.mp2_diffdm)
-                                   for ints in integrals])
+        mp2corr = np.zeros(op_shape)
+        for c in components:
+            mp2corr[c] = product_trace(integrals[c], state.ground_state.mp2_diffdm)
         gs_mom = ref_mom + mp2corr
     else:
         raise NotImplementedError(
@@ -193,7 +199,7 @@ class AdccProperties(ABC):
     from adcc for a given operator."""
 
     def __init__(self, state: Union[adcc.ExcitedStates, MockExcitedStates],
-                 gauge_origin: Union[str, tuple[float, float, float]] = "mass_center"):
+                 gauge_origin: Union[str, tuple[float, float, float]] = "origin"):
         self._state = state
         self._state_size = len(state.excitation_energy_uncorrected)
         self._property_method = self._state.property_method
@@ -288,14 +294,18 @@ class AdccProperties(ABC):
 
     def modified_transition_moments(
         self, comp: Union[int, None] = None
-    ) -> Union[adcc.AmplitudeVector, list[adcc.AmplitudeVector]]:
+    ) -> Union[adcc.AmplitudeVector, np.ndarray[adcc.AmplitudeVector]]:
         if comp is None:
             op = self.integrals
         else:
-            op = self.integrals[comp]
-        mtms = modified_transition_moments(
-            self._property_method, self._state.ground_state, op
-        )
+            op = np.array(self.integrals)[comp]
+        if isinstance(op, adcc.OneParticleOperator):
+            mtms = modified_transition_moments(
+                self._property_method, self._state.ground_state, op
+            )
+        elif isinstance(op, list):
+            mtms = np.array([(modified_transition_moments(self._property_method,
+                             self._state.ground_state, op_ints)) for op_ints in self.integrals])
         return mtms
 
     def modified_transition_moments_reverse(
@@ -347,8 +357,16 @@ def build_adcc_properties(
 ) -> AdccProperties:
     if op_type == "electric_dipole":
         return ElectricDipole(state, gauge_origin)
+    elif op_type == "electric_dipole_velocity":
+        return ElectricDipoleVelocity(state, gauge_origin)
     elif op_type == "magnetic_dipole":
         return MagneticDipole(state, gauge_origin)
+    elif op_type == "electric_quadrupole":
+        return ElectricQuadrupole(state, gauge_origin)
+    elif op_type == "electric_quadrupole_velocity":
+        return ElectricQuadrupoleVelocity(state, gauge_origin)
+    elif op_type == "diamagnetic_magnetizability":
+        return DiamagneticMagnetizability(state, gauge_origin)
     else:
         raise NotImplementedError
 
@@ -360,7 +378,10 @@ class ElectricDipole(AdccProperties):
 
     @property
     def integrals(self) -> list[adcc.OneParticleOperator]:
-        return self._state.reference_state.operators.electric_dipole
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return self._state.reference_state.operators.electric_dipole
 
     @property
     def gs_moment(self) -> np.ndarray:
@@ -386,17 +407,23 @@ class MagneticDipole(AdccProperties):
 
     @property
     def integrals(self) -> list[adcc.OneParticleOperator]:
-        return self._state.reference_state.operators.magnetic_dipole(self._gauge_origin)
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return self._state.reference_state.operators.magnetic_dipole(self._gauge_origin)
 
     @property
     def gs_moment(self) -> np.ndarray:
-        # Note: This next line is needed because of missing minus sign in the definition
-        # of the operators, TODO: remove if adcc/PR#190 is merged
-        ints = [-1.0 * ints for ints in self.integrals]
-        return compute_ground_state_moment(self._state, ints, self._pm_level)
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return compute_ground_state_moment(self._state, self.integrals, self._pm_level)
 
     def _transition_moment(self) -> np.ndarray:
-        return self._state.transition_magnetic_dipole_moment
+        if isinstance(self._state, MockExcitedStates):
+            return self._state.transition_magnetic_dipole_moment
+        else:
+            return self._state.transition_magnetic_dipole_moment(self._gauge_origin)
 
     def _state_to_state_transition_moment(self) -> np.ndarray:
         if isinstance(self._state, MockExcitedStates):
@@ -412,7 +439,10 @@ class ElectricDipoleVelocity(AdccProperties):
 
     @property
     def integrals(self) -> list[adcc.OneParticleOperator]:
-        return self._state.reference_state.operators.electric_dipole_velocity(self._gauge_origin)
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return self._state.reference_state.operators.electric_dipole_velocity
 
     @property
     def gs_moment(self) -> np.ndarray:
@@ -436,20 +466,27 @@ class ElectricQuadrupole(AdccProperties):
 
     @property
     def integrals(self) -> list[adcc.OneParticleOperator]:
-        return self._state.reference_state.operators.magnetic_dipole
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return self._state.reference_state.operators.electric_quadrupole(self._gauge_origin)
 
     @property
     def gs_moment(self) -> np.ndarray:
-        nuclear_contribution = self._state.reference_state.nuclear_quadrupole(self._gauge_origin)
-        # Note: This next line is needed because of missing minus sign in the definition
-        # of the operators, TODO: remove if adcc/PR#190 is merged
-        ints = [-1.0 * ints for ints in self.integrals]
-        return compute_ground_state_moment(self._state, ints, self._pm_level,
+        nuclear_contribution = np.zeros((3,3))
+        nuc_electric_quadrupole = self._state.reference_state.nuclear_quadrupole(self._gauge_origin)
+        nuclear_contribution[np.triu_indices(3)] = nuc_electric_quadrupole
+        nuclear_contribution = nuclear_contribution + nuclear_contribution.T \
+            - np.diag(nuclear_contribution)
+        return compute_ground_state_moment(self._state, self.integrals, self._pm_level,
                                            nuclear_contribution=nuclear_contribution)
 
 
     def _transition_moment(self) -> np.ndarray:
-        return self._state.transition_dipole_moment_velocity
+        if isinstance(self._state, MockExcitedStates):
+            return self._state.transition_quadrupole_moment
+        else:
+            return self._state.transition_quadrupole_moment(self._gauge_origin)
 
     def _state_to_state_transition_moment(self) -> np.ndarray:
         if isinstance(self._state, MockExcitedStates):
@@ -465,8 +502,11 @@ class ElectricQuadrupoleVelocity(AdccProperties):
 
     @property
     def integrals(self) -> list[adcc.OneParticleOperator]:
-        return self._state.reference_state.operators.\
-            electric_quadrupole_velocity(self._gauge_origin)
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return self._state.reference_state.operators.\
+                electric_quadrupole_velocity(self._gauge_origin)
 
     @property
     def gs_moment(self) -> np.ndarray:
@@ -474,7 +514,10 @@ class ElectricQuadrupoleVelocity(AdccProperties):
                                   "quadrupole operator in velocity gauge.")
 
     def _transition_moment(self) -> np.ndarray:
-        return self._state.transition_quadrupole_moment_velocity(self._gauge_origin)
+        if isinstance(self._state, MockExcitedStates):
+            return self._state.transition_quadrupole_moment_velocity
+        else:
+            return self._state.transition_quadrupole_moment_velocity(self._gauge_origin)
 
     def _state_to_state_transition_moment(self) -> np.ndarray:
         if isinstance(self._state, MockExcitedStates):
@@ -490,14 +533,24 @@ class DiamagneticMagnetizability(AdccProperties):
 
     @property
     def integrals(self) -> list[adcc.OneParticleOperator]:
-        return self._state.reference_state.operators.diamagentic_magnetizability(self._gauge_origin)
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return self._state.reference_state.operators.\
+                diamagentic_magnetizability(self._gauge_origin)
 
     @property
     def gs_moment(self) -> np.ndarray:
-        return compute_ground_state_moment(self._state, self.integrals, self._pm_level)
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return compute_ground_state_moment(self._state, self.integrals, self._pm_level)
 
     def _transition_moment(self) -> np.ndarray:
-        return compute_transition_moments(self._state, self.integrals)
+        if isinstance(self._state, MockExcitedStates):
+            raise NotImplementedError
+        else:
+            return compute_transition_moments(self._state, self.integrals)
 
     def _state_to_state_transition_moment(self) -> np.ndarray:
         if isinstance(self._state, MockExcitedStates):
