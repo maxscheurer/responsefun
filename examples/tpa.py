@@ -10,8 +10,8 @@ from responsefun.symbols_and_labels import (
     O,
     f,
     n,
-    op_a,
-    op_b,
+    mu_a,
+    mu_b,
     w_1,
     w_2,
     w_n,
@@ -42,14 +42,14 @@ state = adcc.run_adc(scfres, method="adc2", n_singlets=5)
 print(state.describe())
 
 tpa_term = (
-    TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O) / (w_n - w_1)
+    TransitionMoment(f, mu_b, n) * TransitionMoment(n, mu_a, O) / (w_n - w_1)
 )
 
 for es in range(1):
     print(f"===== State {es} ===== ")
     tpa_tens = evaluate_property_isr(
         state, tpa_term, [n],
-        perm_pairs=[(op_a, w_1), (op_b, w_2)],
+        perm_pairs=[(mu_a, w_1), (mu_b, w_2)],
         freqs_in=[(w_1, w_f/2), (w_2, w_f/2)],
         excited_state=es, conv_tol=1e-4,
     )

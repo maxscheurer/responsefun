@@ -6,9 +6,9 @@ from responsefun.SumOverStates import SumOverStates, TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     n,
-    op_a,
-    op_b,
-    op_c,
+    mu_a,
+    mu_b,
+    mu_c,
     p,
     w_1,
     w_2,
@@ -18,8 +18,8 @@ from responsefun.symbols_and_labels import (
 )
 
 beta_sos_term = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p, shifted=True)
-    * TransitionMoment(p, op_c, O) / ((w_n - w_o) * (w_p - w_2))
+    TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, p, shifted=True)
+    * TransitionMoment(p, mu_c, O) / ((w_n - w_o) * (w_p - w_2))
 )
 
 beta_sos = SumOverStates(
@@ -27,7 +27,7 @@ beta_sos = SumOverStates(
     [n, p],  # indices of summation
     freqs_in=[w_1, w_2],  # frequencies of incident photons
     freqs_out=w_o,  # frequency of resulting photon
-    perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)],  # tuples to be permuted
+    perm_pairs=[(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)],  # tuples to be permuted
     excluded_states=O  # states excluded from the summations
 )
 

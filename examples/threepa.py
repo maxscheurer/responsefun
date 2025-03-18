@@ -11,9 +11,9 @@ from responsefun.symbols_and_labels import (
     f,
     m,
     n,
-    op_a,
-    op_b,
-    op_c,
+    mu_a,
+    mu_b,
+    mu_c,
     w_1,
     w_2,
     w_3,
@@ -45,8 +45,8 @@ state = adcc.run_adc(scfres, method="adc2", n_singlets=10)
 print(state.describe())
 
 threepa_term = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
-    * TransitionMoment(m, op_c, f) / ((w_n - w_1) * (w_m - w_1 - w_2))
+    TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, m)
+    * TransitionMoment(m, mu_c, f) / ((w_n - w_1) * (w_m - w_1 - w_2))
 )
 
 for es in range(5):
@@ -56,7 +56,7 @@ for es in range(5):
     # TODO: remove minus after adc-connect/adcc#190 is merged
     threepa_tens = -1.0 * evaluate_property_isr(
         state, threepa_term, [n, m],
-        perm_pairs=[(op_a, w_1), (op_b, w_2), (op_c, w_3)],
+        perm_pairs=[(mu_a, w_1), (mu_b, w_2), (mu_c, w_3)],
         freqs_in=[(w_1, w_f/3), (w_2, w_f/3), (w_3, w_f/3)],
         excited_state=es, conv_tol=1e-5,
     )

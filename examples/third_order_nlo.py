@@ -12,10 +12,10 @@ from responsefun.symbols_and_labels import (
     O,
     m,
     n,
-    op_a,
-    op_b,
-    op_c,
-    op_d,
+    mu_a,
+    mu_b,
+    mu_c,
+    mu_d,
     p,
     w_1,
     w_2,
@@ -55,16 +55,16 @@ w_ruby = 0.0656
 state = adcc.adc2(scfres, n_singlets=5)
 # compute the second hyperpolarizability tensor
 gamma_term_I = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m, shifted=True)
-    * TransitionMoment(m, op_c, p, shifted=True) * TransitionMoment(p, op_d, O)
+    TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, m, shifted=True)
+    * TransitionMoment(m, mu_c, p, shifted=True) * TransitionMoment(p, mu_d, O)
     / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
 )
 gamma_term_II = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O)
-    * TransitionMoment(O, op_c, m) * TransitionMoment(m, op_d, O)
+    TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, O)
+    * TransitionMoment(O, mu_c, m) * TransitionMoment(m, mu_d, O)
     / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
 )
-perm_pairs = [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)]
+perm_pairs = [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2), (mu_d, w_3)]
 processes = {
     "static": (0.0, 0.0, 0.0), "dcOR": (w_ruby, -w_ruby, 0.0),
     "EOKE": (w_ruby, 0.0, 0.0), "IDRI": (w_ruby, -w_ruby, w_ruby),

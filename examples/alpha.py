@@ -6,7 +6,7 @@ import numpy as np
 from pyscf import gto, scf
 
 from responsefun import evaluate_property_isr, TransitionMoment
-from responsefun.symbols_and_labels import O, gamma, n, op_a, op_b, w, w_n
+from responsefun.symbols_and_labels import O, gamma, n, mu_a, mu_b, w, w_n
 
 # run SCF in PySCF
 mol = gto.M(
@@ -26,8 +26,8 @@ state = adcc.adc2(scfres, n_singlets=5)
 
 # define symbolic SOS expression
 alpha_sos_expr = (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j*gamma)
-        + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j*gamma)
+        TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, O) / (w_n - w - 1j*gamma)
+        + TransitionMoment(O, mu_b, n) * TransitionMoment(n, mu_a, O) / (w_n + w + 1j*gamma)
 )
 # compute polarizability
 alpha_tens = evaluate_property_isr(

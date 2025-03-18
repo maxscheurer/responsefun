@@ -11,9 +11,9 @@ from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     n,
-    op_a,
-    op_b,
-    op_c,
+    mu_a,
+    mu_b,
+    mu_c,
     p,
     w_1,
     w_2,
@@ -56,8 +56,8 @@ dip_mom = state.ground_state.dipole_moment(state.method.level)
 
 # compute the first hyperpolarizability tensor
 beta_term = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p, shifted=True)
-    * TransitionMoment(p, op_c, O) / ((w_n - w_o) * (w_p - w_2))
+    TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, p, shifted=True)
+    * TransitionMoment(p, mu_c, O) / ((w_n - w_o) * (w_p - w_2))
 )
 processes = {
     "static": (0.0, 0.0), "OR": (w_ruby, -w_ruby),
@@ -69,7 +69,7 @@ for process, freqs in processes.items():
     # TODO: remove minus after adc-connect/adcc#190 is merged
     beta_tens = -1.0 * evaluate_property_isr(
         state, beta_term, [n, p],
-        perm_pairs=[(op_a, -w_o), (op_b, w_1), (op_c, w_2)],
+        perm_pairs=[(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)],
         freqs_in=[(w_1, freqs[0]), (w_2, freqs[1])],
         freqs_out=(w_o, w_1+w_2),
         excluded_states=O,

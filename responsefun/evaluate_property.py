@@ -498,7 +498,7 @@ def evaluate_property_isr(
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
@@ -798,7 +798,7 @@ def evaluate_property_sos(
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
@@ -1053,7 +1053,7 @@ def evaluate_property_sos_fast(
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.

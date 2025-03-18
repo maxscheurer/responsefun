@@ -11,15 +11,15 @@ from responsefun.symbols_and_labels import (
     O,
     k,
     n,
-    op_a,
-    op_b,
-    op_c,
-    op_d,
-    opq_ab,
-    opq_bc,
-    opq_cd,
-    opq_de,
-    opq_ef,
+    mu_a,
+    mu_b,
+    mu_c,
+    mu_d,
+    q_ab,
+    q_bc,
+    q_cd,
+    q_de,
+    q_ef,
     w,
     w_1,
     w_2,
@@ -41,37 +41,37 @@ def run_scf(molecule, basis, backend="pyscf"):
 
 SOS_alpha_like = {
     "ab": (
-        TransitionMoment(O, opq_ab, n) * TransitionMoment(n, op_c, O) / (w_n - w)
-        + TransitionMoment(O, op_c, n) * TransitionMoment(n, opq_ab, O) / (w_n + w)
+        TransitionMoment(O, q_ab, n) * TransitionMoment(n, mu_c, O) / (w_n - w)
+        + TransitionMoment(O, mu_c, n) * TransitionMoment(n, q_ab, O) / (w_n + w)
     ),
     "bc": (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, opq_bc, O) / (w_n - w)
-        + TransitionMoment(O, opq_bc, n) * TransitionMoment(n, op_a, O) / (w_n + w)
+        TransitionMoment(O, mu_a, n) * TransitionMoment(n, q_bc, O) / (w_n - w)
+        + TransitionMoment(O, q_bc, n) * TransitionMoment(n, mu_a, O) / (w_n + w)
     ),
     "abcd": (
-        TransitionMoment(O, opq_ab, n) * TransitionMoment(n, opq_cd, O) / (w_n - w)
-        + TransitionMoment(O, opq_cd, n) * TransitionMoment(n, opq_ab, O) / (w_n + w)
+        TransitionMoment(O, q_ab, n) * TransitionMoment(n, q_cd, O) / (w_n - w)
+        + TransitionMoment(O, q_cd, n) * TransitionMoment(n, q_ab, O) / (w_n + w)
     ),
 }
 
 
 SOS_beta_like = {
     "ab": (
-        TransitionMoment(O, opq_ab, n)
-        * TransitionMoment(n, op_b, k)
-        * TransitionMoment(k, op_c, O)
+        TransitionMoment(O, q_ab, n)
+        * TransitionMoment(n, mu_b, k)
+        * TransitionMoment(k, mu_c, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
     "cd": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, op_b, k)
-        * TransitionMoment(k, opq_cd, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, mu_b, k)
+        * TransitionMoment(k, q_cd, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
     "abde": (
-        TransitionMoment(O, opq_ab, n)
-        * TransitionMoment(n, op_c, k)
-        * TransitionMoment(k, opq_de, O)
+        TransitionMoment(O, q_ab, n)
+        * TransitionMoment(n, mu_c, k)
+        * TransitionMoment(k, q_de, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
 }

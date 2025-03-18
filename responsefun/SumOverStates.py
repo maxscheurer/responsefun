@@ -180,7 +180,7 @@ def _build_sos_via_permutation(term, perm_pairs):
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_, w_2)].
 
     Returns
     ----------
@@ -325,7 +325,7 @@ class SumOverStates:
             List of (op, freq) pairs whose permutation yields the full SOS expression;
             (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
             <class 'sympy.core.symbol.Symbol'>),
-            e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+            e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_, w_2)].
 
         excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
             List of states that are excluded from the summation.
