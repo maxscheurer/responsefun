@@ -252,7 +252,7 @@ def _initialize_sos(
 
     all_freqs = all_freqs_mod
 
-    if omegas is None and external_freqs:
+    if omegas is None:
         if not sos.check_energy_conservation(all_freqs):
             raise ValueError("Energy conservation check was not passed. See above.")
 
@@ -443,7 +443,7 @@ def determine_rvecs(rvecs_dict_list, input_subs, adcc_prop,
 
 def process_complex_factor(sos, tensor):
     factor = sos.complex_factor
-    print("Taking into account imaginary operators:")
+    print("\nTaking into account imaginary operators:")
     if factor.imag == 0:
         print("The real part of the property is returned.")
         print(f"It was multiplied with a factor of {factor.real}.")

@@ -128,36 +128,44 @@ def extract_operators_from_sos(term):
     return operators, operators_unshifted
     
 
-def extract_initial_final_from_sos(term, summation_indices):
+def extract_initial_final_excited_from_sos(term, summation_indices):
     if isinstance(term, Add):
-        initials_finals = [extract_initial_final_from_sos(arg, summation_indices)
-                           for arg in term.args]
-        initials_finals = set(initials_finals)
-        if len(initials_finals) == 1:
-            return initials_finals.pop()
+        initials_finals_exciteds = [extract_initial_final_excited_from_sos(arg, summation_indices)
+                                    for arg in term.args]
+        initials_finals_exciteds = set(initials_finals_exciteds)
+        if len(initials_finals_exciteds) == 1:
+            return initials_finals_exciteds.pop()
         else:
             raise ValueError("For the different terms in the SOS expression, "
-                             "different initial and final states were found.")
+                             "different initial/final/excited states were found.")
     
     boks = extract_bra_op_ket(term)
-    bras = []
-    kets = []
-    for bok in boks:
-        bra = bok[0].label[0]
-        ket = bok[2].label[0]
-        if bra in summation_indices or ket in summation_indices:
-            bras.append(bra)
-            kets.append(ket)
-
-    indices = set(summation_indices)
-    bras = set(bras)
-    kets = set(kets)
-        
-    initial = kets.difference(indices)
-    final = bras.difference(indices)
-    if len(initial) != 1 or len(final) != 1:
-        raise ValueError("Too many undefined excited states were found.")
-    return initial.pop(), final.pop()
+    bras = set([bok[0].label[0] for bok in boks])
+    kets = set([bok[2].label[0] for bok in boks])
+    
+    initial = kets.difference(summation_indices)
+    final = bras.difference(summation_indices)
+    excited = set()
+    if len(initial) != 1:
+        print("Initial state cannot be determined with certainty.")
+        assert O in initial
+        excited.update(initial.difference({O}))
+        initial = {O}
+    if len(final) != 1:
+        print("Final state cannot be determined with certainty.")
+        assert O in final
+        excited.update(final.difference({O}))
+        final = {O}
+    for s in (initial | final):
+        if s != O:
+            excited.add(s)
+    if len(excited) == 0:
+        excited = {None}
+    elif len(excited) > 1:
+        raise NotImplementedError(
+            "Only one excited state that is not a summation index can be contained."
+        )
+    return initial.pop(), final.pop(), excited.pop()
 
 
 def _build_sos_via_permutation(term, perm_pairs):
@@ -262,8 +270,9 @@ def _sort_boks_in_expr(term, initial_state, final_state):
 
     sorted_boks_term = 1
     bra_label = final_state
+    boks_available = boks.copy()
     for _ in range(len(boks)):
-        bok = find_bok_with_bra(boks, bra_label)
+        bok = find_bok_with_bra(boks_available, bra_label)
         if bok is None:
             raise ValueError(
                 "Invalid SOS expression. Check that all transition "
@@ -271,14 +280,12 @@ def _sort_boks_in_expr(term, initial_state, final_state):
             )
         sorted_boks_term *= bok[0] * bok[1] * bok[2]
         bra_label = bok[2].label[0]
-    if bra_label != initial_state:
-        print("Initial/final states cannot be determined with certainty.")
-        print(f"initial: {initial_state}, final: {final_state}")
-    
-    subs_list = [(arg, 1) for bok in boks for arg in bok]
+        boks_available.remove(bok)
+    assert bra_label == initial_state
+    subs_list = [(bok[0] * bok[1] * bok[2], 1) for bok in boks]
     first_subs = subs_list.pop(0)
     subs_list.append((first_subs[0], sorted_boks_term))
-    sorted_term = term.subs(subs_list)
+    sorted_term = term.subs(subs_list, simultaneous=True)
     assert len(sorted_term.args) == len(term.args)
     return sorted_term
 
@@ -395,9 +402,8 @@ class SumOverStates:
                 f"It is important that the Cartesian components of an order {self._order} tensor "
                 f"be specified as {ABC[:self._order]}."
             )
-        self._initial_state, self._final_state = extract_initial_final_from_sos(
-            self.expr, self.summation_indices
-        )
+        self._initial_state, self._final_state, self._excited_state = \
+            extract_initial_final_excited_from_sos(self.expr, self.summation_indices)
         self._transition_frequencies = [
             TransitionFrequency(index, real=True) for index in self._summation_indices
         ]
@@ -444,18 +450,7 @@ class SumOverStates:
 
     @property
     def excited_state(self):
-        excited_states = set()
-        for state in [self.initial_state, self.final_state]:
-            if state != O:
-                excited_states.add(state)
-        if len(excited_states) > 1:
-            raise NotImplementedError(
-                "Only one excited state that is not a summation index can be contained."
-            )
-        if len(excited_states) == 0:
-            return None
-        else:
-            return excited_states.pop()
+        return self._excited_state
 
     @property
     def system_energy(self):
