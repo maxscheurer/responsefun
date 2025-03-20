@@ -246,7 +246,9 @@ class TestIsrAgainstRespondo:
             excited_state = Excitation(state, final_state, method)
 
             tpa_ref = tpa_resonant(excited_state)
-            tpa = evaluate_property_isr(state, tpa_expr, [n], excited_state=final_state)
+            tpa = evaluate_property_isr(
+                state, tpa_expr, [n], excited_state=final_state, freqs_in=[(w_f, w_f)]
+            )
             np.testing.assert_allclose(
                 tpa, tpa_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state)
             )
@@ -351,8 +353,12 @@ class TestIsrAgainstSos:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-        tpa_sos = evaluate_property_sos(mock_state, tpa_expr, [n], excited_state=final_state)
-        tpa_isr = evaluate_property_isr(state, tpa_expr, [n], excited_state=final_state)
+        tpa_sos = evaluate_property_sos(
+            mock_state, tpa_expr, [n], excited_state=final_state, freqs_in=[(w_f, w_f)]
+        )
+        tpa_isr = evaluate_property_isr(
+            state, tpa_expr, [n], excited_state=final_state, freqs_in=[(w_f, w_f)]
+        )
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 
@@ -497,9 +503,11 @@ class TestIsrAgainstSosFast:
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
         tpa_sos = evaluate_property_sos_fast(
-            mock_state, tpa_expr, [n], excited_state=final_state
+            mock_state, tpa_expr, [n], excited_state=final_state, freqs_in=[(w_f, w_f)]
         )
-        tpa_isr = evaluate_property_isr(state, tpa_expr, [n], excited_state=final_state)
+        tpa_isr = evaluate_property_isr(
+            state, tpa_expr, [n], excited_state=final_state, freqs_in=[(w_f, w_f)]
+        )
 
         assert_allclose_signfix(tpa_isr, tpa_sos, atol=1e-7)
 

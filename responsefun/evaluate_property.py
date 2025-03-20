@@ -167,11 +167,7 @@ def _initialize_arguments(
         assert isinstance(freqs_out, list)
 
     external_freqs += freqs_in
-    for freq in freqs_out:
-        if freq not in freqs_in:
-            external_freqs.append(freq)
-    if len(external_freqs) != len(set([freq[0] for freq in external_freqs])):
-        raise ValueError("Every external frequency should only be specified once.")
+    external_freqs += freqs_out
 
     if damping is None:
         damping = 0.0
@@ -228,6 +224,15 @@ def _initialize_sos(
         "The following SOS expression was entered/generated. "
         f"It consists of {sos.number_of_terms} term(s):\n{sos}\n"
     )
+    # check whether the definitions match if frequencies are defined twice
+    for freq in external_freqs:
+        if sos.correlation_btw_freq:
+            same_freq = [sympify(f[1]).subs(sos.correlation_btw_freq) 
+                         for f in external_freqs
+                         if f[0] == freq[0]]
+        else:
+            same_freq = [f[1] for f in external_freqs if f[0] == freq[0]]
+        assert len(set(same_freq)) == 1
 
     all_freqs = external_freqs.copy()
     if excited_state is not None:
