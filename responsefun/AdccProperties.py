@@ -353,7 +353,7 @@ class AdccProperties(ABC):
 def build_adcc_properties(
     state: Union[adcc.ExcitedStates, MockExcitedStates],
     op_type: str,
-    gauge_origin: Union[str, tuple[float, float, float], None] = None
+    gauge_origin: Union[str, tuple[float, float, float]] = "origin"
 ) -> AdccProperties:
     if op_type == "electric_dipole":
         return ElectricDipole(state, gauge_origin)

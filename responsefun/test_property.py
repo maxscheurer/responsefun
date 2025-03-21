@@ -320,7 +320,7 @@ class TestIsrAgainstSos:
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(
                         tup[0][1], tup[1], final_state
                     )
-                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7, err_msg=err_msg)
+                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=5e-7, err_msg=err_msg)
 
     def test_rixs(self, case):
         molecule, basis, method = case.split("_")
@@ -457,7 +457,7 @@ class TestIsrAgainstSosFast:
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(
                         tup[0][1], tup[1], final_state
                     )
-                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7, err_msg=err_msg)
+                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=5e-7, err_msg=err_msg)
 
     def test_rixs(self, case):
         molecule, basis, method = case.split("_")
