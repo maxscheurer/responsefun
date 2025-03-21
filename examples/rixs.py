@@ -12,8 +12,8 @@ from responsefun.symbols_and_labels import (
     f,
     gamma,
     n,
-    op_a,
-    op_b,
+    mu_a,
+    mu_b,
     w,
     w_f,
     w_n,
@@ -38,7 +38,7 @@ scfres.kernel()
 state = adcc.adc2(scfres, n_singlets=5)
 
 # compute RIXS tensor within the rotating-wave approximation
-rixs_sos_rwa = TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j * gamma)
+rixs_sos_rwa = TransitionMoment(f, mu_a, n) * TransitionMoment(n, mu_b, O) / (w_n - w - 1j * gamma)
 rixs_rwa = evaluate_property_isr(
     state,
     rixs_sos_rwa,
@@ -55,7 +55,7 @@ rixs_full = evaluate_property_isr(
     state,
     rixs_sos_rwa,
     [n],
-    perm_pairs=[(op_a, w + 1j * gamma), (op_b, -w_prime - 1j * gamma)],
+    perm_pairs=[(mu_a, w + 1j * gamma), (mu_b, -w_prime - 1j * gamma)],
     freqs_in=(w, ev2au(534.74)),
     freqs_out=(w_prime, w-w_f),
     damping=ev2au(0.124),
