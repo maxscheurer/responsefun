@@ -24,14 +24,13 @@ from responsefun.symbols_and_labels import (
     gamma,
     k,
     m,
-    n,
     mu_a,
     mu_b,
     mu_c,
     mu_d,
+    n,
     p,
     w,
-    w_prime,
     w_1,
     w_2,
     w_3,
@@ -41,6 +40,7 @@ from responsefun.symbols_and_labels import (
     w_n,
     w_o,
     w_p,
+    w_prime,
 )
 from responsefun.testdata import cache
 from responsefun.testdata.static_data import xyz

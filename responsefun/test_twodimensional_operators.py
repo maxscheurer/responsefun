@@ -10,16 +10,14 @@ from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     k,
-    n,
     mu_a,
     mu_b,
     mu_c,
-    mu_d,
+    n,
     q_ab,
     q_bc,
     q_cd,
     q_de,
-    q_ef,
     w,
     w_1,
     w_2,
@@ -29,6 +27,7 @@ from responsefun.symbols_and_labels import (
 )
 from responsefun.testdata import cache
 from responsefun.testdata.static_data import xyz
+
 
 def run_scf(molecule, basis, backend="pyscf"):
     scfres = adcc.backends.run_hf(

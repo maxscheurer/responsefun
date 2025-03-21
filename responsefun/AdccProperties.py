@@ -68,7 +68,8 @@ available_operators = [
         name="electric_dipole_velocity",
         symbol="mu_p",
         symmetry=Symmetry.ANTIHERMITIAN,
-        dim=1
+        dim=1,
+        is_imag=True,
     ),
     Operator(
         name="magnetic_dipole",
@@ -81,13 +82,15 @@ available_operators = [
         name="electric_quadrupole",
         symbol="q",
         symmetry=Symmetry.HERMITIAN,
-        dim=2
+        dim=2,
+        is_imag=False,
     ),
     Operator(
         name="electric_quadrupole_velocity",
         symbol="q_p",
         symmetry=Symmetry.ANTIHERMITIAN,
-        dim=2
+        dim=2,
+        is_imag=True,
     ),
     Operator(
         name="diamagnetic_magnetizability",
