@@ -177,7 +177,7 @@ def compute_ground_state_moment(state, integrals, pm_level,
     for c in components:
         ref_mom[c] = product_trace(integrals[c], state.ground_state.reference_state.density)
 
-    if pm_level == 1:
+    if pm_level in [0, 1]:
         gs_mom = ref_mom
     elif pm_level == 2:
         mp2corr = np.zeros(op_shape)
