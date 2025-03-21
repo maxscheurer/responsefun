@@ -23,7 +23,8 @@ def main():
             # multiplicity=multiplicity,
             # conv_tol_grad=conv_tol_grad,
         )
-        state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets)
+        state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets,
+                             n_guesses=n_singlets)
         dips = state.reference_state.operators.electric_dipole
         mdips = state.reference_state.operators.magnetic_dipole(gauge_origin)
 
