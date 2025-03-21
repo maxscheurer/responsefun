@@ -33,26 +33,16 @@ from sympy import (
 from sympy.physics.quantum.operator import Operator
 from sympy.physics.quantum.state import Bra, Ket
 
-from responsefun.ResponseOperator import (
+from responsefun.operators import (
+    M,
     MTM,
     S2S_MTM,
     Moment,
     OneParticleOperator,
     TransitionFrequency,
 )
-from responsefun.SumOverStates import SumOverStates
-from responsefun.symbols_and_labels import M, O
-
-
-def extract_bra_op_ket(expr):
-    """Return list of bra*op*ket sequences in a SymPy term."""
-    assert isinstance(expr, Mul)
-    bok = [Bra, OneParticleOperator, Ket]
-    expr_types = [type(term) for term in expr.args]
-    ret = [
-        list(expr.args[i : i + 3]) for i, k in enumerate(expr_types) if expr_types[i : i + 3] == bok
-    ]
-    return ret
+from responsefun.SumOverStates import SumOverStates, extract_bra_op_ket
+from responsefun.symbols_and_labels import O
 
 
 def insert_single_moments(expr, summation_indices):
@@ -63,25 +53,15 @@ def insert_single_moments(expr, summation_indices):
         # initial state on the ket side and final state on the bra side
         bra, ket = bok[0].label[0], bok[2].label[0]
         op = bok[1]
-        if ket == O and bra not in summation_indices:
-            from_state = ket
-            to_state = bra
-            sign = 1.0
-        elif bra == O and ket not in summation_indices:
-            if op.symmetry == 0:
-                from_state = ket
-                to_state = bra
-                sign = 1.0
-            else:
-                from_state = bra
-                to_state = ket
-                if op.symmetry == 1:
-                    sign = 1.0
-                else:
-                    sign = -1.0
+        from_state = ket
+        to_state = bra
+        moment = Moment(op.comp, from_state, to_state, op.op_type)
+        if from_state == O and to_state not in summation_indices:
+            mu_symbol = moment
+        elif to_state == O and from_state not in summation_indices:
+            mu_symbol = moment.revert()
         else:
             continue
-        mu_symbol = sign * Moment(op.comp, from_state, to_state, op.op_type)
         subs_list.append((bok[0] * bok[1] * bok[2], mu_symbol))
     return expr.subs(subs_list)
 
@@ -157,7 +137,6 @@ def insert_isr_transition_moments(expr, operators):
     """Insert vector F of modified transition moments and matrix B of modified excited-states
     transition moments."""
     assert isinstance(expr, Mul)
-    assert isinstance(operators, list)
     ret = expr.copy()
     for op in operators:
         F = MTM(op.comp, op.op_type)
@@ -209,12 +188,12 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
     assert isinstance(expr, Mul)
     if excluded_states is None:
         excluded_states = []
-    bok_list = extract_bra_op_ket(expr)
+    boks = extract_bra_op_ket(expr)
     special_cases = []
     # find special cases
     for index in summation_indices:
         special_cases.append((index, O))
-        for bok in bok_list:
+        for bok in boks:
             bra, ket = bok[0].label[0], bok[2].label[0]
             if bra == index and (bra, ket) not in special_cases and (ket, bra) not in special_cases:
                 special_cases.append((bra, ket))
@@ -225,6 +204,17 @@ def extra_terms_single_sos(expr, summation_indices, excluded_states=None):
     # remove excluded cases
     for state in excluded_states:
         special_cases[:] = [case for case in special_cases if case[1] != state]
+    # remove cases where operators are shifted
+    for bok in boks:
+        bra, ket = bok[0].label[0], bok[2].label[0]
+        op = bok[1]
+        if op.shifted:
+            case = (bra, ket)
+            case_rev = (ket, bra)
+            if case in special_cases:
+                special_cases.remove(case)
+            elif case_rev in special_cases:
+                special_cases.remove(case_rev)
 
     extra_terms = {}
     for tup in special_cases:
@@ -336,7 +326,7 @@ def compute_extra_terms(
     <class 'sympy.core.add.Add'> or <class 'sympy.core.mul.Mul'> or 0
         SymPy expression of the extra terms that do not cancel out.
     """
-    assert isinstance(summation_indices, list)
+    # TODO: insert shifted operators?
     assert isinstance(print_extra_term_dict, bool)
 
     extra_terms_list = []
@@ -346,7 +336,7 @@ def compute_extra_terms(
         terms_list = [expr]
     else:
         raise TypeError("SOS expression must be either of type Mul or Add.")
-    for it, single_term in enumerate(terms_list):
+    for single_term in terms_list:
         term_dict = extra_terms_single_sos(single_term, summation_indices, excluded_states)
         extra_terms_list.append(term_dict)
 

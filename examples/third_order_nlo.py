@@ -1,8 +1,13 @@
+"""
+Compute third-order nonlinear optical properties (see 10.1021/acs.jctc.3c00456)
+with an SOS expression for the second-order hyperpolarizability according to
+Eq. (5.201) in 10.1002/9781118794821.
+"""
 import adcc
 from pyscf import gto, scf
+import numpy as np
 
-from responsefun.evaluate_property import evaluate_property_isr
-from responsefun.SumOverStates import TransitionMoment
+from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     m,
@@ -21,15 +26,25 @@ from responsefun.symbols_and_labels import (
     w_p,
 )
 
+
+def compute_gamma_average(gamma_tens):
+    gamma_aver = (1/15) * (
+        np.einsum("iijj->", gamma_tens)
+        + np.einsum("ijij", gamma_tens)
+        + np.einsum("ijji", gamma_tens)
+    )
+    return gamma_aver
+
+
 # run SCF in PySCF
 mol = gto.M(
     atom="""
-    8        0.000000    0.000000    0.115082
-    1        0.000000    0.767545   -0.460329
-    1        0.000000   -0.767545   -0.460329
+    O        0.000000    0.000000    0.115082
+    H        0.000000    0.767545   -0.460329
+    H        0.000000   -0.767545   -0.460329
     """,
     unit="Angstrom",
-    basis="aug-cc-pvdz"
+    basis="aug-cc-pvdz",
 )
 scfres = scf.RHF(mol)
 scfres.kernel()
@@ -40,8 +55,8 @@ w_ruby = 0.0656
 state = adcc.adc2(scfres, n_singlets=5)
 # compute the second hyperpolarizability tensor
 gamma_term_I = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m)
-    * TransitionMoment(m, op_c, p) * TransitionMoment(p, op_d, O)
+    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, m, shifted=True)
+    * TransitionMoment(m, op_c, p, shifted=True) * TransitionMoment(p, op_d, O)
     / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
 )
 gamma_term_II = (
@@ -56,16 +71,21 @@ processes = {
     "ESHG": (w_ruby, w_ruby, 0.0), "THG": (w_ruby, w_ruby, w_ruby)
 }
 for process, freqs in processes.items():
-    omegas = [(w_o, w_1+w_2+w_3), (w_1, freqs[0]),
-              (w_2, freqs[1]), (w_3, freqs[2])]
+    freqs_in = [(w_1, freqs[0]), (w_2, freqs[1]), (w_3, freqs[2])]
+    freqs_out = (w_o, w_1+w_2+w_3)
     gamma_tens_I = evaluate_property_isr(
-        state, gamma_term_I, [n, m, p], omegas=omegas,
-        perm_pairs=perm_pairs, extra_terms=False, conv_tol=1e-5
+        state, gamma_term_I, [n, m, p],
+        perm_pairs=perm_pairs, excluded_states=O,
+        freqs_in=freqs_in, freqs_out=freqs_out,
+        conv_tol=1e-5,
     )
     gamma_tens_II = evaluate_property_isr(
-        state, gamma_term_II, [n, m], omegas=omegas,
-        perm_pairs=perm_pairs, extra_terms=False, conv_tol=1e-5
+        state, gamma_term_II, [n, m],
+        perm_pairs=perm_pairs, excluded_states=O,
+        freqs_in=freqs_in, freqs_out=freqs_out,
+        conv_tol=1e-5,
     )
     gamma_tens = gamma_tens_I - gamma_tens_II
     print(process)
     print(gamma_tens)
+    print(f"gamma_average = {compute_gamma_average(gamma_tens):.2f} a.u.")

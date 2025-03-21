@@ -17,51 +17,98 @@
 #
 
 import warnings
+from abc import ABC, abstractmethod, abstractproperty
+from dataclasses import dataclass
+from enum import Enum
 from itertools import product
+from typing import Any, Union
 
+import adcc
 import numpy as np
+from adcc.adc_pp.modified_transition_moments import modified_transition_moments
 from adcc.adc_pp.state2state_transition_dm import state2state_transition_dm
 from adcc.adc_pp.transition_dm import transition_dm
+from adcc.IsrMatrix import IsrMatrix
 from adcc.OneParticleOperator import product_trace
 from cached_property import cached_property
+from respondo.cpp_algebra import ResponseVector as RV
+from respondo.solve_response import (
+    transition_polarizability,
+    transition_polarizability_complex,
+)
 from tqdm import tqdm
 
 from responsefun.testdata.mock import MockExcitedStates
 
-# dict of operators available in responsefun so far
-# the first argument specifies the symbol that is to be used for printing
-# the second argument specifies the symmetry:
-#   0: no symmetry assumed
-#   1: hermitian
-#   2: anti-hermitian
-# the third argument specifies the dimensionality
-available_operators = {
-    "electric": ("mu", 1, 1),
-    "magnetic": ("m", 2, 1),
-    "dia_magnet": ("xi", 1, 2),
-}
+
+class Symmetry(Enum):
+    NOSYMMETRY = 0
+    HERMITIAN = 1
+    ANTIHERMITIAN = 2
 
 
-def transition_moments(state, operator):
+@dataclass(frozen=True)
+class Operator:
+    name: str
+    symbol: str  # used for printing
+    symmetry: Symmetry  # 0: no symmetry, 1: hermitian, 2: anti-hermitian
+    dim: int  # dimensionality
+    is_imag: bool
+
+
+available_operators = [
+    Operator(
+        name="electric_dipole",
+        symbol="mu",
+        symmetry=Symmetry.HERMITIAN,
+        dim=1,
+        is_imag=False,
+    ),
+    Operator(
+        name="magnetic_dipole",
+        symbol="m",
+        symmetry=Symmetry.ANTIHERMITIAN,
+        dim=1,
+        is_imag=True,
+    ),
+    Operator(
+        name="diamagnetic_magnetizability",
+        symbol="xi",
+        symmetry=Symmetry.HERMITIAN,
+        dim=2,
+        is_imag=False,
+    ),
+]
+
+
+def get_operator_by_name(name: str) -> Operator:
+    for operator in available_operators:
+        if operator.name == name:
+            return operator
+    raise NotImplementedError("The requested operator is not implemented.")
+
+
+def compute_transition_moments(state, integrals):
     if state.property_method.level == 0:
         warnings.warn("ADC(0) transition moments are known to be faulty in some cases.")
 
-    op_shape = np.shape(operator)
+    op_shape = np.shape(integrals)
     iterables = [list(range(shape)) for shape in op_shape]
     components = list(product(*iterables))
     moments = np.zeros((state.size, *op_shape))
-    for i, ee in enumerate(tqdm(state.excitations)):
+    for i, ee in enumerate(state.excitations):
         tdm = transition_dm(state.property_method, state.ground_state, ee.excitation_vector)
         tms = np.zeros(op_shape)
         for c in components:
             # list indices must be integers (1-D operators)
             c = c[0] if len(c) == 1 else c
-            tms[c] = product_trace(operator[c], tdm)
+            tms[c] = product_trace(integrals[c], tdm)
         moments[i] = tms
     return np.squeeze(moments)
 
 
-def state_to_state_transition_moments(state, operator, initial_state=None, final_state=None):
+def compute_state_to_state_transition_moments(state, integrals, initial_state=None,
+                                              final_state=None):
     istates = state.size
     excitations1 = state.excitations
     if initial_state is not None:
@@ -73,7 +120,7 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
         fstates = 1
         excitations2 = [state.excitations[final_state]]
 
-    op_shape = np.shape(operator)
+    op_shape = np.shape(integrals)
     iterables = [list(range(shape)) for shape in op_shape]
     components = list(product(*iterables))
     s2s_tm = np.zeros((istates, fstates, *op_shape))
@@ -90,143 +137,236 @@ def state_to_state_transition_moments(state, operator, initial_state=None, final
             for c in components:
                 # list indices must be integers (1-D operators)
                 c = c[0] if len(c) == 1 else c
-                tms[c] = product_trace(tdm, operator[c])
+                tms[c] = product_trace(tdm, integrals[c])
             s2s_tm[i, j] = tms
     return np.squeeze(s2s_tm)
 
 
-# TODO: testing
-def gs_magnetic_dipole_moment(ground_state, level=2):
-    magdips = ground_state.reference_state.operators.magnetic_dipole
-    ref_dipmom = np.array(
-        [product_trace(dip, ground_state.reference_state.density) for dip in magdips]
-    )
-    if level == 1:
-        return ref_dipmom
-    elif level == 2:
-        mp2corr = np.array([product_trace(dip, ground_state.mp2_diffdm) for dip in magdips])
-        return ref_dipmom + mp2corr
-    else:
-        raise NotImplementedError(
-            "Only magnetic dipole moments for level 1 and 2" " are implemented."
-        )
+class AdccProperties(ABC):
+    """Abstract base class encompassing all properties that can be obtained
+    from adcc for a given operator."""
 
-
-class AdccProperties:
-    """Class encompassing all properties that can be obtained from adcc for a given operator."""
-
-    def __init__(self, state, op_type):
-        """
-        Parameters
-        ----------
-        state: <class 'adcc.ExcitedStates.ExcitedStates'>
-            ExcitedStates object returned by an ADC calculation.
-
-        op_type: string
-            String specifying the corresponding operator.
-            It must be contained in the available_operators dict.
-        """
-        if op_type not in available_operators:
-            raise NotImplementedError(
-                f"Only the following operators are available so far: {available_operators}."
-            )
+    def __init__(self, state: Union[adcc.ExcitedStates, MockExcitedStates],
+                 gauge_origin: Union[str, tuple[float, float, float], None] = None):
         self._state = state
         self._state_size = len(state.excitation_energy_uncorrected)
+        self._property_method = self._state.property_method
+        if isinstance(self._state, MockExcitedStates):
+            self._pm_level = self._state.property_method.replace("adc", "")
+        else:
+            self._pm_level = self._state.property_method.level
 
-        self._op_type = op_type
-        self._op_dim = available_operators[op_type][2]
+        self._gauge_origin = gauge_origin
 
         # to make things faster if not all state-to-state transition moments are needed
         # but only from or to a specific state
         self._s2s_tm_i = np.empty((self._state_size), dtype=object)
         self._s2s_tm_f = np.empty((self._state_size), dtype=object)
 
-    @property
-    def op_type(self):
-        return self._op_type
+    @abstractproperty
+    def _operator(self) -> Operator:
+        pass
 
     @property
-    def op_dim(self):
-        return self._op_dim
+    def op_symmetry(self) -> Symmetry:
+        return self._operator.symmetry
 
-    @cached_property
-    def operator(self):
-        if self._op_type == "electric":
-            return self._state.reference_state.operators.electric_dipole
-        elif self._op_type == "magnetic":
-            return self._state.reference_state.operators.magnetic_dipole
+    @property
+    def op_dim(self) -> int:
+        return self._operator.dim
+
+    @abstractproperty
+    def integrals(self) -> list[adcc.OneParticleOperator]:
+        pass
+
+    @abstractproperty
+    def gs_moment(self) -> np.ndarray:
+        pass
+
+    def revert_transition_moment(self, moment: Any) -> Any:
+        if self.op_symmetry == Symmetry.HERMITIAN:
+            return moment
+        elif self.op_symmetry == Symmetry.ANTIHERMITIAN:
+            return -1.0 * moment
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(
+                "Only Hermitian and anti-Hermitian operators are implemented."
+            )
 
     @cached_property
-    def gs_moment(self):
-        if isinstance(self._state, MockExcitedStates):
-            pm_level = self._state.property_method.replace("adc", "")
-            if self._op_type == "electric":
-                gs_moment = self._state.ground_state.dipole_moment[pm_level]
-            elif self._op_type == "magnetic":
-                gs_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
-            else:
-                raise NotImplementedError()
-        else:
-            pm_level = self._state.property_method.level
-            if self._op_type == "electric":
-                gs_moment = self._state.ground_state.dipole_moment(pm_level)
-            elif self._op_type == "magnetic":
-                gs_moment = gs_magnetic_dipole_moment(self._state.ground_state, pm_level)
-            else:
-                raise NotImplementedError()
-        return gs_moment
+    def transition_moment(self) -> np.ndarray:
+        return self._transition_moment()
+
+    @property
+    def transition_moment_reverse(self) -> np.ndarray:
+        return self.revert_transition_moment(self.transition_moment)
 
     @cached_property
-    def transition_moment(self):
-        if self.op_type == "electric":
-            return self._state.transition_dipole_moment
-        # TODO: use commented code once PR #158 of adcc has been merged
-        # elif self.op_type == "magnetic":
-        #     return self._state.transition_magnetic_dipole_moment
-        else:
-            if isinstance(self._state, MockExcitedStates):
-                if self.op_type == "magnetic":
-                    return self._state.transition_magnetic_dipole_moment
-                else:
-                    raise NotImplementedError()
-            return transition_moments(self._state, self.operator)
-
-    @cached_property
-    def state_to_state_transition_moment(self):
-        if isinstance(self._state, MockExcitedStates):
-            if self.op_type == "electric":
-                return self._state.transition_dipole_moment_s2s
-            elif self.op_type == "magnetic":
-                return self._state.transition_magnetic_moment_s2s
-            else:
-                raise NotImplementedError()
-        return state_to_state_transition_moments(self._state, self.operator)
-
-    def s2s_tm(self, initial_state=None, final_state=None):
+    def state_to_state_transition_moment(self) -> np.ndarray:
+        return self._state_to_state_transition_moment()
+    
+    def s2s_tm_view(self, initial_state=None, final_state=None):
         if initial_state is None and final_state is None:
-            return self.state_to_state_transition_moment
+            return self.state_to_state_transition_moment[:]
         elif initial_state is None:
             if isinstance(self._state, MockExcitedStates):
                 return self.state_to_state_transition_moment[:, final_state]
             if self._s2s_tm_f[final_state] is None:
-                self._s2s_tm_f[final_state] = state_to_state_transition_moments(
-                    self._state, self.operator, final_state=final_state
+                self._s2s_tm_f[final_state] = compute_state_to_state_transition_moments(
+                    self._state, self.integrals, final_state=final_state
                 )
             return self._s2s_tm_f[final_state]
         elif final_state is None:
             if isinstance(self._state, MockExcitedStates):
                 return self.state_to_state_transition_moment[initial_state, :]
             if self._s2s_tm_i[initial_state] is None:
-                self._s2s_tm_i[initial_state] = state_to_state_transition_moments(
-                    self._state, self.operator, initial_state=initial_state
+                self._s2s_tm_i[initial_state] = compute_state_to_state_transition_moments(
+                    self._state, self.integrals, initial_state=initial_state
                 )
             return self._s2s_tm_i[initial_state]
         else:
             if isinstance(self._state, MockExcitedStates):
                 return self.state_to_state_transition_moment[initial_state, final_state]
-            s2s_tm = state_to_state_transition_moments(
-                self._state, self.operator, initial_state, final_state
+            s2s_tm = compute_state_to_state_transition_moments(
+                self._state, self.integrals, initial_state, final_state
             )
             return s2s_tm
+
+    @abstractmethod
+    def _transition_moment(self) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def _state_to_state_transition_moment(self) -> np.ndarray:
+        pass
+
+    def modified_transition_moments(
+        self, comp: Union[int, None] = None
+    ) -> Union[adcc.AmplitudeVector, list[adcc.AmplitudeVector]]:
+        if comp is None:
+            op = self.integrals
+        else:
+            op = self.integrals[comp]
+        mtms = modified_transition_moments(
+            self._property_method, self._state.ground_state, op
+        )
+        return mtms
+
+    def modified_transition_moments_reverse(
+        self, comp: Union[int, None] = None
+    ) -> Union[adcc.AmplitudeVector, list[adcc.AmplitudeVector]]:
+        return self.revert_transition_moment(self.modified_transition_moments(comp))
+
+    def isr_matrix(self, comp: Union[int, None] = None) -> adcc.IsrMatrix:
+        if comp is None:
+            op = self.integrals
+        else:
+            op = np.array(self.integrals)[comp]
+        return IsrMatrix(self._property_method, self._state.ground_state, op)
+
+    def transition_polarizability(
+        self,
+        to_vec: Union[adcc.AmplitudeVector, RV],
+        from_vec: Union[adcc.AmplitudeVector, RV],
+        comp: Union[int, None] = None
+        ) -> np.ndarray:
+        if comp is None:
+            op = self.integrals
+        else:
+            op = np.array(self.integrals)[comp]
+        # note that initial and final states are defined differently
+        # in the respondo functions than here
+        if isinstance(to_vec, adcc.AmplitudeVector) \
+            and isinstance(from_vec, adcc.AmplitudeVector):
+            ret = transition_polarizability(
+                self._property_method, self._state.ground_state,
+                from_vec, op, to_vec
+            )
+        else:
+            if isinstance(to_vec, adcc.AmplitudeVector):
+                to_vec = RV(to_vec)
+            if isinstance(from_vec, adcc.AmplitudeVector):
+                from_vec = RV(from_vec)
+            ret = transition_polarizability_complex(
+                self._property_method, self._state.ground_state,
+                from_vec, op, to_vec
+            )
+        return ret
+
+
+def build_adcc_properties(
+    state: Union[adcc.ExcitedStates, MockExcitedStates],
+    op_type: str,
+    gauge_origin: Union[str, tuple[float, float, float], None] = None
+) -> AdccProperties:
+    if op_type == "electric_dipole":
+        return ElectricDipole(state, gauge_origin)
+    elif op_type == "magnetic_dipole":
+        return MagneticDipole(state, gauge_origin)
+    else:
+        raise NotImplementedError
+
+
+class ElectricDipole(AdccProperties):
+    @property
+    def _operator(self) -> Operator:
+        return get_operator_by_name("electric_dipole")
+
+    @property
+    def integrals(self) -> list[adcc.OneParticleOperator]:
+        return self._state.reference_state.operators.electric_dipole
+
+    @property
+    def gs_moment(self) -> np.ndarray:
+        if isinstance(self._state, MockExcitedStates):
+            return self._state.ground_state.dipole_moment[self._pm_level]
+        else:
+            return self._state.ground_state.dipole_moment(self._pm_level)
+
+    def _transition_moment(self) -> np.ndarray:
+        return self._state.transition_dipole_moment
+
+    def _state_to_state_transition_moment(self) -> np.ndarray:
+        if isinstance(self._state, MockExcitedStates):
+            return self._state.transition_dipole_moment_s2s
+        else:
+            return compute_state_to_state_transition_moments(self._state, self.integrals)
+
+
+class MagneticDipole(AdccProperties):
+    @property
+    def _operator(self) -> Operator:
+        return get_operator_by_name("magnetic_dipole")
+
+    @property
+    def integrals(self) -> list[adcc.OneParticleOperator]:
+        return self._state.reference_state.operators.magnetic_dipole
+
+    @property
+    def gs_moment(self) -> np.ndarray:
+        # the minus sign is needed, because the negative charge is not yet included
+        # in the operator definitions
+        # TODO: remove minus after adc-connect/adcc#190 is merged
+        ref_dipmom = -1.0 * np.array(
+            [product_trace(dip, self._state.ground_state.reference_state.density)
+             for dip in self.integrals]
+        )
+        if self._pm_level in [0, 1]:
+            return ref_dipmom
+        elif self._pm_level == 2:
+            mp2corr = -1.0 * np.array([product_trace(dip, self._state.ground_state.mp2_diffdm)
+                                       for dip in self.integrals])
+            return ref_dipmom + mp2corr
+        else:
+            raise NotImplementedError(
+                "Only magnetic dipole moments for level 1 and 2 are implemented."
+            )
+
+    def _transition_moment(self) -> np.ndarray:
+        return self._state.transition_magnetic_dipole_moment
+
+    def _state_to_state_transition_moment(self) -> np.ndarray:
+        if isinstance(self._state, MockExcitedStates):
+            return self._state.transition_magnetic_moment_s2s
+        else:
+            return compute_state_to_state_transition_moments(self._state, self.integrals)

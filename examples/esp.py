@@ -1,12 +1,11 @@
 """
-Compute the excited-state polarizability for water using the STO-3G basis set.
+Compute the excited-state polarizability according to Eq. (6) in 10.1063/5.0012120.
 """
 
 import adcc
 from pyscf import gto, scf
 
-from responsefun.evaluate_property import evaluate_property_isr
-from responsefun.SumOverStates import TransitionMoment
+from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.symbols_and_labels import f, gamma, n, op_a, op_b, w, w_f, w_n
 
 # run SCF in PySCF
@@ -35,10 +34,12 @@ tens = evaluate_property_isr(
     state,  # ExcitedStates object returned by the adcc calculation
     sos_expr,  # symbolic SOS expression
     [n],  # indices of summation
-    omegas=[(w, 0.1)],  # incident frequencies
-    gamma_val=0.001,  # damping parameter
-    final_state=(f, 0),  # excited state f (0 corresponds to the first excited state)
-    excluded_states=f  # state excluded from summation for convergence in the static limit
+    excluded_states=f,  # state excluded from summation for convergence in the static limit
+    freqs_in=[(w, 0.1)],  # incident frequencies
+    freqs_out=[(w, 0.1)],  # incident frequencies
+    damping=0.001,  # damping parameter
+    excited_state=0,  # excited state f (0 corresponds to the first excited state)
+    conv_tol=1e-4,
 )
 
 print(tens)
