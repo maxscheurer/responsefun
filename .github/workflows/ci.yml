@@ -37,7 +37,7 @@ jobs:
           pip install ."[test]"
       - name: Run tests
         run: |
-          python -m pytest -k "not slow" responsefun
+          python -m pytest -k "not slow" -v -s responsefun
 
   formatting:
     name: Code style
