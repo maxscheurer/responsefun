@@ -37,8 +37,7 @@ jobs:
           pip install ."[test]"
       - name: Run tests
         run: |
-          python responsefun/testdata/dump_full_diagonalization.py
-          python -m pytest -k "not slow" -v -s responsefun
+          pytest --pyargs responsefun -v -s -m "not slow"
 
   formatting:
     name: Code style
