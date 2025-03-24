@@ -37,7 +37,7 @@ jobs:
           pip install ."[test]"
       - name: Run tests
         run: |
-          pytest --pyargs responsefun -v -s
+          python -m pytest 
 
   formatting:
     name: Code style
