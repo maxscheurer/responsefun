@@ -1,7 +1,6 @@
 import adcc
 import numpy as np
 import pytest
-from scipy.constants import physical_constants
 
 from responsefun.evaluate_property import (
     evaluate_property_isr,
@@ -28,6 +27,7 @@ from responsefun.symbols_and_labels import (
     w_1,
     w_2,
     w_3,
+    w_4,
     w_k,
     w_m,
     w_n,
@@ -36,8 +36,6 @@ from responsefun.symbols_and_labels import (
 )
 from responsefun.testdata import cache
 from responsefun.testdata.static_data import xyz
-
-Hartree = physical_constants["hartree-electron volt relationship"][0]
 
 
 def run_scf(molecule, basis, backend="pyscf"):
@@ -205,6 +203,14 @@ SOS_delta_like = {
         * TransitionMoment(k, opm_e, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
     ),
+    "abcde": (
+        TransitionMoment(O, opm_a, n)
+        * TransitionMoment(n, opm_b, m)
+        * TransitionMoment(m, opm_c, p)
+        * TransitionMoment(p, opm_d, k)
+        * TransitionMoment(k, opm_e, O)
+        / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
+    ),
 }
 
 
@@ -220,9 +226,9 @@ class TestAlphaLike:
         expr = SOS_alpha_like[ops]
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
-
-        alpha_sos = evaluate_property_sos_fast(mock_state, expr, [n], [(w, 0.5)])
-        alpha_isr = evaluate_property_isr(state, expr, [n], [(w, 0.5)])
+        freq = (w, 0.5)
+        alpha_sos = evaluate_property_sos_fast(mock_state, expr, [n], freqs_in=freq, freqs_out=freq)
+        alpha_isr = evaluate_property_isr(state, expr, [n], freqs_in=freq, freqs_out=freq)
         np.testing.assert_allclose(alpha_isr, alpha_sos, atol=1e-8)
 
 
@@ -239,9 +245,12 @@ class TestBetaLike:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-        omegas = [(w_o, 1), (w_2, 0.5)]
-        beta_sos = evaluate_property_sos_fast(mock_state, expr, [n, k], omegas, extra_terms=False)
-        beta_isr = evaluate_property_isr(state, expr, [n, k], omegas, extra_terms=False)
+        freqs_in = [(w_1, 0.5), (w_2, 0.5)]
+        freqs_out = (w_o, 1)
+        beta_sos = evaluate_property_sos_fast(mock_state, expr, [n, k], freqs_in=freqs_in,
+                                              freqs_out=freqs_out, extra_terms=False)
+        beta_isr = evaluate_property_isr(state, expr, [n, k], freqs_in=freqs_in,
+                                         freqs_out=freqs_out, extra_terms=False)
         np.testing.assert_allclose(beta_isr, beta_sos, atol=1e-8)
 
 
@@ -259,11 +268,14 @@ class TestGammaLike:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-        omegas = [(w_o, 1), (w_2, 0.5), (w_3, 0.5)]
+        freqs_in = [(w_1, 0.0), (w_2, 0.5), (w_3, 0.5)]
+        freqs_out = (w_o, 1)
         gamma_sos = evaluate_property_sos_fast(
-            mock_state, expr, [n, m, p], omegas, extra_terms=False
+            mock_state, expr, [n, m, p], freqs_in=freqs_in,
+            freqs_out=freqs_out, extra_terms=False
         )
-        gamma_isr = evaluate_property_isr(state, expr, [n, m, p], omegas, extra_terms=False)
+        gamma_isr = evaluate_property_isr(state, expr, [n, m, p], freqs_in=freqs_in,
+                                          freqs_out=freqs_out, extra_terms=False)
         np.testing.assert_allclose(gamma_isr, gamma_sos, atol=1e-8)
 
 
@@ -281,11 +293,14 @@ class TestDeltaLike:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-        omegas = [(w_o, 1), (w_2, 0.5), (w_3, 0.3)]
+        freqs_in = [(w_1, 0.0), (w_2, 0.0), (w_3, 0.0), (w_4, 0.0)]
+        freqs_out = (w_o, 0.0)
         delta_sos = evaluate_property_sos_fast(
-            mock_state, expr, [n, m, p, k], omegas, extra_terms=False
+            mock_state, expr, [n, m, p, k], freqs_in=freqs_in,
+            freqs_out=freqs_out, extra_terms=False
         )
-        delta_isr = evaluate_property_isr(state, expr, [n, m, p, k], omegas, extra_terms=False)
+        delta_isr = evaluate_property_isr(state, expr, [n, m, p, k], freqs_in=freqs_in,
+                                          freqs_out=freqs_out, extra_terms=False)
         np.testing.assert_allclose(delta_isr, delta_sos, atol=1e-8)
 
 
@@ -311,10 +326,13 @@ class TestCottonMoutonPara:
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
 
-        omegas = [(w_o, 0.5), (w_1, 0.5), (w_2, 0.0), (w_3, 0.0)]
+        freqs_in = [(w_1, 0.5), (w_2, 0.0), (w_3, 0.0)]
+        freqs_out = (w_o, 0.5)
         for t in sos.expr.args:
             cm_para_sos = evaluate_property_sos_fast(
-                mock_state, t, [n, m, p], omegas, extra_terms=False
+                mock_state, t, [n, m, p], freqs_in=freqs_in,
+                freqs_out=freqs_out, extra_terms=False
             )
-            cm_para_isr = evaluate_property_isr(state, t, [n, m, p], omegas, extra_terms=False)
+            cm_para_isr = evaluate_property_isr(state, t, [n, m, p], freqs_in=freqs_in,
+                                                freqs_out=freqs_out, extra_terms=False)
             np.testing.assert_allclose(cm_para_isr, cm_para_sos, atol=1e-8, err_msg=f"{t}")

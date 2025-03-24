@@ -43,6 +43,11 @@ test = [
   "zarr",
 ]
 
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
 [tool.setuptools]
 # This subkey is a beta stage development and keys may change in the future, see https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html for more details
 #
@@ -82,4 +87,5 @@ line-length = 100
 
 [tool.ruff]
 line-length = 100
-ignore = ["E741"]
+lint.ignore = ["E741"]
+lint.extend-select = ["E501"]

@@ -1,12 +1,11 @@
 """
-Compute the linear polarizability in the static limit for water using the STO-3G basis set.
+Compute the linear polarizability in the static limit according to 10.1063/1.4977039.
 """
 import adcc
 import numpy as np
 from pyscf import gto, scf
 
-from responsefun.evaluate_property import evaluate_property_isr
-from responsefun.SumOverStates import TransitionMoment
+from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.symbols_and_labels import O, gamma, n, op_a, op_b, w, w_n
 
 # run SCF in PySCF
@@ -32,7 +31,9 @@ alpha_sos_expr = (
 )
 # compute polarizability
 alpha_tens = evaluate_property_isr(
-    state, alpha_sos_expr, [n], omegas=[(w, 0)], conv_tol=1e-5
+    state, alpha_sos_expr, [n], excluded_states=O,
+    freqs_in=(w, 0), freqs_out=(w, 0),
+    conv_tol=1e-4, 
 )
 print(alpha_tens)
 aver = (1/3) * np.trace(alpha_tens)

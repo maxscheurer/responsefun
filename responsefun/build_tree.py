@@ -18,12 +18,11 @@
 
 from anytree import NodeMixin, RenderTree
 from sympy import Add, Mul, Pow, adjoint
-from sympy.physics.quantum.operator import Operator
 from sympy.physics.quantum.state import Bra, Ket
 
-from responsefun.AdccProperties import available_operators
-from responsefun.ResponseOperator import MTM, S2S_MTM, ResponseVector
-from responsefun.symbols_and_labels import M, gamma
+from responsefun.AdccProperties import get_operator_by_name
+from responsefun.operators import M, MTM, S2S_MTM, ResponseVector
+from responsefun.symbols_and_labels import gamma
 
 
 class IsrTreeNode(NodeMixin):
@@ -58,7 +57,7 @@ class ResponseNode(NodeMixin):
         tinv: <class 'sympy.core.mul.Mul'>
             Term containing the inverse (shifted) ADC matrix.
 
-        rhs: <class 'responsefun.ResponseOperator.MTM'> or sympy.physics.quantum.dagger.Dagger
+        rhs: <class 'responsefun.operators.MTM'> or sympy.physics.quantum.dagger.Dagger
             or <class 'sympy.core.mul.Mul'>
             Rhs of the response equation to be solved.
 
@@ -180,7 +179,7 @@ def show_tree(root):
         print(treestr.ljust(8))
 
 
-def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
+def build_tree(isr_expression, matrix=M, rvecs_list=None, no=1):
     """Build a tree structure to define response vectors for evaluating the ADC/ISR formulation of a
     molecular property.
 
@@ -202,7 +201,7 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
     ----------
     list of tuples
         For each tuple: The first entry is the root expression, i.e., a SymPy expression
-        that contains instances of <class 'responsefun.ResponseOperator.ResponseVector'>;
+        that contains instances of <class 'responsefun.operators.ResponseVector'>;
         the second entry is a dictionary with tuples as keys specifying the response vectors.
     """
     if rvecs_list is None:
@@ -217,6 +216,7 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
             continue
         # if the leaf node is an instance of the ResponseNode class, a tuple will be defined
         # that uniquely describes the resulting response vector
+        # TODO: rewrite code, maybe ResponseEquation frozen dataclass instead of tuples?
         old_expr = leaf.expr
         oper_rhs = leaf.rhs
         with_dagger = None
@@ -297,7 +297,7 @@ def build_tree(isr_expression, matrix=Operator("M"), rvecs_list=None, no=1):
                 with_dagger = True
         mtm_type = key[0]
         op_type = key[1]
-        symmetry = available_operators[op_type][1]
+        symmetry = get_operator_by_name(op_type).symmetry.value
         if not with_dagger:
             leaf.expr = ResponseVector(comp, rvecs[key], mtm_type, symmetry)
         else:
