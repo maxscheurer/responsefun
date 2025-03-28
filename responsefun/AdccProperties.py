@@ -540,7 +540,7 @@ class DiamagneticMagnetizability(AdccProperties):
             raise NotImplementedError
         else:
             return self._state.reference_state.operators.\
-                diamagentic_magnetizability(self._gauge_origin)
+                diamagnetic_magnetizability(self._gauge_origin)
 
     @property
     def gs_moment(self) -> np.ndarray:
