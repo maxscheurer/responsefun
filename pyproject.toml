@@ -21,7 +21,7 @@ classifiers = [
 requires-python = ">=3.7"
 # Declare any run-time dependencies that should be installed with the package.
 dependencies = [
-    "adcc>=0.15.16",
+    "adcc>=0.15.16,<0.16.0",
     "respondo>=0.0.5",
     "numpy>=1.14",
     "sympy",
