@@ -8,7 +8,7 @@ from pyscf import gto, scf
 
 from responsefun import evaluate_property_isr, TransitionMoment
 from responsefun.misc import epsilon
-from responsefun.symbols_and_labels import O, j, k, op_a, op_b, opm_c, w_j, w_k
+from responsefun.symbols_and_labels import O, j, k, mu_a, mu_b, m_c, w_j, w_k
 
 # run SCF in PySCF
 mol = gto.M(
@@ -28,11 +28,11 @@ state = adcc.adc2(scfres, n_singlets=5)
 
 # define symbolic SOS expressions
 mcd_sos_expr1 = (
-        TransitionMoment(O, opm_c, k) * TransitionMoment(k, op_b, j, shifted=True)
-        * TransitionMoment(j, op_a, O) / w_k
+        TransitionMoment(O, m_c, k) * TransitionMoment(k, mu_b, j, shifted=True)
+        * TransitionMoment(j, mu_a, O) / w_k
 )
 mcd_sos_expr2 = (
-        TransitionMoment(O, op_b, k) * TransitionMoment(k, opm_c, j) * TransitionMoment(j, op_a, O)
+        TransitionMoment(O, mu_b, k) * TransitionMoment(k, m_c, j) * TransitionMoment(j, mu_a, O)
         / (w_k - w_j)
 )
 # compute MCD B term for the first excited state
@@ -48,8 +48,5 @@ mcd_tens2 = evaluate_property_isr(
     conv_tol=1e-4,
 )
 
-# the minus sign is needed, because the negative charge is not yet included
-# in the operator definitions
-# TODO: remove minus after adc-connect/adcc#190 is merged
-bterm = -1.0 * np.einsum("abc,abc->", epsilon, mcd_tens1 + mcd_tens2)
+bterm = np.einsum("abc,abc->", epsilon, mcd_tens1 + mcd_tens2)
 print(f"The MCD Faraday B term for excited state {final_state} is {bterm:.2f} (a.u.).")

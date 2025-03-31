@@ -6,7 +6,7 @@ import adcc
 from pyscf import gto, scf
 
 from responsefun import evaluate_property_isr, TransitionMoment
-from responsefun.symbols_and_labels import f, gamma, n, op_a, op_b, w, w_f, w_n
+from responsefun.symbols_and_labels import f, gamma, n, mu_a, mu_b, w, w_f, w_n
 
 # run SCF in PySCF
 mol = gto.M(
@@ -27,8 +27,8 @@ print(state.describe())
 
 # compute esp tensor
 sos_expr = (
-    TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - w_f - w - 1j*gamma)
-    + TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - w_f + w + 1j*gamma)
+    TransitionMoment(f, mu_a, n) * TransitionMoment(n, mu_b, f) / (w_n - w_f - w - 1j*gamma)
+    + TransitionMoment(f, mu_b, n) * TransitionMoment(n, mu_a, f) / (w_n - w_f + w + 1j*gamma)
 )
 tens = evaluate_property_isr(
     state,  # ExcitedStates object returned by the adcc calculation

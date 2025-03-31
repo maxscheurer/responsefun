@@ -8,9 +8,9 @@ from responsefun.symbols_and_labels import (
     O,
     k,
     n,
-    op_a,
-    op_b,
-    op_c,
+    mu_a,
+    mu_b,
+    mu_c,
     w_1,
     w_2,
     w_k,
@@ -34,21 +34,21 @@ case_list = [(c,) for c in cache.cases]
 SOS_expressions = {
     "beta1": (
         (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, k)
-            * TransitionMoment(k, op_c, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, k)
+            * TransitionMoment(k, mu_c, O)
             / ((w_n - w_o) * (w_k - w_2))
         ),
-        [(op_a, -w_o), (op_b, w_1), (op_c, w_2)],
+        [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)],
     ),
     "beta2": (
         (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, k, shifted=True)
-            * TransitionMoment(k, op_c, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, k, shifted=True)
+            * TransitionMoment(k, mu_c, O)
             / ((w_n - w_o) * (w_k - w_2))
         ),
-        [(op_a, -w_o), (op_b, w_1), (op_c, w_2)],
+        [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)],
     ),    
 }
 

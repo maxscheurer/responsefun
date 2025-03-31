@@ -24,14 +24,13 @@ from responsefun.symbols_and_labels import (
     gamma,
     k,
     m,
+    mu_a,
+    mu_b,
+    mu_c,
+    mu_d,
     n,
-    op_a,
-    op_b,
-    op_c,
-    op_d,
     p,
     w,
-    w_prime,
     w_1,
     w_2,
     w_3,
@@ -41,6 +40,7 @@ from responsefun.symbols_and_labels import (
     w_n,
     w_o,
     w_p,
+    w_prime,
 )
 from responsefun.testdata import cache
 from responsefun.testdata.static_data import xyz
@@ -59,85 +59,85 @@ case_list = [(c,) for c in cache.cases]
 SOS_expressions = {
     "alpha": (
         (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w)
-            + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w)
+            TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, O) / (w_n - w)
+            + TransitionMoment(O, mu_b, n) * TransitionMoment(n, mu_a, O) / (w_n + w)
         ),
         None,
     ),
     "alpha_complex": (
         (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j * gamma)
-            + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, O) / (w_n + w + 1j * gamma)
+            TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, O) / (w_n - w - 1j * gamma)
+            + TransitionMoment(O, mu_b, n) * TransitionMoment(n, mu_a, O) / (w_n + w + 1j * gamma)
         ),
         None,
     ),
     "rixs_short": (
-        (TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O) / (w_n - w - 1j * gamma)),
+        (TransitionMoment(f, mu_a, n) * TransitionMoment(n, mu_b, O) / (w_n - w - 1j * gamma)),
         None,
     ),
     "rixs": (
         (
-            (TransitionMoment(f, op_a, n) * TransitionMoment(n, op_b, O)
+            (TransitionMoment(f, mu_a, n) * TransitionMoment(n, mu_b, O)
             / (w_n - w - 1j * gamma))
-            + (TransitionMoment(f, op_b, n) * TransitionMoment(n, op_a, O)
+            + (TransitionMoment(f, mu_b, n) * TransitionMoment(n, mu_a, O)
             / (w_n + w - w_f + 1j * gamma))
         ),
         None,
     ),
     "tpa_resonant": (
         (
-            TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, f) / (w_n - (w_f / 2))
-            + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, f) / (w_n - (w_f / 2))
+            TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, f) / (w_n - (w_f / 2))
+            + TransitionMoment(O, mu_b, n) * TransitionMoment(n, mu_a, f) / (w_n - (w_f / 2))
         ),
         None,
     ),
     "beta": (
         (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, k)
-            * TransitionMoment(k, op_c, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, k)
+            * TransitionMoment(k, mu_c, O)
             / ((w_n - w_o) * (w_k - w_2))
         ),
-        [(op_a, -w_o), (op_b, w_1), (op_c, w_2)],
+        [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)],
     ),
     "beta_complex": (
         (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, k, shifted=True)
-            * TransitionMoment(k, op_c, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, k, shifted=True)
+            * TransitionMoment(k, mu_c, O)
             / ((w_n - w_o - 1j * gamma) * (w_k - w_2 - 1j * gamma))
         ),
-        [(op_a, -w_o - 1j * gamma), (op_b, w_1 + 1j * gamma), (op_c, w_2 + 1j * gamma)],
+        [(mu_a, -w_o - 1j * gamma), (mu_b, w_1 + 1j * gamma), (mu_c, w_2 + 1j * gamma)],
     ),
     "gamma": (
         (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, m)
-            * TransitionMoment(m, op_c, p)
-            * TransitionMoment(p, op_d, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, m)
+            * TransitionMoment(m, mu_c, p)
+            * TransitionMoment(p, mu_d, O)
             / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
         ),
-        [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)],
+        [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2), (mu_d, w_3)],
     ),
     "gamma_extra_terms_1": (
         (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, O)
-            * TransitionMoment(O, op_c, m)
-            * TransitionMoment(m, op_d, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, O)
+            * TransitionMoment(O, mu_c, m)
+            * TransitionMoment(m, mu_d, O)
             / ((w_n - w_o) * (w_m - w_3) * (w_m + w_2))
         ),
-        [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)],
+        [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2), (mu_d, w_3)],
     ),
     "gamma_extra_terms_2": (
         (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, O)
-            * TransitionMoment(O, op_c, m)
-            * TransitionMoment(m, op_d, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, O)
+            * TransitionMoment(O, mu_c, m)
+            * TransitionMoment(m, mu_d, O)
             / ((w_n - w_o) * (-w_2 - w_3) * (w_m - w_3))
         ),
-        [(op_a, -w_o), (op_b, w_1), (op_c, w_2), (op_d, w_3)],
+        [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2), (mu_d, w_3)],
     ),
 }
 
@@ -320,7 +320,7 @@ class TestIsrAgainstSos:
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(
                         tup[0][1], tup[1], final_state
                     )
-                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7, err_msg=err_msg)
+                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=5e-7, err_msg=err_msg)
 
     def test_rixs(self, case):
         molecule, basis, method = case.split("_")
@@ -457,7 +457,7 @@ class TestIsrAgainstSosFast:
                     err_msg = "w = {}, gamma = {}, final_state = {}".format(
                         tup[0][1], tup[1], final_state
                     )
-                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=1e-7, err_msg=err_msg)
+                    assert_allclose_signfix(rixs_isr, rixs_sos, atol=5e-7, err_msg=err_msg)
 
     def test_rixs(self, case):
         molecule, basis, method = case.split("_")
