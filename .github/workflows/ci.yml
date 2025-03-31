@@ -37,7 +37,7 @@ jobs:
           pip install ."[test]"
       - name: Run tests
         run: |
-          pytest --pyargs responsefun -v -s -m "not slow"
+          pytest --pyargs responsefun -v -m "not slow"
 
   formatting:
     name: Code style
