@@ -64,10 +64,7 @@ processes = {
     "EOPE": (w_ruby, 0.0), "SHG": (w_ruby, w_ruby)
 }
 for process, freqs in processes.items():
-    # the minus sign is needed, because the negative charge is not yet included
-    # in the operator definitions
-    # TODO: remove minus after adc-connect/adcc#190 is merged
-    beta_tens = -1.0 * evaluate_property_isr(
+    beta_tens = evaluate_property_isr(
         state, beta_term, [n, p],
         perm_pairs=[(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)],
         freqs_in=[(w_1, freqs[0]), (w_2, freqs[1])],

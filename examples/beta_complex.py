@@ -45,10 +45,7 @@ beta_term = (
     + TransitionMoment(O, mu_b, n) * TransitionMoment(n, mu_c, p, shifted=True)
     * TransitionMoment(p, mu_a, O) / ((w_n + w_1 + 1j*gamma) * (w_p + w_o + 1j*gamma))
 )
-# the minus sign is needed, because the negative charge is not yet included
-# in the operator definitions
-# TODO: remove minus after adc-connect/adcc#190 is merged
-beta_tens = -1.0 * evaluate_property_isr(
+beta_tens = evaluate_property_isr(
     state, beta_term, [n, p],
     perm_pairs=[(mu_b, w_1), (mu_c, w_2)], excluded_states=O,
     freqs_in=[(w_1, 0.5), (w_2, 0.5)], freqs_out=(w_o, w_1+w_2),

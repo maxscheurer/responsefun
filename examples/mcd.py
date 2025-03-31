@@ -48,8 +48,5 @@ mcd_tens2 = evaluate_property_isr(
     conv_tol=1e-4,
 )
 
-# the minus sign is needed, because the negative charge is not yet included
-# in the operator definitions
-# TODO: remove minus after adc-connect/adcc#190 is merged
-bterm = -1.0 * np.einsum("abc,abc->", epsilon, mcd_tens1 + mcd_tens2)
+bterm = np.einsum("abc,abc->", epsilon, mcd_tens1 + mcd_tens2)
 print(f"The MCD Faraday B term for excited state {final_state} is {bterm:.2f} (a.u.).")
