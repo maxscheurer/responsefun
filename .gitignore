@@ -105,6 +105,5 @@ ENV/
 
 # other
 *.zarr
-*tar.gz
 
 responsefun/_version.py
