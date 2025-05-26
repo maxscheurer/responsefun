@@ -24,7 +24,7 @@ dependencies = [
     "adcc>=0.16.0",
     "respondo>=0.0.5",
     "numpy>=1.14",
-    "sympy",
+    "sympy<=1.13",
     "tqdm",
     "anytree",
 ]

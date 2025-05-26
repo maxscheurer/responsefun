@@ -168,9 +168,6 @@ def compute_ground_state_moment(state, integrals, pm_level,
     """
     Computes the ground state moments. 
     """
-    # Note that the charge (see adcc/PR#190) must already be contained in the integrals
-    # passed to this function.
-    
     # convert integrals to np.array (tuples are not allowed as indices for lists)
     integrals = np.array(integrals)
     op_shape = np.shape(integrals)
