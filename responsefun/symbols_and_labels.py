@@ -58,7 +58,7 @@ qp_cd = OneParticleOperator("CD", "electric_quadrupole_velocity", False)
 qp_de = OneParticleOperator("DE", "electric_quadrupole_velocity", False)
 qp_ef = OneParticleOperator("EF", "electric_quadrupole_velocity", False)
 
-# diamagnetic magnetizability operator
+# diamagnetic magnetizability operators
 xi_ab = OneParticleOperator("AB", "diamagnetic_magnetizability", False)
 xi_bc = OneParticleOperator("BC", "diamagnetic_magnetizability", False)
 xi_cd = OneParticleOperator("CD", "diamagnetic_magnetizability", False)

@@ -309,7 +309,7 @@ def determine_rvecs(rvecs_dict_list, input_subs, adcc_prop,
                 rhs = adcop.modified_transition_moments()
                 if key[3] == 0.0:
                     for c in components:
-                        # # list indices must be integers (1-D operators)
+                        # list indices must be integers (1-D operators)
                         c = c[0] if len(c) == 1 else c
                         response[c] = solve_response(
                             matrix, rhs[c], -key[2], gamma=0.0, projection=projection, **solver_args
@@ -1315,7 +1315,6 @@ def evaluate_property_sos_fast(
             f"Created string of subscript labels that is used by np.einsum for term {it+1}:\n",
             einsum_string,
         )
-        print(array_list[-1].shape)
         res_tens += factor * np.einsum(einsum_string, *array_list)
 
     res_tens = process_complex_factor(sos, res_tens)
