@@ -9,9 +9,9 @@ from responsefun.symbols_and_labels import (
     O,
     gamma,
     n,
-    op_a,
-    op_b,
-    op_c,
+    mu_a,
+    mu_b,
+    mu_c,
     p,
     w_1,
     w_2,
@@ -38,19 +38,16 @@ state = adcc.adc2(scfres, n_singlets=5)
 
 # compute the complex beta tensor
 beta_term = (
-    TransitionMoment(O, op_a, n) * TransitionMoment(n, op_b, p, shifted=True)
-    * TransitionMoment(p, op_c, O) / ((w_n - w_o - 1j*gamma) * (w_p - w_2 - 1j*gamma))
-    + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_a, p, shifted=True)
-    * TransitionMoment(p, op_c, O) / ((w_n + w_1 + 1j*gamma) * (w_p - w_2 - 1j*gamma))
-    + TransitionMoment(O, op_b, n) * TransitionMoment(n, op_c, p, shifted=True)
-    * TransitionMoment(p, op_a, O) / ((w_n + w_1 + 1j*gamma) * (w_p + w_o + 1j*gamma))
+    TransitionMoment(O, mu_a, n) * TransitionMoment(n, mu_b, p, shifted=True)
+    * TransitionMoment(p, mu_c, O) / ((w_n - w_o - 1j*gamma) * (w_p - w_2 - 1j*gamma))
+    + TransitionMoment(O, mu_b, n) * TransitionMoment(n, mu_a, p, shifted=True)
+    * TransitionMoment(p, mu_c, O) / ((w_n + w_1 + 1j*gamma) * (w_p - w_2 - 1j*gamma))
+    + TransitionMoment(O, mu_b, n) * TransitionMoment(n, mu_c, p, shifted=True)
+    * TransitionMoment(p, mu_a, O) / ((w_n + w_1 + 1j*gamma) * (w_p + w_o + 1j*gamma))
 )
-# the minus sign is needed, because the negative charge is not yet included
-# in the operator definitions
-# TODO: remove minus after adc-connect/adcc#190 is merged
-beta_tens = -1.0 * evaluate_property_isr(
+beta_tens = evaluate_property_isr(
     state, beta_term, [n, p],
-    perm_pairs=[(op_b, w_1), (op_c, w_2)], excluded_states=O,
+    perm_pairs=[(mu_b, w_1), (mu_c, w_2)], excluded_states=O,
     freqs_in=[(w_1, 0.5), (w_2, 0.5)], freqs_out=(w_o, w_1+w_2),
     damping=0.01, conv_tol=1e-4,
 )

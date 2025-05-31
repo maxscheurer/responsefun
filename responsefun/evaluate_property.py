@@ -476,6 +476,7 @@ def evaluate_property_isr(
     omegas=None,
     gamma_val=None,
     final_state=None,
+    gauge_origin="origin",
     **solver_args,
 ):
     """Compute a molecular property with the ADC/ISR approach from its SOS expression.
@@ -497,7 +498,7 @@ def evaluate_property_isr(
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
@@ -622,7 +623,7 @@ def evaluate_property_isr(
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
     for op_type in sos.operator_types:
-        adcc_prop[op_type] = build_adcc_properties(state, op_type)
+        adcc_prop[op_type] = build_adcc_properties(state, op_type, gauge_origin=gauge_origin)
 
     rvecs_dict_tot, rvecs_solution, rvecs_mapping = determine_rvecs(
         rvecs_dict_list, input_subs, adcc_prop, state, projection, **solver_args
@@ -776,6 +777,7 @@ def evaluate_property_sos(
     omegas=None,
     gamma_val=None,
     final_state=None,
+    gauge_origin="origin",
 ):
     """Compute a molecular property from its SOS expression.
 
@@ -796,7 +798,7 @@ def evaluate_property_sos(
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
@@ -944,7 +946,7 @@ def evaluate_property_sos(
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
     for op_type in sos.operator_types:
-        adcc_prop[op_type] = build_adcc_properties(state, op_type)
+        adcc_prop[op_type] = build_adcc_properties(state, op_type, gauge_origin=gauge_origin)
 
     print(f"Summing over {len(state.excitation_energy_uncorrected)} excited states ...")
     for term_dict in tqdm(term_list):
@@ -1030,6 +1032,7 @@ def evaluate_property_sos_fast(
     omegas=None,
     gamma_val=None,
     final_state=None,
+    gauge_origin="origin",
 ):
     """Compute a molecular property from its SOS expression using the Einstein summation convention.
 
@@ -1050,7 +1053,7 @@ def evaluate_property_sos_fast(
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
     excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
         List of states that are excluded from the summation.
@@ -1173,7 +1176,7 @@ def evaluate_property_sos_fast(
     # store adcc properties for the required operators in a dict
     adcc_prop = {}
     for op_type in sos.operator_types:
-        adcc_prop[op_type] = build_adcc_properties(state, op_type)
+        adcc_prop[op_type] = build_adcc_properties(state, op_type, gauge_origin=gauge_origin)
 
     for it, term in enumerate(term_list):
         einsum_list = []

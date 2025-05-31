@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 
 def main():
+    gauge_origin = "origin"
     for case in cases:
         n_singlets = cases[case]
         molecule, basis, method = case.split("_")
@@ -22,9 +23,10 @@ def main():
             # multiplicity=multiplicity,
             # conv_tol_grad=conv_tol_grad,
         )
-        state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets)
+        state = adcc.run_adc(method=method, data_or_matrix=scfres, n_singlets=n_singlets,
+                             n_guesses=n_singlets)
         dips = state.reference_state.operators.electric_dipole
-        mdips = state.reference_state.operators.magnetic_dipole
+        mdips = state.reference_state.operators.magnetic_dipole(gauge_origin)
 
         # state to state transition moments
         s2s_tdms = np.zeros((state.size, state.size, 3))
@@ -55,6 +57,12 @@ def main():
                 d = getattr(state, key)
             except NotImplementedError:
                 continue
+            if callable(d):
+                try:
+                    d = d(gauge_origin)
+                except NotImplementedError:
+                    # some properties are not available for every backend
+                    continue
             if not isinstance(d, np.ndarray):
                 continue
             if not np.issubdtype(d.dtype, np.number):

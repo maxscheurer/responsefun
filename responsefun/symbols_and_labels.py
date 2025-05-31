@@ -24,15 +24,43 @@ w_p = TransitionFrequency(p, real=True)
 w_k = TransitionFrequency(k, real=True)
 
 # electric dipole operators
-op_a = OneParticleOperator("A", "electric_dipole", False)
-op_b = OneParticleOperator("B", "electric_dipole", False)
-op_c = OneParticleOperator("C", "electric_dipole", False)
-op_d = OneParticleOperator("D", "electric_dipole", False)
-op_e = OneParticleOperator("E", "electric_dipole", False)
+mu_a = OneParticleOperator("A", "electric_dipole", False)
+mu_b = OneParticleOperator("B", "electric_dipole", False)
+mu_c = OneParticleOperator("C", "electric_dipole", False)
+mu_d = OneParticleOperator("D", "electric_dipole", False)
+mu_e = OneParticleOperator("E", "electric_dipole", False)
+
+# electric dipole operators in velocity gauge
+mup_a = OneParticleOperator("A", "electric_dipole_velocity", False)
+mup_b = OneParticleOperator("B", "electric_dipole_velocity", False)
+mup_c = OneParticleOperator("C", "electric_dipole_velocity", False)
+mup_d = OneParticleOperator("D", "electric_dipole_velocity", False)
+mup_e = OneParticleOperator("E", "electric_dipole_velocity", False)
 
 # magnetic dipole operators
-opm_a = OneParticleOperator("A", "magnetic_dipole", False)
-opm_b = OneParticleOperator("B", "magnetic_dipole", False)
-opm_c = OneParticleOperator("C", "magnetic_dipole", False)
-opm_d = OneParticleOperator("D", "magnetic_dipole", False)
-opm_e = OneParticleOperator("E", "magnetic_dipole", False)
+m_a = OneParticleOperator("A", "magnetic_dipole", False)
+m_b = OneParticleOperator("B", "magnetic_dipole", False)
+m_c = OneParticleOperator("C", "magnetic_dipole", False)
+m_d = OneParticleOperator("D", "magnetic_dipole", False)
+m_e = OneParticleOperator("E", "magnetic_dipole", False)
+
+# electric quadrupole operators
+q_ab = OneParticleOperator("AB", "electric_quadrupole", False)
+q_bc = OneParticleOperator("BC", "electric_quadrupole", False)
+q_cd = OneParticleOperator("CD", "electric_quadrupole", False)
+q_de = OneParticleOperator("DE", "electric_quadrupole", False)
+q_ef = OneParticleOperator("EF", "electric_quadrupole", False)
+
+# electric quadrupole operators in velocity gauge
+qp_ab = OneParticleOperator("AB", "electric_quadrupole_velocity", False)
+qp_bc = OneParticleOperator("BC", "electric_quadrupole_velocity", False)
+qp_cd = OneParticleOperator("CD", "electric_quadrupole_velocity", False)
+qp_de = OneParticleOperator("DE", "electric_quadrupole_velocity", False)
+qp_ef = OneParticleOperator("EF", "electric_quadrupole_velocity", False)
+
+# diamagnetic magnetizability operators
+xi_ab = OneParticleOperator("AB", "diamagnetic_magnetizability", False)
+xi_bc = OneParticleOperator("BC", "diamagnetic_magnetizability", False)
+xi_cd = OneParticleOperator("CD", "diamagnetic_magnetizability", False)
+xi_de = OneParticleOperator("DE", "diamagnetic_magnetizability", False)
+xi_ef = OneParticleOperator("EF", "diamagnetic_magnetizability", False)

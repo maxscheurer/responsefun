@@ -180,7 +180,7 @@ def _build_sos_via_permutation(term, perm_pairs):
         List of (op, freq) pairs whose permutation yields the full SOS expression;
         (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
         <class 'sympy.core.symbol.Symbol'>),
-        e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+        e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
     Returns
     ----------
@@ -325,7 +325,7 @@ class SumOverStates:
             List of (op, freq) pairs whose permutation yields the full SOS expression;
             (op, freq): (<class 'responsefun.operators.OneParticleOperator'>,
             <class 'sympy.core.symbol.Symbol'>),
-            e.g., [(op_a, -w_o), (op_b, w_1), (op_c, w_2)].
+            e.g., [(mu_a, -w_o), (mu_b, w_1), (mu_c, w_2)].
 
         excluded_states: list of <class 'sympy.core.symbol.Symbol'> or int, optional
             List of states that are excluded from the summation.
@@ -395,12 +395,12 @@ class SumOverStates:
         validate_summation_indices(self.expr, self.summation_indices)
 
         self._operators, self._operators_unshifted = extract_operators_from_sos(self.expr)
-        self._components = {op.comp for op in self._operators}
+        self._components = {op_char for op in self._operators for op_char in op.comp}
         self._order = len(self._components)
         if self._components.difference(ABC[: self._order]):
             raise ValueError(
                 f"It is important that the Cartesian components of an order {self._order} tensor "
-                f"be specified as {ABC[:self._order]}."
+                f"be specified as {ABC[:self._order]} and not {self._components}."
             )
         self._initial_state, self._final_state, self._excited_state = \
             extract_initial_final_excited_from_sos(self.expr, self.summation_indices)

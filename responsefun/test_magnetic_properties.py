@@ -11,17 +11,17 @@ from responsefun.symbols_and_labels import (
     O,
     k,
     m,
+    m_a,
+    m_b,
+    m_c,
+    m_d,
+    m_e,
+    mu_a,
+    mu_b,
+    mu_c,
+    mu_d,
+    mu_e,
     n,
-    op_a,
-    op_b,
-    op_c,
-    op_d,
-    op_e,
-    opm_a,
-    opm_b,
-    opm_c,
-    opm_d,
-    opm_e,
     p,
     w,
     w_1,
@@ -49,55 +49,55 @@ def run_scf(molecule, basis, backend="pyscf"):
 
 SOS_alpha_like = {
     "a": (
-        TransitionMoment(O, opm_a, n) * TransitionMoment(n, op_b, O) / (w_n - w)
-        + TransitionMoment(O, op_b, n) * TransitionMoment(n, opm_a, O) / (w_n + w)
+        TransitionMoment(O, m_a, n) * TransitionMoment(n, mu_b, O) / (w_n - w)
+        + TransitionMoment(O, mu_b, n) * TransitionMoment(n, m_a, O) / (w_n + w)
     ),
     "b": (
-        TransitionMoment(O, op_a, n) * TransitionMoment(n, opm_b, O) / (w_n - w)
-        + TransitionMoment(O, opm_b, n) * TransitionMoment(n, op_a, O) / (w_n + w)
+        TransitionMoment(O, mu_a, n) * TransitionMoment(n, m_b, O) / (w_n - w)
+        + TransitionMoment(O, m_b, n) * TransitionMoment(n, mu_a, O) / (w_n + w)
     ),
     "ab": (
-        TransitionMoment(O, opm_a, n) * TransitionMoment(n, opm_b, O) / (w_n - w)
-        + TransitionMoment(O, opm_b, n) * TransitionMoment(n, opm_a, O) / (w_n + w)
+        TransitionMoment(O, m_a, n) * TransitionMoment(n, m_b, O) / (w_n - w)
+        + TransitionMoment(O, m_b, n) * TransitionMoment(n, m_a, O) / (w_n + w)
     ),
 }
 
 
 SOS_beta_like = {
     "a": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, op_b, k)
-        * TransitionMoment(k, op_c, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, mu_b, k)
+        * TransitionMoment(k, mu_c, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
     "b": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, opm_b, k)
-        * TransitionMoment(k, op_c, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, m_b, k)
+        * TransitionMoment(k, mu_c, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
     "c": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, op_b, k)
-        * TransitionMoment(k, opm_c, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, mu_b, k)
+        * TransitionMoment(k, m_c, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
     "ac": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, op_b, k)
-        * TransitionMoment(k, opm_c, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, mu_b, k)
+        * TransitionMoment(k, m_c, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
     "bc": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, opm_b, k)
-        * TransitionMoment(k, opm_c, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, m_b, k)
+        * TransitionMoment(k, m_c, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
     "abc": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, opm_b, k)
-        * TransitionMoment(k, opm_c, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, m_b, k)
+        * TransitionMoment(k, m_c, O)
         / ((w_n - w_o) * (w_k - w_2))
     ),
 }
@@ -105,66 +105,66 @@ SOS_beta_like = {
 
 SOS_gamma_like = {
     "a": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, op_d, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, mu_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "b": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, opm_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, op_d, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, m_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, mu_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "d": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, opm_d, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, m_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "ac": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, opm_c, p)
-        * TransitionMoment(p, op_d, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, m_c, p)
+        * TransitionMoment(p, mu_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "ad": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, opm_d, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, m_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "cd": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, opm_c, p)
-        * TransitionMoment(p, opm_d, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, m_c, p)
+        * TransitionMoment(p, m_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "abd": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, opm_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, opm_d, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, m_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, m_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "bcd": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, opm_b, m)
-        * TransitionMoment(m, opm_c, p)
-        * TransitionMoment(p, opm_d, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, m_b, m)
+        * TransitionMoment(m, m_c, p)
+        * TransitionMoment(p, m_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
     "abcd": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, opm_b, m)
-        * TransitionMoment(m, opm_c, p)
-        * TransitionMoment(p, opm_d, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, m_b, m)
+        * TransitionMoment(m, m_c, p)
+        * TransitionMoment(p, m_d, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
     ),
 }
@@ -172,43 +172,43 @@ SOS_gamma_like = {
 
 SOS_delta_like = {
     "a": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, op_d, k)
-        * TransitionMoment(k, op_e, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, mu_d, k)
+        * TransitionMoment(k, mu_e, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
     ),
     "b": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, opm_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, op_d, k)
-        * TransitionMoment(k, op_e, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, m_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, mu_d, k)
+        * TransitionMoment(k, mu_e, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
     ),
     "e": (
-        TransitionMoment(O, op_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, op_d, k)
-        * TransitionMoment(k, opm_e, O)
+        TransitionMoment(O, mu_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, mu_d, k)
+        * TransitionMoment(k, m_e, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
     ),
     "ae": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, op_b, m)
-        * TransitionMoment(m, op_c, p)
-        * TransitionMoment(p, op_d, k)
-        * TransitionMoment(k, opm_e, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, mu_b, m)
+        * TransitionMoment(m, mu_c, p)
+        * TransitionMoment(p, mu_d, k)
+        * TransitionMoment(k, m_e, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
     ),
     "abcde": (
-        TransitionMoment(O, opm_a, n)
-        * TransitionMoment(n, opm_b, m)
-        * TransitionMoment(m, opm_c, p)
-        * TransitionMoment(p, opm_d, k)
-        * TransitionMoment(k, opm_e, O)
+        TransitionMoment(O, m_a, n)
+        * TransitionMoment(n, m_b, m)
+        * TransitionMoment(m, m_c, p)
+        * TransitionMoment(p, m_d, k)
+        * TransitionMoment(k, m_e, O)
         / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3) * (w_k - w_2))
     ),
 }
@@ -314,14 +314,14 @@ class TestCottonMoutonPara:
         scfres = run_scf(molecule, basis)
         refstate = adcc.ReferenceState(scfres)
         term = (
-            TransitionMoment(O, op_a, n)
-            * TransitionMoment(n, op_b, m)
-            * TransitionMoment(m, opm_c, p)
-            * TransitionMoment(p, opm_d, O)
+            TransitionMoment(O, mu_a, n)
+            * TransitionMoment(n, mu_b, m)
+            * TransitionMoment(m, m_c, p)
+            * TransitionMoment(p, m_d, O)
             / ((w_n - w_o) * (w_m - w_2 - w_3) * (w_p - w_3))
         )
         sos = SumOverStates(
-            term, [n, m, p], perm_pairs=[(op_a, -w_o), (op_b, w_1), (opm_c, w_2), (opm_d, w_3)]
+            term, [n, m, p], perm_pairs=[(mu_a, -w_o), (mu_b, w_1), (m_c, w_2), (m_d, w_3)]
         )
         mock_state = cache.data_fulldiag[case]
         state = adcc.run_adc(refstate, method=method, n_singlets=5)
