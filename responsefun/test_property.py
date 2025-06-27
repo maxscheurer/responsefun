@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 from adcc.Excitation import Excitation
 from adcc.misc import assert_allclose_signfix
+from respondo.mcd import mcd_bterm
 from respondo.polarizability import (
     complex_polarizability,
     real_polarizability,
@@ -10,27 +11,26 @@ from respondo.polarizability import (
 )
 from respondo.rixs import rixs
 from respondo.tpa import tpa_resonant
-from respondo.mcd import mcd_bterm
 
 from responsefun.evaluate_property import (
     evaluate_property_isr,
     evaluate_property_sos,
     evaluate_property_sos_fast,
 )
-from responsefun.misc import ev2au, epsilon
+from responsefun.misc import epsilon, ev2au
 from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     f,
-    j,
     gamma,
+    j,
     k,
     m,
+    m_c,
     mu_a,
     mu_b,
     mu_c,
     mu_d,
-    m_c,
     n,
     p,
     w,
