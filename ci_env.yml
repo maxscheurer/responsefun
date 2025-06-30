@@ -4,7 +4,7 @@ channels:
 dependencies:
   - libblas =*=*mkl
   - adcc >=0.16.0
-  - respondo >=0.0.5
+  - respondo >=0.0.6
   - numpy >=1.14
   - isort
   - ruff

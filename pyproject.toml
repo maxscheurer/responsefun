@@ -10,7 +10,7 @@ description = "Fun with response function in the ADC framework."
 version = "0.3.0"
 readme = "README.md"
 authors = [
-    { name = "Antonia Papapostolou, Maximilian Scheurer" }
+    { name = "Antonia Papapostolou, Maximilian Scheurer, Friederike Schneider" }
 ]
 license = {file = "LICENSE"}
 # See https://pypi.org/classifiers/
@@ -22,7 +22,7 @@ requires-python = ">=3.7"
 # Declare any run-time dependencies that should be installed with the package.
 dependencies = [
     "adcc>=0.16.0",
-    "respondo>=0.0.5",
+    "respondo>=0.0.6",
     "numpy>=1.14",
     "sympy<=1.13",
     "tqdm",
