@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 from adcc.Excitation import Excitation
 from adcc.misc import assert_allclose_signfix
+from respondo.mcd import mcd_bterm
 from respondo.polarizability import (
     complex_polarizability,
     real_polarizability,
@@ -16,14 +17,16 @@ from responsefun.evaluate_property import (
     evaluate_property_sos,
     evaluate_property_sos_fast,
 )
-from responsefun.misc import ev2au
+from responsefun.misc import epsilon, ev2au
 from responsefun.SumOverStates import TransitionMoment
 from responsefun.symbols_and_labels import (
     O,
     f,
     gamma,
+    j,
     k,
     m,
+    m_c,
     mu_a,
     mu_b,
     mu_c,
@@ -35,6 +38,7 @@ from responsefun.symbols_and_labels import (
     w_2,
     w_3,
     w_f,
+    w_j,
     w_k,
     w_m,
     w_n,
@@ -91,6 +95,20 @@ SOS_expressions = {
         ),
         None,
     ),
+    "mcd_term1": (
+        (
+        TransitionMoment(O, m_c, k) * TransitionMoment(k, mu_b, j, shifted=True)
+        * TransitionMoment(j, mu_a, O) / w_k
+        ),
+        None
+    ),
+    "mcd_term2": (
+        (
+        TransitionMoment(O, mu_b, k) * TransitionMoment(k, m_c, j) * TransitionMoment(j, mu_a, O)
+        / (w_k - w_j)
+        ),
+        None
+    ),
     "beta": (
         (
             TransitionMoment(O, mu_a, n)
@@ -141,7 +159,6 @@ SOS_expressions = {
     ),
 }
 
-# TODO: add mcd test as soon as gator-program/respondo#15 is merged
 @pytest.mark.parametrize("case", cache.cases)
 class TestIsrAgainstRespondo:
     def test_static_polarizability(self, case):
@@ -251,6 +268,34 @@ class TestIsrAgainstRespondo:
             )
             np.testing.assert_allclose(
                 tpa, tpa_ref[1], atol=1e-7, err_msg="final_state = {}".format(final_state)
+            )
+
+    def test_mcd(self, case):
+        molecule, basis, method = case.split("_")
+        scfres = run_scf(molecule, basis)
+        refstate = adcc.ReferenceState(scfres)
+        state = adcc.run_adc(refstate, method=method, n_singlets=5)
+        mcd_sos_expr1 = SOS_expressions["mcd_term1"][0]
+        mcd_sos_expr2 = SOS_expressions["mcd_term2"][0]
+
+        for ee in state.excitations:
+            gauge_origin = "origin"
+            final_state = ee.index
+            excited_state = Excitation(state, final_state, method)
+            bterm_ref = mcd_bterm(excited_state, gauge_origin=gauge_origin)
+            mcd_tens1 = evaluate_property_isr(
+                state, mcd_sos_expr1, [k],
+                excluded_states=O, excited_state=final_state, gauge_origin=gauge_origin
+            )
+            mcd_tens2 = evaluate_property_isr(
+                state, mcd_sos_expr2, [k],
+                excluded_states=[O,j], excited_state=final_state, gauge_origin=gauge_origin
+            )
+
+            bterm = np.einsum("abc,abc->", epsilon, mcd_tens1 + mcd_tens2)
+
+            np.testing.assert_allclose(
+                bterm, bterm_ref, atol=1e-5, err_msg="final_state = {}".format(final_state)
             )
 
 
